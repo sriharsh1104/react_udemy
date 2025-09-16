@@ -1,0 +1,9 @@
+React crash course
+1) What is React and why to use it. => netflix best example for user experienace and low loading time than other and all
+2)vannilla javascript vs React 
+3)react app
+4) creating react project => vite popular and new one in the market for react project . use vs studio cursor 
+npm run dev for vite(default)
+pnpm create vite my-react-app
+5)setup => vite is tool that is html in to javascript so that that function run on browser smothly 
+because of this we able to easily manuplate and complete as per our requirement
