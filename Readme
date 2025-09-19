@@ -130,3 +130,45 @@ When assigned to another variable, only the reference is copied, not the actual 
 
 Both variables point to the same object in memory.
 example object,array,function,etc.
+
+React Begin
+
+1) COMPONENT (CONCEPT BASIC STANDARD)
+a)to make  user interface need to combine multuple components
+b)jsx code to define actual markup that will be rendered
+c)props => react manage props of component
+d) state => react manage state of component
+
+2) 
+a) have to create component which can be reused . to reduce duplicate code.
+b) we can group js and html code together in a component.
+c)all component have differant logic and data which simplify code in complex code
+ 
+3) JSX AND REACT COMPONENT(JSX/TSX is just developer-friendly syntax.,Browser never sees it.)
+
+a)function name should be start with capital character.(name should decribe what we are buidling in it)
+b)function return a value that can be rendered (so it can be displayed on ui)
+
+Question => jsx and tsx in not supported in browser how come we still able to see uin in browser.?
+Answer => a)JSX/TSX is transformed into plain JavaScript.
+b)Takes all your JS/TS files, transpiles them, optimizes them, and outputs a single (or few) .js files.
+
+This final bundle is pure JavaScript that the browser understands.
+c)When you open the React app in a browser, what’s actually running is the transpiled JavaScript, not the original
+
+index js or ts is entry point for html from here ui is rendered in browser.
+
+component tree is the hierarchy of components.
+=> App 
+=> Header,SideBar,Product(more component according to requirement),Footer 
+
+Built-in component  Custom component (start with uppercase letter as div element are in lowercase prevent conflict and also how react works)
+
+4)Dynamic  values and HTML attributes
+
+with api data or user input instead of static values .
+
+5) Props 
+passing data from parent to child component.
+props with spread operator.
+

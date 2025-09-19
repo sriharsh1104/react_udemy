@@ -3,19 +3,19 @@ import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 // import { combine } from './constants/utils'
-import { combineArrow, transformToObjects } from './constants/utils'
+// import { combineArrow, transformToObjects } from './constants/utils'
 function App() {
   const [count, setCount] = useState(0)
-  const result = combineArrow(10,20,30);
-  console.log(result);
-  const user = {
-    name: 'John',
-    age: 30,
-    city: 'New York'
-  }
-  const {name, age, city} = user;
-  console.log(name, age, city);
-  console.log(transformToObjects([1,2,3,4,5]),"arrayObject");
+  // const result = combineArrow(10,20,30);
+  // console.log(result);
+  // const user = {
+  //   name: 'John',
+  //   age: 30,
+  //   city: 'New York'
+  // }
+  // const {name, age, city} = user;
+  // console.log(name, age, city);
+  // console.log(transformToObjects([1,2,3,4,5]),"arrayObject");
 
   return (
     <>
