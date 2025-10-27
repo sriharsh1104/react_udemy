@@ -18,6 +18,14 @@ A React + Vite application that allows users to convert videos and images to dif
 - ✂️ **Crop Images**: Crop your images before conversion
 - 💾 **Download**: Download your converted/cropped/resized images
 
+### PDF Editor Tab
+- 📄 **PDF Upload**: Drag & drop or click to upload PDF files
+- 📝 **Add Text**: Click anywhere on PDF to add custom text
+- 🖍️ **Add Highlights**: Click anywhere to add highlights
+- 📄 **Click-to-Place**: Edit exactly where you want in the PDF
+- 📄 **Page Navigation**: Navigate through multiple pages
+- 💾 **Download**: Download your edited PDF with all changes
+
 ## Supported Formats
 
 ### Video Formats
@@ -68,11 +76,21 @@ npm run build
 5. **OR Crop**: Use the crop tool to select a portion of the image
 6. Preview and download your processed image
 
+### PDF Editing
+1. Select "PDF Editor" tab
+2. Upload a PDF file by dragging it to the upload area or clicking to browse
+3. Click "📝 Add Text" or "🖍️ Add Highlight" to enter edit mode
+4. Click anywhere on the PDF to place your annotation at that exact location
+5. Repeat to add more annotations
+6. Navigate between pages if your PDF has multiple pages
+7. Download the edited PDF with all your changes
+
 ## Technology Stack
 
 - React 18
 - Vite
 - FFmpeg.wasm for client-side video processing
+- pdf-lib for PDF editing capabilities
 - Modern CSS with gradients and animations
 
 ## Notes

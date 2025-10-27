@@ -18,6 +18,12 @@ const Header = ({ activeTab, onTabChange }) => {
           >
             🖼️ Image Converter & Crop
           </button>
+          <button
+            className={`tab ${activeTab === 'pdf' ? 'active' : ''}`}
+            onClick={() => onTabChange('pdf')}
+          >
+            📄 PDF Editor
+          </button>
         </nav>
       </div>
     </div>

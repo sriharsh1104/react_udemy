@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Header from './components/Header'
 import VideoConverter from './components/VideoConverter'
 import ImageConverter from './components/ImageConverter'
+import PDFEditor from './components/PDFEditor'
 import './App.css'
 
 function App() {
@@ -17,11 +18,9 @@ function App() {
         <Header activeTab={activeTab} onTabChange={handleTabChange} />
         
         <div className="tab-content">
-          {activeTab === 'video' ? (
-            <VideoConverter />
-          ) : (
-            <ImageConverter />
-          )}
+          {activeTab === 'video' && <VideoConverter />}
+          {activeTab === 'image' && <ImageConverter />}
+          {activeTab === 'pdf' && <PDFEditor />}
         </div>
       </div>
     </div>

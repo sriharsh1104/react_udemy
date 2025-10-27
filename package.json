@@ -12,7 +12,10 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@ffmpeg/ffmpeg": "^0.12.10",
-    "@ffmpeg/util": "^0.12.1"
+    "@ffmpeg/util": "^0.12.1",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^3.11.174",
+    "react-pdf": "^7.7.3"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
