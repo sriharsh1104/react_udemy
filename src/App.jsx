@@ -1,38 +1,28 @@
 import { useState } from 'react'
-import VideoUploader from './components/VideoUploader'
-import FormatConverter from './components/FormatConverter'
+import Header from './components/Header'
+import VideoConverter from './components/VideoConverter'
+import ImageConverter from './components/ImageConverter'
 import './App.css'
 
 function App() {
-  const [uploadedVideo, setUploadedVideo] = useState(null)
-  const [videoFile, setVideoFile] = useState(null)
+  const [activeTab, setActiveTab] = useState('video')
 
-  const handleVideoUpload = (file) => {
-    const videoUrl = URL.createObjectURL(file)
-    setUploadedVideo(videoUrl)
-    setVideoFile(file)
-  }
-
-  const handleReset = () => {
-    setUploadedVideo(null)
-    setVideoFile(null)
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
   }
 
   return (
     <div className="app">
       <div className="container">
-        <h1 className="title">Video Format Converter</h1>
-        <p className="subtitle">Upload your video and convert it to any format, or extract audio as MP3</p>
+        <Header activeTab={activeTab} onTabChange={handleTabChange} />
         
-        {!uploadedVideo ? (
-          <VideoUploader onVideoUpload={handleVideoUpload} />
-        ) : (
-          <FormatConverter 
-            videoUrl={uploadedVideo}
-            videoFile={videoFile}
-            onReset={handleReset}
-          />
-        )}
+        <div className="tab-content">
+          {activeTab === 'video' ? (
+            <VideoConverter />
+          ) : (
+            <ImageConverter />
+          )}
+        </div>
       </div>
     </div>
   )

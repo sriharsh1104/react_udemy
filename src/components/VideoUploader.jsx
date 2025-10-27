@@ -1,22 +1,15 @@
-import { useState, useRef } from 'react'
+import { useRef } from 'react'
 import './VideoUploader.css'
 
 const VideoUploader = ({ onVideoUpload }) => {
-  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef(null)
 
   const handleDragOver = (e) => {
     e.preventDefault()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = () => {
-    setIsDragging(false)
   }
 
   const handleDrop = (e) => {
     e.preventDefault()
-    setIsDragging(false)
     
     const file = e.dataTransfer.files[0]
     if (file && file.type.startsWith('video/')) {
@@ -42,9 +35,8 @@ const VideoUploader = ({ onVideoUpload }) => {
   return (
     <div className="uploader-container">
       <div
-        className={`upload-area ${isDragging ? 'dragging' : ''}`}
+        className="upload-area"
         onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={handleClick}
       >
