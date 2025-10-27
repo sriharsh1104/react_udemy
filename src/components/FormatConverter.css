@@ -1,0 +1,147 @@
+.converter-container {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.video-preview h3 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 1.3rem;
+}
+
+.video-player {
+  width: 100%;
+  max-height: 400px;
+  border-radius: 10px;
+  background: #000;
+}
+
+.audio-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.audio-player {
+  width: 100%;
+  max-width: 500px;
+}
+
+.audio-info {
+  color: #28a745;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.converter-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.format-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.format-selector label {
+  color: #333;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.format-select {
+  padding: 12px 15px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.format-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.convert-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.convert-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.convert-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.converted-video {
+  margin-top: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border-radius: 10px;
+}
+
+.converted-video h3 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 1.3rem;
+}
+
+.download-button {
+  margin-top: 15px;
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.download-button:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.reset-button {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+}
+
+.reset-button:hover {
+  background: #5a6268;
+}
+
+@media (max-width: 768px) {
+  .video-player {
+    max-height: 250px;
+  }
+}
