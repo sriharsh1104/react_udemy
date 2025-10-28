@@ -149,6 +149,24 @@
   opacity: 0.9;
 }
 
+.download-link-btn {
+  display: inline-block;
+  margin-top: 15px;
+  padding: 10px 20px;
+  background: white;
+  color: #667eea;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.download-link-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
 .reset-btn {
   width: 100%;
   padding: 12px;
@@ -196,6 +214,24 @@
 
 .info-box ul li {
   margin: 8px 0;
+}
+
+.info-box ol {
+  margin: 15px 0;
+  padding-left: 20px;
+  line-height: 1.8;
+}
+
+.info-box ol li {
+  margin: 8px 0;
+}
+
+.info-box code {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
 }
 
 @media (max-width: 768px) {

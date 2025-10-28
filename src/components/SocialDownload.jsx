@@ -96,27 +96,66 @@ const SocialDownload = () => {
         throw new Error('Could not extract media ID from URL')
       }
 
-      // Simulate media info fetch (in real implementation, this would call your backend)
+      // First, get video info (like ytdown.to approach)
+      const infoResponse = await fetch(`http://localhost:3001/api/formats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: videoUrl
+        })
+      })
+      
+      const infoData = await infoResponse.json()
+      
+      if (!infoResponse.ok) {
+        throw new Error(infoData.error || 'Failed to get video info')
+      }
+      
+      // Show video info
       setVideoInfo({
         id: mediaId,
-        title: `${currentPlatform.name} Media`,
+        title: 'Processing video...',
         thumbnail: selectedPlatform === 'youtube' 
           ? `https://img.youtube.com/vi/${mediaId}/maxresdefault.jpg`
           : `https://via.placeholder.com/640x360/667eea/ffffff?text=${currentPlatform.icon}`,
-        duration: 'Loading...'
+        duration: 'Ready',
+      })
+      
+      // Now download with the best available format
+      const response = await fetch(`http://localhost:3001/api/download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: videoUrl,
+          platform: selectedPlatform,
+          format: null // Use yt-dlp's best format selection
+        })
       })
 
-      // Note: Actual download requires a backend service
-      // This is a frontend-only implementation that shows the structure
-      setTimeout(() => {
-        // In a real app, you would:
-        // 1. Call your backend API: /api/download-media
-        // 2. Backend uses platform-specific libraries to download
-        // 3. Return download link or stream the file
-        
-        alert(`⚠️ Backend not configured.\n\nFor actual ${currentPlatform.name} media download, you need a backend service.\nRecommended: Use platform-specific libraries on a Node.js/Python backend.`)
-        setIsDownloading(false)
-      }, 2000)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Download failed')
+      }
+
+      // Set video info
+      setVideoInfo({
+        id: mediaId,
+        title: data.filename || `${currentPlatform.name} Media`,
+        thumbnail: selectedPlatform === 'youtube' 
+          ? `https://img.youtube.com/vi/${mediaId}/maxresdefault.jpg`
+          : `https://via.placeholder.com/640x360/667eea/ffffff?text=${currentPlatform.icon}`,
+        duration: 'Ready',
+        downloadUrl: data.downloadUrl,
+        filename: data.filename
+      })
+
+      setDownloadUrl(data.downloadUrl)
+      setIsDownloading(false)
 
     } catch (error) {
       setError(error.message || 'Failed to process URL')
@@ -194,12 +233,21 @@ const SocialDownload = () => {
           <div className="video-preview">
             <img
               src={videoInfo.thumbnail}
-              alt="Video thumbnail"
+              alt="Media thumbnail"
               className="thumbnail"
             />
             <div className="video-info">
               <h4>{videoInfo.title}</h4>
-              <p>Duration: {videoInfo.duration}</p>
+              <p>Status: {videoInfo.duration}</p>
+              {videoInfo.downloadUrl && (
+                <a 
+                  href={videoInfo.downloadUrl} 
+                  download 
+                  className="download-link-btn"
+                >
+                  ⬇️ Download File
+                </a>
+              )}
             </div>
           </div>
         )}
@@ -211,24 +259,20 @@ const SocialDownload = () => {
         )}
 
         <div className="info-box">
-          <h4>⚠️ Implementation Note</h4>
+          <h4>ℹ️ How to Use</h4>
           <p>
-            This is a frontend-only demo. Actual social media downloading requires backend services.
+            This feature connects to a backend service running on <code>localhost:3001</code>
           </p>
           <p>
-            <strong>Recommended Backend Libraries by Platform:</strong>
+            <strong>To start the backend:</strong>
           </p>
-          <ul>
-            <li><strong>YouTube:</strong> yt-dlp, @distube/ytdl-core</li>
-            <li><strong>Instagram:</strong> instaloader (Python)</li>
-            <li><strong>Twitter/X:</strong> twitter-scraper, twitfix</li>
-            <li><strong>TikTok:</strong> TikTokApi, @tobyg74/tiktok-download-api</li>
-            <li><strong>Facebook:</strong> facebook-scraper (Python)</li>
-            <li><strong>Reddit:</strong> praw (Python Reddit API Wrapper)</li>
-            <li><strong>Snapchat:</strong> Custom web scraper (limited API access)</li>
-            <li><strong>Pinterest:</strong> pinterest-web-scraper (Python)</li>
-          </ul>
-          <p><em>Note: Each platform has different API restrictions and terms of service.</em></p>
+          <ol>
+            <li>Navigate to the <code>backend</code> folder</li>
+            <li>Run <code>npm install</code> to install dependencies</li>
+            <li>Install yt-dlp: <code>apt install yt-dlp</code> or <code>pip install yt-dlp</code></li>
+            <li>Run <code>npm start</code> to start the server</li>
+          </ol>
+          <p><em>Note: Make sure both frontend and backend are running for downloads to work.</em></p>
         </div>
       </div>
     </div>

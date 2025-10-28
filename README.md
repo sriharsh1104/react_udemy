@@ -26,6 +26,13 @@ A React + Vite application that allows users to convert videos and images to dif
 - 📄 **Page Navigation**: Navigate through multiple pages
 - 💾 **Download**: Download your edited PDF with all changes
 
+### Social Download Tab
+- 🎬 **Multi-Platform**: Download from YouTube, Instagram, Twitter/X, TikTok, Facebook, Reddit, Pinterest
+- 🔗 **Paste URL**: Simply paste any social media link
+- ⬇️ **Direct Download**: Get instant download links
+- 🎨 **Platform Detection**: Automatic platform recognition
+- 🌐 **Backend Connected**: Uses Express.js backend server
+
 ## Supported Formats
 
 ### Video Formats
@@ -38,19 +45,38 @@ A React + Vite application that allows users to convert videos and images to dif
 
 ## Getting Started
 
-### Installation
+### Frontend Setup
 
 ```bash
 npm install
-```
-
-### Run Development Server
-
-```bash
 npm run dev
 ```
 
-The app will open at `http://localhost:3000`
+The frontend will run on `http://localhost:5173` (Vite default)
+
+### Backend Setup (For Social Download)
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Install dependencies
+npm install
+
+# Install yt-dlp (required for downloads)
+sudo apt install yt-dlp
+# or
+pip install yt-dlp
+
+# Start the backend server
+npm start
+# or
+./start.sh
+```
+
+The backend will run on `http://localhost:3001`
+
+**Note**: Social Download feature requires the backend server to be running.
 
 ### Build for Production
 
@@ -91,6 +117,8 @@ npm run build
 - Vite
 - FFmpeg.wasm for client-side video processing
 - pdf-lib for PDF editing capabilities
+- Express.js for backend API
+- yt-dlp for social media downloading
 - Modern CSS with gradients and animations
 
 ## Notes
@@ -98,3 +126,21 @@ npm run build
 - Video conversion happens entirely in your browser (client-side)
 - Large videos may take some time to convert
 - The conversion quality depends on the original video quality
+- Social Download requires a backend server to be running
+- See `BACKEND_SETUP.md` for detailed backend setup instructions
+
+## Project Structure
+
+```
+react_udemy/
+├── src/                    # Frontend React app
+│   ├── components/        # React components
+│   ├── App.jsx            # Main app component
+│   └── main.jsx           # Entry point
+├── backend/               # Backend API server
+│   ├── server.js          # Express.js server
+│   ├── package.json        # Backend dependencies
+│   └── downloads/         # Downloaded media files
+├── public/                # Static assets
+└── package.json           # Frontend dependencies
+```
