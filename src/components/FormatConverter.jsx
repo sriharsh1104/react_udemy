@@ -4,12 +4,25 @@ import { fetchFile } from '@ffmpeg/util'
 import './FormatConverter.css'
 
 const FORMATS = [
-  { value: 'mp4', label: 'MP4', codec: 'libx264', type: 'video' },
-  { value: 'webm', label: 'WebM', codec: 'libvpx-vp9', type: 'video' },
-  { value: 'avi', label: 'AVI', codec: 'libx264', type: 'video' },
-  { value: 'mov', label: 'MOV', codec: 'libx264', type: 'video' },
-  { value: 'mkv', label: 'MKV', codec: 'libx264', type: 'video' },
-  { value: 'mp3', label: 'MP3', codec: 'libmp3lame', type: 'audio' }
+  // Video formats
+  { value: 'mp4', label: 'MP4 (video)', codec: 'libx264', type: 'video', audioCodec: 'aac' },
+  { value: 'webm', label: 'WebM (video)', codec: 'libvpx-vp9', type: 'video', audioCodec: 'libopus' },
+  { value: 'avi', label: 'AVI (video)', codec: 'libx264', type: 'video', audioCodec: 'aac' },
+  { value: 'mov', label: 'MOV (video)', codec: 'libx264', type: 'video', audioCodec: 'aac' },
+  { value: 'mkv', label: 'MKV (video)', codec: 'libx264', type: 'video', audioCodec: 'aac' },
+  { value: 'flv', label: 'FLV (video)', codec: 'libx264', type: 'video', audioCodec: 'aac' },
+  { value: 'wmv', label: 'WMV (video)', codec: 'msmpeg4', type: 'video', audioCodec: 'wmav2' },
+  { value: 'm4v', label: 'M4V (video)', codec: 'libx264', type: 'video', audioCodec: 'aac' },
+  { value: '3gp', label: '3GP (video)', codec: 'libx264', type: 'video', audioCodec: 'aac' },
+  { value: 'ogv', label: 'OGV (video)', codec: 'libtheora', type: 'video', audioCodec: 'libvorbis' },
+  // Audio formats
+  { value: 'mp3', label: 'MP3 (audio)', codec: 'libmp3lame', type: 'audio' },
+  { value: 'wav', label: 'WAV (audio)', codec: 'pcm_s16le', type: 'audio' },
+  { value: 'ogg', label: 'OGG (audio)', codec: 'libvorbis', type: 'audio' },
+  { value: 'aac', label: 'AAC (audio)', codec: 'aac', type: 'audio' },
+  { value: 'm4a', label: 'M4A (audio)', codec: 'aac', type: 'audio' },
+  { value: 'wma', label: 'WMA (audio)', codec: 'wmav2', type: 'audio' },
+  { value: 'flac', label: 'FLAC (audio)', codec: 'flac', type: 'audio' }
 ]
 
 const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
@@ -52,7 +65,7 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
       let execArgs = ['-i', inputFileName]
       
       if (isAudioOnly) {
-        // For MP3, extract audio only
+        // For audio formats, extract audio only
         execArgs.push(
           '-vn',           // No video
           '-acodec', format.codec,
@@ -60,11 +73,13 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
           '-ar', '44100'   // Sample rate
         )
       } else {
-        // For video formats
-        const codecArgs = selectedFormat === 'webm' 
-          ? ['-c:v', format.codec, '-c:a', 'libopus']
-          : ['-c:v', format.codec, '-c:a', 'aac']
-        execArgs.push(...codecArgs)
+        // For video formats, use format-specific video and audio codecs
+        execArgs.push('-c:v', format.codec)
+        if (format.audioCodec) {
+          execArgs.push('-c:a', format.audioCodec)
+        } else {
+          execArgs.push('-c:a', 'aac') // default audio codec
+        }
       }
       
       execArgs.push(outputFileName)
@@ -76,9 +91,7 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
       const data = await ffmpeg.readFile(outputFileName)
       
       // Create blob and URL for download
-      const mimeType = isAudioOnly 
-        ? 'audio/mpeg' 
-        : `video/${selectedFormat === 'webm' ? 'webm' : 'mp4'}`
+      const mimeType = getMimeType(selectedFormat, isAudioOnly)
       
       const blob = new Blob([data.buffer], { type: mimeType })
       const url = URL.createObjectURL(blob)
@@ -105,6 +118,35 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
 
   const getFileExtension = (filename) => {
     return filename.split('.').pop().toLowerCase()
+  }
+
+  const getMimeType = (format, isAudioOnly) => {
+    if (isAudioOnly) {
+      const audioMimeTypes = {
+        'mp3': 'audio/mpeg',
+        'wav': 'audio/wav',
+        'ogg': 'audio/ogg',
+        'aac': 'audio/aac',
+        'm4a': 'audio/mp4',
+        'wma': 'audio/x-ms-wma',
+        'flac': 'audio/flac'
+      }
+      return audioMimeTypes[format] || 'audio/mpeg'
+    } else {
+      const videoMimeTypes = {
+        'mp4': 'video/mp4',
+        'webm': 'video/webm',
+        'avi': 'video/x-msvideo',
+        'mov': 'video/quicktime',
+        'mkv': 'video/x-matroska',
+        'flv': 'video/x-flv',
+        'wmv': 'video/x-ms-wmv',
+        'm4v': 'video/x-m4v',
+        '3gp': 'video/3gpp',
+        'ogv': 'video/ogg'
+      }
+      return videoMimeTypes[format] || 'video/mp4'
+    }
   }
 
   const handleDownload = () => {
