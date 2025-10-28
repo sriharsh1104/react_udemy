@@ -9,12 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
     "@ffmpeg/ffmpeg": "^0.12.10",
     "@ffmpeg/util": "^0.12.1",
+    "@walletconnect/ethereum-provider": "^1.8.0",
+    "@walletconnect/web3-provider": "^1.8.0",
+    "ethers": "^6.15.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^3.11.174",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-pdf": "^7.7.3"
   },
   "devDependencies": {

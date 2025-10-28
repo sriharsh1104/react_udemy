@@ -4,6 +4,7 @@ import VideoConverter from './components/VideoConverter'
 import ImageConverter from './components/ImageConverter'
 import PDFEditor from './components/PDFEditor'
 import SocialDownload from './components/SocialDownload'
+import ERC20Contract from './components/ERC20Contract'
 import './App.css'
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
           {activeTab === 'image' && <ImageConverter />}
           {activeTab === 'pdf' && <PDFEditor />}
           {activeTab === 'social' && <SocialDownload />}
+          {activeTab === 'contract' && <ERC20Contract />}
         </div>
       </div>
     </div>

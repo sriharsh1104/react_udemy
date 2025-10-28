@@ -30,6 +30,12 @@ const Header = ({ activeTab, onTabChange }) => {
           >
             🎬 Social Download
           </button>
+          <button
+            className={`tab ${activeTab === 'contract' ? 'active' : ''}`}
+            onClick={() => onTabChange('contract')}
+          >
+            🔗 ERC20 Contract
+          </button>
         </nav>
       </div>
     </div>
