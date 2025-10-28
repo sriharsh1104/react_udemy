@@ -3,6 +3,7 @@ import Header from './components/Header'
 import VideoConverter from './components/VideoConverter'
 import ImageConverter from './components/ImageConverter'
 import PDFEditor from './components/PDFEditor'
+import SocialDownload from './components/SocialDownload'
 import './App.css'
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           {activeTab === 'video' && <VideoConverter />}
           {activeTab === 'image' && <ImageConverter />}
           {activeTab === 'pdf' && <PDFEditor />}
+          {activeTab === 'social' && <SocialDownload />}
         </div>
       </div>
     </div>

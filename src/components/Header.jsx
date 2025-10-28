@@ -24,6 +24,12 @@ const Header = ({ activeTab, onTabChange }) => {
           >
             📄 PDF Editor
           </button>
+          <button
+            className={`tab ${activeTab === 'social' ? 'active' : ''}`}
+            onClick={() => onTabChange('social')}
+          >
+            🎬 Social Download
+          </button>
         </nav>
       </div>
     </div>
