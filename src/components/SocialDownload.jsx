@@ -45,8 +45,20 @@ const SocialDownload = () => {
         const tiktokMatch = url.match(/tiktok\.com\/@\w+\/video\/(\d+)|vm\.tiktok\.com\/(\w+)/)
         return tiktokMatch ? (tiktokMatch[1] || tiktokMatch[2]) : null
       case 'facebook':
-        const facebookMatch = url.match(/facebook\.com\/.+\/videos\/(\d+)/)
-        return facebookMatch ? facebookMatch[1] : null
+        // Match various Facebook video URL patterns
+        const facebookPatterns = [
+          /facebook\.com\/watch\/\?v=(\d+)/,              // /watch/?v=123
+          /facebook\.com\/.+?\/videos\/\/(\d+)/,          // /username/videos/123
+          /facebook\.com\/.+?\/videos\/(\d+)/,             // /username/videos/123
+          /facebook\.com\/video\.php\?v=(\d+)/,           // /video.php?v=123
+          /fb\.watch\/([a-zA-Z0-9_-]+)/,                  // fb.watch/xxxx
+          /facebook\.com\/story\.php\?story_fbid=(\d+)/   // story
+        ]
+        for (const pattern of facebookPatterns) {
+          const match = url.match(pattern)
+          if (match && match[1]) return match[1]
+        }
+        return null
       case 'reddit':
         const redditMatch = url.match(/reddit\.com\/r\/\w+\/comments\/([a-zA-Z0-9]+)/)
         return redditMatch ? redditMatch[1] : null
@@ -64,8 +76,16 @@ const SocialDownload = () => {
         }
         return null
       case 'pinterest':
-        const pinterestMatch = url.match(/pinterest\.com\/pin\/(\d+)/)
-        return pinterestMatch ? pinterestMatch[1] : null
+        // Match both numeric and alphanumeric pin IDs
+        const pinterestPatterns = [
+          /pinterest\.com\/pin\/(\d+)/,              // Old numeric format
+          /pinterest\.com\/pin\/([a-zA-Z0-9_-]+)/,    // Modern alphanumeric format
+        ]
+        for (const pattern of pinterestPatterns) {
+          const match = url.match(pattern)
+          if (match && match[1]) return match[1]
+        }
+        return null
     }
     return null
   }
@@ -76,7 +96,7 @@ const SocialDownload = () => {
       instagram: /^(https?:\/\/)?(www\.)?instagram\.com\/.+/,
       twitter: /^(https?:\/\/)?(www\.)?(twitter\.com|x\.com)\/.+/,
       tiktok: /^(https?:\/\/)?(www\.)?(tiktok\.com|vm\.tiktok\.com)\/.+/,
-      facebook: /^(https?:\/\/)?(www\.)?facebook\.com\/.+\/.+/,
+      facebook: /^(https?:\/\/)?(www\.)?(facebook\.com|fb\.watch)\/.+/,
       reddit: /^(https?:\/\/)?(www\.)?reddit\.com\/r\/.+/,
       snapchat: /^(https?:\/\/)?(www\.)?snapchat\.com\/.+/,
       pinterest: /^(https?:\/\/)?(www\.)?pinterest\.com\/.+\/.+/
@@ -99,10 +119,12 @@ const SocialDownload = () => {
     setError('')
     
     try {
-      // Extract media ID
+      // Extract media ID (not all platforms require it)
       const mediaId = extractVideoId(videoUrl, selectedPlatform)
       
-      if (!mediaId) {
+      // Some platforms like Facebook/Snapchat don't need strict ID extraction
+      const requiresMediaId = ['youtube', 'twitter'].includes(selectedPlatform)
+      if (requiresMediaId && !mediaId) {
         throw new Error('Could not extract media ID from URL')
       }
 
@@ -120,14 +142,18 @@ const SocialDownload = () => {
       const infoData = await infoResponse.json()
       
       if (!infoResponse.ok) {
+        // Better error messages for Facebook private/restricted videos
+        if (selectedPlatform === 'facebook' && infoData.error) {
+          throw new Error(infoData.error)
+        }
         throw new Error(infoData.error || 'Failed to get video info')
       }
       
       // Show video info
       setVideoInfo({
-        id: mediaId,
+        id: mediaId || 'processing',
         title: 'Processing video...',
-        thumbnail: selectedPlatform === 'youtube' 
+        thumbnail: selectedPlatform === 'youtube' && mediaId
           ? `https://img.youtube.com/vi/${mediaId}/maxresdefault.jpg`
           : `https://via.placeholder.com/640x360/667eea/ffffff?text=${currentPlatform.icon}`,
         duration: 'Ready',
@@ -154,9 +180,9 @@ const SocialDownload = () => {
 
       // Set video info
       setVideoInfo({
-        id: mediaId,
+        id: mediaId || 'downloaded',
         title: data.filename || `${currentPlatform.name} Media`,
-        thumbnail: selectedPlatform === 'youtube' 
+        thumbnail: selectedPlatform === 'youtube' && mediaId
           ? `https://img.youtube.com/vi/${mediaId}/maxresdefault.jpg`
           : `https://via.placeholder.com/640x360/667eea/ffffff?text=${currentPlatform.icon}`,
         duration: 'Ready',

@@ -349,15 +349,51 @@ app.post('/api/download/pinterest', async (req, res) => {
   try {
     const pinId = extractPinterestId(url)
     if (!pinId) {
-      return res.status(400).json({ error: 'Invalid Pinterest URL' })
+      return res.status(400).json({ error: 'Invalid Pinterest URL. Expected format: https://www.pinterest.com/pin/123456789/' })
     }
 
-    // Pinterest media download
-    const response = await axios.get(url, { responseType: 'text' })
-    // Parse HTML to find image/video URL
+    console.log('Downloading Pinterest media:', url)
     
-    res.json({ error: 'Pinterest download not fully implemented' })
+    const timestamp = Date.now()
+    const outputPath = path.join(downloadsDir, `pinterest_${timestamp}.%(ext)s`)
+    
+    // Use yt-dlp to download Pinterest media (images or videos)
+    const command = `yt-dlp -f "best" --no-playlist -o "${outputPath}" "${url}"`
+    
+    exec(command, { timeout: 120000, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Pinterest download error:', error.message)
+        console.error('stderr:', stderr)
+        
+        if (stderr.includes('Unsupported URL')) {
+          return res.status(400).json({ 
+            error: 'This Pinterest URL format is not supported',
+            details: 'Try using the standard /pin/ URL format'
+          })
+        }
+        
+        return res.status(500).json({ 
+          error: 'Failed to download Pinterest media',
+          details: stderr || error.message,
+          note: 'Make sure the pin is public and accessible'
+        })
+      }
+      
+      const files = fs.readdirSync(downloadsDir)
+      const downloadedFile = files.find(f => f.includes(timestamp.toString()))
+      
+      if (!downloadedFile) {
+        return res.status(500).json({ error: 'Downloaded file not found' })
+      }
+      
+      res.json({ 
+        success: true, 
+        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        filename: downloadedFile
+      })
+    })
   } catch (error) {
+    console.error('Pinterest endpoint error:', error)
     res.status(500).json({ error: error.message })
   }
 })
@@ -368,9 +404,19 @@ app.post('/api/formats', async (req, res) => {
   
   try {
     console.log('Getting formats for:', url)
-    const command = `yt-dlp --list-formats --dump-json --no-playlist "${url}"`
+    const command = `yt-dlp --list-formats --dump-json --no-playlist "${url}" 2>&1`
     
     exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
+      // Check for common errors in stderr
+      const errorOutput = stderr || (error ? error.message : '')
+      
+      if (errorOutput.includes('No video formats found') || errorOutput.includes('ERROR: [facebook]')) {
+        return res.status(400).json({ 
+          error: 'This video cannot be accessed. It may be private, require login, or from a restricted group.',
+          details: 'Make sure the video is public and try again.'
+        })
+      }
+      
       if (error) {
         console.error('Get formats error:', stderr)
         return res.status(500).json({ error: 'Failed to get formats', details: stderr })
@@ -404,7 +450,7 @@ app.post('/api/download', async (req, res) => {
   
   try {
     const timestamp = Date.now()
-    const outputPath = path.join(downloadsDir, `media_${timestamp}.%(ext)s`)
+    const outputPath = path.join(downloadsDir, `${platform}_${timestamp}.%(ext)s`)
     
     // Use the same approach as yout.com - more aggressive settings
     let command = `yt-dlp --no-playlist -o "${outputPath}"`
@@ -416,18 +462,42 @@ app.post('/api/download', async (req, res) => {
       command += ` -f "bestvideo*+bestaudio/best"`
     }
     
+    // Platform-specific settings
+    if (platform === 'facebook') {
+      // Facebook sometimes requires authentication - skip login requirement
+      command += ` --extractor-args "facebook:skip_logged_out=False;facebook:include_comments=False"`
+    }
+    
     // Add options to work around YouTube blocking (similar to yout.com/yout-down.to)
     command += ` --retries 5 --fragment-retries 5 --concurrent-fragments 8`
     command += ` --no-warnings --extractor-retries 3`
     command += ` "${url}"`
     
+    console.log(`Executing command: ${command}`)
+    
     exec(command, { timeout: 300000, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
       if (error) {
         console.error(`${platform} download error:`, error.message)
         console.error('stderr:', stderr)
+        
+        // Platform-specific error messages
+        let errorMessage = `Failed to download from ${platform}`
+        if (platform === 'facebook') {
+          if (stderr.includes('No video formats found') || stderr.includes('No video found')) {
+            errorMessage = 'Facebook video cannot be downloaded. This usually means:\n• The video is private or requires login\n• The video is from a private group\n• The link is broken or expired\n• Try making the video public first'
+          } else if (stderr.includes('Private video') || stderr.includes('Login required')) {
+            errorMessage = 'Facebook video requires login. Make the video public first.'
+          } else if (stderr.includes('Unsupported URL')) {
+            errorMessage = 'Unsupported Facebook URL format. Try using /watch/?v= or a direct video link.'
+          } else if (stderr.includes('Access denied')) {
+            errorMessage = 'Access denied. The video is private or restricted.'
+          }
+        }
+        
         return res.status(500).json({ 
-          error: `Failed to download from ${platform}`,
-          details: stderr || error.message
+          error: errorMessage,
+          details: stderr || error.message,
+          platform
         })
       }
       
@@ -488,8 +558,21 @@ function extractTikTokId(url) {
 }
 
 function extractFacebookId(url) {
-  const match = url.match(/facebook\.com\/.+\/videos\/(\d+)/)
-  return match ? match[1] : null
+  // Match various Facebook video URL patterns
+  const patterns = [
+    /facebook\.com\/watch\/\?v=(\d+)/,              // /watch/?v=123
+    /facebook\.com\/.+?\/videos\/\/(\d+)/,          // /username/videos/123
+    /facebook\.com\/.+?\/videos\/(\d+)/,             // /username/videos/123
+    /facebook\.com\/video\.php\?v=(\d+)/,           // /video.php?v=123
+    /fb\.watch\/([a-zA-Z0-9_-]+)/,                  // fb.watch/xxxx
+    /facebook\.com\/story\.php\?story_fbid=(\d+)/   // story
+  ]
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match && match[1]) return match[1]
+  }
+  return null
 }
 
 function extractRedditId(url) {
@@ -514,8 +597,17 @@ function extractSnapchatId(url) {
 }
 
 function extractPinterestId(url) {
-  const match = url.match(/pinterest\.com\/pin\/(\d+)/)
-  return match ? match[1] : null
+  // Match both numeric and alphanumeric pin IDs
+  const patterns = [
+    /pinterest\.com\/pin\/(\d+)/,              // Old numeric format
+    /pinterest\.com\/pin\/([a-zA-Z0-9_-]+)/,    // Modern alphanumeric format
+  ]
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match && match[1]) return match[1]
+  }
+  return null
 }
 
 app.listen(PORT, () => {
