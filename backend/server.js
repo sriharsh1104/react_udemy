@@ -281,6 +281,67 @@ app.post('/api/download/reddit', async (req, res) => {
   }
 })
 
+// Snapchat download endpoint
+app.post('/api/download/snapchat', async (req, res) => {
+  const { url } = req.body
+  
+  try {
+    const mediaId = extractSnapchatId(url)
+    
+    // Warn user about Snapchat limitations
+    if (!mediaId) {
+      return res.status(400).json({ 
+        error: 'Invalid Snapchat URL or link expired. Snapchat content is typically protected and cannot be downloaded.' 
+      })
+    }
+
+    const timestamp = Date.now()
+    const outputPath = path.join(downloadsDir, `snapchat_${timestamp}.%(ext)s`)
+    
+    // Attempt to download with yt-dlp (will likely fail due to DRM)
+    const command = `yt-dlp -f "best" --no-playlist -o "${outputPath}" "${url}"`
+    
+    exec(command, { timeout: 60000, maxBuffer: 1024 * 1024 * 5 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Snapchat download error:', error.message)
+        console.error('stderr:', stderr)
+        
+        // Check if it's a common Snapchat error
+        if (stderr.includes('Unsupported URL') || stderr.includes('Private video') || stderr.includes('DRM')) {
+          return res.status(500).json({ 
+            error: 'Snapchat videos are protected by DRM and cannot be downloaded. This is a security feature.',
+            details: 'Snapchat content requires authentication and is encrypted. Try downloading from Stories or Memories if available.'
+          })
+        }
+        
+        return res.status(500).json({ 
+          error: 'Failed to download Snapchat media',
+          details: stderr || error.message,
+          note: 'Snapchat videos are ephemeral and heavily protected. Most cannot be downloaded.'
+        })
+      }
+      
+      const files = fs.readdirSync(downloadsDir)
+      const downloadedFile = files.find(f => f.includes(timestamp.toString()))
+      
+      if (!downloadedFile) {
+        return res.status(500).json({ error: 'Downloaded file not found' })
+      }
+      
+      res.json({ 
+        success: true, 
+        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        filename: downloadedFile
+      })
+    })
+  } catch (error) {
+    res.status(500).json({ 
+      error: error.message,
+      note: 'Snapchat content is protected and rarely downloadable' 
+    })
+  }
+})
+
 // Pinterest download endpoint
 app.post('/api/download/pinterest', async (req, res) => {
   const { url } = req.body
@@ -434,6 +495,22 @@ function extractFacebookId(url) {
 function extractRedditId(url) {
   const match = url.match(/reddit\.com\/r\/\w+\/comments\/([a-zA-Z0-9]+)/)
   return match ? match[1] : null
+}
+
+function extractSnapchatId(url) {
+  // Match various Snapchat URL patterns
+  const patterns = [
+    /snapchat\.com\/add\/([\w.-]+)/,           // add/<username>
+    /snapchat\.com\/story\/([\w.-]+)/,          // story/<username>
+    /snapchat\.com\/t\/([A-Za-z0-9%]+)/,        // share link /t/XXXX
+    /snapchat\.com\/([\w.-]+)\/([\w.-]+)/       // other patterns
+  ]
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match && match[1]) return match[1] || match[2] || 'unknown'
+  }
+  return null
 }
 
 function extractPinterestId(url) {

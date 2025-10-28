@@ -51,8 +51,18 @@ const SocialDownload = () => {
         const redditMatch = url.match(/reddit\.com\/r\/\w+\/comments\/([a-zA-Z0-9]+)/)
         return redditMatch ? redditMatch[1] : null
       case 'snapchat':
-        const snapMatch = url.match(/snapchat\.com\/add\/([\w.-]+)|snapchat\.com\/story\/([\w.-]+)/)
-        return snapMatch ? (snapMatch[1] || snapMatch[2]) : null
+        // Match various Snapchat URL patterns
+        const snapPatterns = [
+          /snapchat\.com\/add\/([\w.-]+)/,           // add/<username>
+          /snapchat\.com\/story\/([\w.-]+)/,          // story/<username>
+          /snapchat\.com\/t\/([A-Za-z0-9%]+)/,        // share link /t/XXXX
+          /snapchat\.com\/([\w.-]+)\/([\w.-]+)/       // other patterns
+        ]
+        for (const pattern of snapPatterns) {
+          const match = url.match(pattern)
+          if (match && match[1]) return match[1] || match[2] || 'unknown'
+        }
+        return null
       case 'pinterest':
         const pinterestMatch = url.match(/pinterest\.com\/pin\/(\d+)/)
         return pinterestMatch ? pinterestMatch[1] : null
@@ -177,6 +187,19 @@ const SocialDownload = () => {
         <p className="description">
           Paste a {currentPlatform.name} link below to download it
         </p>
+
+        {selectedPlatform === 'snapchat' && (
+          <div className="warning-box" style={{
+            backgroundColor: 'rgba(255, 193, 7, 0.2)',
+            border: '2px solid #ffc107',
+            borderRadius: '8px',
+            padding: '12px',
+            margin: '15px 0',
+            color: '#fff'
+          }}>
+            <strong>⚠️ Important:</strong> Snapchat videos are heavily protected with DRM and authentication. Most Snapchat content <strong>cannot be downloaded</strong> due to security features. Public Stories may work, but private snaps and Memories will fail.
+          </div>
+        )}
 
         <div className="platform-selector">
           <label>Select Platform:</label>
