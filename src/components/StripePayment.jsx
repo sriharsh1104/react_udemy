@@ -4,7 +4,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import './StripePayment.css'
 
 // Initialize Stripe with test key (you can get your own from https://dashboard.stripe.com)
-const stripePromise = loadStripe('')
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY )
 
 // Payment Form Component (uses Stripe Hooks)
 const PaymentForm = () => {

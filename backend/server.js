@@ -4,7 +4,7 @@ const axios = require('axios')
 const fs = require('fs')
 const path = require('path')
 const { exec } = require('child_process')
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || '')
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 const app = express()
 const PORT = 3001
