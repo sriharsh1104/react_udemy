@@ -5,6 +5,7 @@ import ImageConverter from './components/ImageConverter'
 import PDFEditor from './components/PDFEditor'
 import SocialDownload from './components/SocialDownload'
 import ERC20Contract from './components/ERC20Contract'
+import StripePayment from './components/StripePayment'
 import './App.css'
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
           {activeTab === 'pdf' && <PDFEditor />}
           {activeTab === 'social' && <SocialDownload />}
           {activeTab === 'contract' && <ERC20Contract />}
+          {activeTab === 'stripe' && <StripePayment />}
         </div>
       </div>
     </div>

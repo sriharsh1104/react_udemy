@@ -4,6 +4,7 @@ const axios = require('axios')
 const fs = require('fs')
 const path = require('path')
 const { exec } = require('child_process')
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || '')
 
 const app = express()
 const PORT = 3001
@@ -521,6 +522,62 @@ app.post('/api/download', async (req, res) => {
   } catch (error) {
     console.error('Generic download endpoint error:', error)
     res.status(500).json({ error: error.message })
+  }
+})
+
+// Stripe Payment Intent creation endpoint
+app.post('/api/create-payment-intent', async (req, res) => {
+  try {
+    const { amount, currency = 'usd' } = req.body
+    
+    if (!amount || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' })
+    }
+
+    console.log(`Creating payment intent for $${amount}`)
+    
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(parseFloat(amount) * 100), // Convert to cents
+      currency,
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    })
+    
+    res.json({ 
+      clientSecret: paymentIntent.client_secret,
+      success: true 
+    })
+  } catch (error) {
+    console.error('Stripe error:', error.message)
+    res.status(500).json({ 
+      error: error.message,
+      details: error.type || 'Unknown error'
+    })
+  }
+})
+
+// Confirm payment endpoint
+app.post('/api/confirm-payment', async (req, res) => {
+  try {
+    const { paymentIntentId } = req.body
+    
+    if (!paymentIntentId) {
+      return res.status(400).json({ error: 'Payment intent ID required' })
+    }
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+    
+    res.json({ 
+      success: true,
+      status: paymentIntent.status,
+      amount: paymentIntent.amount / 100,
+      currency: paymentIntent.currency
+    })
+  } catch (error) {
+    res.status(500).json({ 
+      error: error.message 
+    })
   }
 })
 
