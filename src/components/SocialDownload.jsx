@@ -214,6 +214,21 @@ const SocialDownload = () => {
           Paste a {currentPlatform.name} link below to download it
         </p>
 
+        <div className="info-notice-box" style={{
+          backgroundColor: 'rgba(33, 150, 243, 0.2)',
+          border: '2px solid #2196f3',
+          borderRadius: '8px',
+          padding: '12px',
+          margin: '15px 0',
+          color: '#fff'
+        }}>
+          <strong>ℹ️ Platform Status:</strong>
+          <ul style={{ margin: '8px 0 0 20px', padding: 0, listStyle: 'disc' }}>
+            <li>YouTube, Facebook, and Pinterest servers are currently down</li>
+            <li>TikTok is banned in India</li>
+          </ul>
+        </div>
+
         {selectedPlatform === 'snapchat' && (
           <div className="warning-box" style={{
             backgroundColor: 'rgba(255, 193, 7, 0.2)',
