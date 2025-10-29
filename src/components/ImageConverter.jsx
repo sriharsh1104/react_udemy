@@ -12,6 +12,8 @@ const ImageConverter = () => {
   const [cropData, setCropData] = useState({ x: 0, y: 0, width: 0, height: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [resizeHandle, setResizeHandle] = useState(null) // 'tl', 'tr', 'bl', 'br', 't', 'r', 'b', 'l'
+  const [isCreatingSelection, setIsCreatingSelection] = useState(false)
   const [originalDimensions, setOriginalDimensions] = useState({ width: 0, height: 0 })
   const [resizeWidth, setResizeWidth] = useState('')
   const [resizeHeight, setResizeHeight] = useState('')
@@ -136,18 +138,26 @@ const ImageConverter = () => {
 
   const startCrop = () => {
     setIsCropMode(true)
-    // Initialize crop box
-    if (imageRef.current) {
-      const rect = imageRef.current.getBoundingClientRect()
-      const containerRect = containerRef.current?.getBoundingClientRect()
-      const initialSize = Math.min(rect.width, rect.height) * 0.5
-      setCropData({
-        x: (rect.width - initialSize) / 2,
-        y: (rect.height - initialSize) / 2,
-        width: initialSize,
-        height: initialSize
-      })
-    }
+    // Reset crop data - user will draw their own selection
+    setCropData({ x: 0, y: 0, width: 0, height: 0 })
+  }
+
+  const getResizeHandle = (x, y, cropData, tolerance = 15) => {
+    const { x: cx, y: cy, width: cw, height: ch } = cropData
+    
+    // Check corners first
+    if (Math.abs(x - cx) < tolerance && Math.abs(y - cy) < tolerance) return 'tl'
+    if (Math.abs(x - (cx + cw)) < tolerance && Math.abs(y - cy) < tolerance) return 'tr'
+    if (Math.abs(x - cx) < tolerance && Math.abs(y - (cy + ch)) < tolerance) return 'bl'
+    if (Math.abs(x - (cx + cw)) < tolerance && Math.abs(y - (cy + ch)) < tolerance) return 'br'
+    
+    // Check edges
+    if (Math.abs(y - cy) < tolerance && x >= cx && x <= cx + cw) return 't'
+    if (Math.abs(y - (cy + ch)) < tolerance && x >= cx && x <= cx + cw) return 'b'
+    if (Math.abs(x - cx) < tolerance && y >= cy && y <= cy + ch) return 'l'
+    if (Math.abs(x - (cx + cw)) < tolerance && y >= cy && y <= cy + ch) return 'r'
+    
+    return null
   }
 
   const handleMouseDown = (e) => {
@@ -156,7 +166,26 @@ const ImageConverter = () => {
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
 
-    // Check if clicking inside crop box
+    // If crop box doesn't exist or is empty, start creating new selection
+    if (cropData.width === 0 || cropData.height === 0) {
+      setCropData({ x, y, width: 0, height: 0 })
+      setIsDragging(true)
+      setIsCreatingSelection(true)
+      setDragStart({ x, y })
+      setResizeHandle(null)
+      return
+    }
+
+    // Check if clicking on resize handle
+    const handle = getResizeHandle(x, y, cropData)
+    if (handle) {
+      setResizeHandle(handle)
+      setIsDragging(true)
+      setDragStart({ x, y, ...cropData })
+      return
+    }
+
+    // Check if clicking inside crop box (to move it)
     if (x >= cropData.x && x <= cropData.x + cropData.width &&
         y >= cropData.y && y <= cropData.y + cropData.height) {
       setIsDragging(true)
@@ -164,16 +193,139 @@ const ImageConverter = () => {
         x: x - cropData.x,
         y: y - cropData.y
       })
+      setResizeHandle(null)
+      setIsCreatingSelection(false)
+    } else {
+      // Clicking outside existing crop box - start new selection
+      setCropData({ x, y, width: 0, height: 0 })
+      setIsDragging(true)
+      setIsCreatingSelection(true)
+      setDragStart({ x, y })
+      setResizeHandle(null)
     }
   }
 
   const handleMouseMove = (e) => {
-    if (!isCropMode || !isDragging || !imageRef.current) return
+    if (!isCropMode || !imageRef.current) return
     
     const rect = imageRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left - dragStart.x
-    const y = e.clientY - rect.top - dragStart.y
+    const currentX = e.clientX - rect.left
+    const currentY = e.clientY - rect.top
 
+    // Update cursor based on hover position
+    if (!isDragging && cropData.width > 0 && cropData.height > 0) {
+      const handle = getResizeHandle(currentX, currentY, cropData)
+      if (handle) {
+        const cursorMap = {
+          'tl': 'nw-resize', 'tr': 'ne-resize', 'bl': 'sw-resize', 'br': 'se-resize',
+          't': 'n-resize', 'b': 's-resize', 'l': 'w-resize', 'r': 'e-resize'
+        }
+        e.currentTarget.style.cursor = cursorMap[handle] || 'default'
+      } else if (currentX >= cropData.x && currentX <= cropData.x + cropData.width &&
+                 currentY >= cropData.y && currentY <= cropData.y + cropData.height) {
+        e.currentTarget.style.cursor = 'move'
+      } else {
+        e.currentTarget.style.cursor = 'crosshair'
+      }
+    }
+
+    if (!isDragging) return
+
+    // Resize mode
+    if (resizeHandle) {
+      const { x: startX, y: startY, width: startWidth, height: startHeight } = dragStart
+      let newCropData = { ...cropData }
+
+      switch (resizeHandle) {
+        case 'tl':
+          newCropData = {
+            x: Math.max(0, Math.min(currentX, cropData.x + cropData.width - 10)),
+            y: Math.max(0, Math.min(currentY, cropData.y + cropData.height - 10)),
+            width: Math.max(10, cropData.x + cropData.width - currentX),
+            height: Math.max(10, cropData.y + cropData.height - currentY)
+          }
+          break
+        case 'tr':
+          newCropData = {
+            x: cropData.x,
+            y: Math.max(0, Math.min(currentY, cropData.y + cropData.height - 10)),
+            width: Math.max(10, currentX - cropData.x),
+            height: Math.max(10, cropData.y + cropData.height - currentY)
+          }
+          break
+        case 'bl':
+          newCropData = {
+            x: Math.max(0, Math.min(currentX, cropData.x + cropData.width - 10)),
+            y: cropData.y,
+            width: Math.max(10, cropData.x + cropData.width - currentX),
+            height: Math.max(10, currentY - cropData.y)
+          }
+          break
+        case 'br':
+          newCropData = {
+            x: cropData.x,
+            y: cropData.y,
+            width: Math.max(10, currentX - cropData.x),
+            height: Math.max(10, currentY - cropData.y)
+          }
+          break
+        case 't':
+          newCropData = {
+            ...cropData,
+            y: Math.max(0, Math.min(currentY, cropData.y + cropData.height - 10)),
+            height: Math.max(10, cropData.y + cropData.height - currentY)
+          }
+          break
+        case 'b':
+          newCropData = {
+            ...cropData,
+            height: Math.max(10, currentY - cropData.y)
+          }
+          break
+        case 'l':
+          newCropData = {
+            ...cropData,
+            x: Math.max(0, Math.min(currentX, cropData.x + cropData.width - 10)),
+            width: Math.max(10, cropData.x + cropData.width - currentX)
+          }
+          break
+        case 'r':
+          newCropData = {
+            ...cropData,
+            width: Math.max(10, currentX - cropData.x)
+          }
+          break
+      }
+
+      // Ensure crop box stays within image bounds
+      newCropData.x = Math.max(0, Math.min(newCropData.x, rect.width - newCropData.width))
+      newCropData.y = Math.max(0, Math.min(newCropData.y, rect.height - newCropData.height))
+      newCropData.width = Math.min(newCropData.width, rect.width - newCropData.x)
+      newCropData.height = Math.min(newCropData.height, rect.height - newCropData.y)
+
+      setCropData(newCropData)
+      return
+    }
+
+    // Creating new selection
+    if (isCreatingSelection) {
+      const newWidth = currentX - dragStart.x
+      const newHeight = currentY - dragStart.y
+      const newX = newWidth < 0 ? currentX : dragStart.x
+      const newY = newHeight < 0 ? currentY : dragStart.y
+      
+      setCropData({
+        x: Math.max(0, Math.min(newX, rect.width)),
+        y: Math.max(0, Math.min(newY, rect.height)),
+        width: Math.max(0, Math.abs(newWidth)),
+        height: Math.max(0, Math.abs(newHeight))
+      })
+      return
+    }
+
+    // Moving crop box
+    const x = currentX - dragStart.x
+    const y = currentY - dragStart.y
     const maxX = rect.width - cropData.width
     const maxY = rect.height - cropData.height
 
@@ -186,11 +338,18 @@ const ImageConverter = () => {
 
   const handleMouseUp = () => {
     setIsDragging(false)
+    setResizeHandle(null)
+    setIsCreatingSelection(false)
+    if (imageRef.current) {
+      imageRef.current.parentElement.style.cursor = 'default'
+    }
   }
 
   const handleCancelCrop = () => {
     setIsCropMode(false)
     setIsDragging(false)
+    setResizeHandle(null)
+    setIsCreatingSelection(false)
   }
 
   const resizeImage = () => {
@@ -232,19 +391,63 @@ const ImageConverter = () => {
 
   const applyCrop = () => {
     if (!uploadedImage) return
+    
+    // Validate crop data
+    if (!cropData.width || !cropData.height || cropData.width < 10 || cropData.height < 10) {
+      alert('Please select a valid crop area first')
+      return
+    }
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     const img = new Image()
     
     img.onload = () => {
-      const scaleX = img.width / imageRef.current.offsetWidth
-      const scaleY = img.height / imageRef.current.offsetHeight
+      const imgEl = imageRef.current
+      // Get displayed container dimensions
+      const displayedRect = imgEl.getBoundingClientRect()
+      const containerWidth = displayedRect.width
+      const containerHeight = displayedRect.height
+      const naturalWidth = img.naturalWidth || img.width
+      const naturalHeight = img.naturalHeight || img.height
+
+      // Calculate actual rendered image dimensions with object-fit: contain
+      const imageAspect = naturalWidth / naturalHeight
+      const containerAspect = containerWidth / containerHeight
       
-      const cropX = cropData.x * scaleX
-      const cropY = cropData.y * scaleY
-      const cropWidth = cropData.width * scaleX
-      const cropHeight = cropData.height * scaleY
+      let renderedWidth, renderedHeight, offsetX, offsetY
+      if (imageAspect > containerAspect) {
+        // Image is wider - fit to width, letterbox on top/bottom
+        renderedWidth = containerWidth
+        renderedHeight = containerWidth / imageAspect
+        offsetX = 0
+        offsetY = (containerHeight - renderedHeight) / 2
+      } else {
+        // Image is taller - fit to height, letterbox on sides
+        renderedWidth = containerHeight * imageAspect
+        renderedHeight = containerHeight
+        offsetX = (containerWidth - renderedWidth) / 2
+        offsetY = 0
+      }
+
+      // Scale factors from rendered pixels -> natural pixels (should be same in both dimensions with contain)
+      const scale = naturalWidth / renderedWidth
+
+      // Adjust crop coordinates to account for letterboxing offset
+      const adjustedX = cropData.x - offsetX
+      const adjustedY = cropData.y - offsetY
+
+      // Clamp to actual rendered image bounds
+      const clampedX = Math.max(0, Math.min(adjustedX, renderedWidth))
+      const clampedY = Math.max(0, Math.min(adjustedY, renderedHeight))
+      const clampedW = Math.max(1, Math.min(cropData.width, renderedWidth - clampedX))
+      const clampedH = Math.max(1, Math.min(cropData.height, renderedHeight - clampedY))
+
+      // Convert to natural pixel coordinates (rounded for pixel-perfect cropping)
+      const cropX = Math.round(clampedX * scale)
+      const cropY = Math.round(clampedY * scale)
+      const cropWidth = Math.round(clampedW * scale)
+      const cropHeight = Math.round(clampedH * scale)
       
       canvas.width = cropWidth
       canvas.height = cropHeight
@@ -357,7 +560,11 @@ const ImageConverter = () => {
                 )}
                 {isCropMode && (
                   <div className="crop-controls">
-                    <button onClick={applyCrop} className="apply-crop-btn">
+                    <button 
+                      onClick={applyCrop} 
+                      className="apply-crop-btn"
+                      disabled={!cropData.width || !cropData.height || cropData.width < 10 || cropData.height < 10}
+                    >
                       ✓ Apply Crop
                     </button>
                     <button onClick={handleCancelCrop} className="cancel-crop-btn">
@@ -385,7 +592,7 @@ const ImageConverter = () => {
                       }
                     }}
                   />
-                  {isCropMode && (
+                  {isCropMode && cropData.width > 0 && cropData.height > 0 && (
                     <div 
                       className="crop-box"
                       style={{
@@ -399,12 +606,20 @@ const ImageConverter = () => {
                       <div className="crop-corner crop-corner-tr"></div>
                       <div className="crop-corner crop-corner-bl"></div>
                       <div className="crop-corner crop-corner-br"></div>
+                      <div className="crop-edge crop-edge-t"></div>
+                      <div className="crop-edge crop-edge-b"></div>
+                      <div className="crop-edge crop-edge-l"></div>
+                      <div className="crop-edge crop-edge-r"></div>
                     </div>
                   )}
                 </div>
                 {isCropMode && (
                   <p className="crop-info">
-                    Selected: {Math.round(cropData.width)} × {Math.round(cropData.height)} pixels
+                    {cropData.width > 0 && cropData.height > 0 ? (
+                      <>Selected: {Math.round(cropData.width)} × {Math.round(cropData.height)} pixels</>
+                    ) : (
+                      <>Click and drag to select crop area</>
+                    )}
                   </p>
                 )}
               </div>
