@@ -1,6 +1,8 @@
 const express = require('express')
 const cors = require('cors')
 const axios = require('axios')
+const multer = require('multer')
+const { PDFDocument, rgb } = require('pdf-lib')
 const fs = require('fs')
 const path = require('path')
 const { exec } = require('child_process')
@@ -14,10 +16,19 @@ app.use(cors())
 app.use(express.json())
 app.use('/downloads', express.static(path.join(__dirname, 'downloads')))
 
+// File uploads (for PDF edit)
+const upload = multer({ dest: path.join(__dirname, 'uploads') })
+
 // Create downloads directory if it doesn't exist
 const downloadsDir = path.join(__dirname, 'downloads')
 if (!fs.existsSync(downloadsDir)) {
   fs.mkdirSync(downloadsDir, { recursive: true })
+}
+
+// Create uploads directory if it doesn't exist (for PDF edit)
+const uploadsDir = path.join(__dirname, 'uploads')
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true })
 }
 
 // YouTube download endpoint
@@ -522,6 +533,105 @@ app.post('/api/download', async (req, res) => {
   } catch (error) {
     console.error('Generic download endpoint error:', error)
     res.status(500).json({ error: error.message })
+  }
+})
+
+// PDF edit endpoint: accepts a PDF file and an array of edits and returns a flattened PDF
+// Request: multipart/form-data with fields:
+// - file: PDF file
+// - edits: JSON string of [{ page, x, y, text, fontSize, color, mask }] where coordinates are in PDF points
+app.post('/api/pdf/edit', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'PDF file is required' })
+    }
+
+    const editsRaw = req.body.edits
+    let edits = []
+    if (editsRaw) {
+      try { edits = JSON.parse(editsRaw) } catch { edits = [] }
+    }
+
+    const pdfBytes = fs.readFileSync(req.file.path)
+    const pdfDoc = await PDFDocument.load(pdfBytes)
+
+    const pages = pdfDoc.getPages()
+    const grouped = {}
+    for (const e of edits) {
+      if (!grouped[e.page]) grouped[e.page] = []
+      grouped[e.page].push(e)
+    }
+
+    for (const pageNumStr of Object.keys(grouped)) {
+      const idx = parseInt(pageNumStr, 10) - 1
+      if (idx < 0 || idx >= pages.length) continue
+      const page = pages[idx]
+      
+      // First pass: Draw all masks to cover original text
+      for (const e of grouped[pageNumStr]) {
+        if (e.mask) {
+          const maskWidth = Number(e.mask.width || (612 - e.x))
+          const maskHeight = Number(e.mask.height || ((e.fontSize || 12) * 1.4))
+          
+          // Draw white rectangle to mask original text
+          // In PDF: (x, y) for text is bottom-left corner, text extends upward
+          // So mask should cover from (e.x, e.y) upward to (e.x + width, e.y + height)
+          const maskX = Math.max(e.x - 3, 0)
+          const maskY = e.y // Start from text baseline (bottom of text)
+          const maskW = Math.min(maskWidth + 6, 612 - maskX)
+          const maskH = maskHeight + 3 // Extend upward to cover text height
+          
+          page.drawRectangle({
+            x: maskX,
+            y: maskY,
+            width: maskW,
+            height: maskH,
+            color: rgb(1, 1, 1), // White
+            borderColor: rgb(1, 1, 1),
+            borderWidth: 0
+          })
+        }
+      }
+      
+      // Second pass: Draw all edited text on top of masks
+      for (const e of grouped[pageNumStr]) {
+        const size = Number(e.fontSize || 12)
+        const hex = (e.color || '#000000').replace('#','')
+        const r = parseInt(hex.slice(0,2),16)/255
+        const g = parseInt(hex.slice(2,4),16)/255
+        const b = parseInt(hex.slice(4,6),16)/255
+
+        const sanitized = (e.text || '')
+          .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+          .replace(/[^\x00-\x7F]/g, '')
+
+        if (!sanitized.trim()) continue
+        
+        page.drawText(sanitized, {
+          x: e.x,
+          y: e.y,
+          size,
+          color: rgb(r, g, b)
+        })
+      }
+    }
+
+    const outBytes = await pdfDoc.save()
+    const outName = `edited_${Date.now()}.pdf`
+    const outPath = path.join(downloadsDir, outName)
+    fs.writeFileSync(outPath, outBytes)
+
+    // Cleanup upload
+    try { fs.unlinkSync(req.file.path) } catch {}
+
+    res.json({
+      success: true,
+      downloadUrl: `http://localhost:${PORT}/downloads/${outName}`,
+      filename: outName
+    })
+  } catch (err) {
+    console.error('PDF edit error:', err)
+    res.status(500).json({ error: err.message || 'Failed to edit PDF' })
   }
 })
 
