@@ -31,6 +31,12 @@ const Header = ({ activeTab, onTabChange }) => {
             🎬 Social Download
           </button>
           <button
+            className={`tab ${activeTab === 'ott' ? 'active' : ''}`}
+            onClick={() => onTabChange('ott')}
+          >
+            📺 OTT
+          </button>
+          <button
             className={`tab ${activeTab === 'contract' ? 'active' : ''}`}
             onClick={() => onTabChange('contract')}
           >
