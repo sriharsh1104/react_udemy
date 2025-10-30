@@ -41,6 +41,42 @@
   gap: 20px;
 }
 
+.trim-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.trim-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trim-field label {
+  color: #333;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.trim-input {
+  padding: 10px 12px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.trim-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.trim-hint {
+  grid-column: 1 / -1;
+  color: #666;
+  font-size: 0.9rem;
+}
+
 .format-selector {
   display: flex;
   flex-direction: column;
@@ -143,5 +179,8 @@
 @media (max-width: 768px) {
   .video-player {
     max-height: 250px;
+  }
+  .trim-controls {
+    grid-template-columns: 1fr;
   }
 }

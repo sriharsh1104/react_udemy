@@ -22,6 +22,25 @@ const SocialDownload = () => {
 
   const currentPlatform = platforms.find(p => p.id === selectedPlatform)
 
+  // Auto-detect platform from URL
+  const detectPlatform = (url) => {
+    if (!url || !url.trim()) return null
+    
+    const urlLower = url.toLowerCase()
+    
+    // Check each platform's patterns
+    if (/youtube\.com|youtu\.be/.test(urlLower)) return 'youtube'
+    if (/instagram\.com/.test(urlLower)) return 'instagram'
+    if (/twitter\.com|x\.com/.test(urlLower)) return 'twitter'
+    if (/tiktok\.com|vm\.tiktok\.com/.test(urlLower)) return 'tiktok'
+    if (/facebook\.com|fb\.watch/.test(urlLower)) return 'facebook'
+    if (/reddit\.com/.test(urlLower)) return 'reddit'
+    if (/snapchat\.com/.test(urlLower)) return 'snapchat'
+    if (/pinterest\.com/.test(urlLower)) return 'pinterest'
+    
+    return null
+  }
+
   const extractVideoId = (url, platform) => {
     switch (platform) {
       case 'youtube':
@@ -106,12 +125,25 @@ const SocialDownload = () => {
 
   const handleDownload = async () => {
     if (!videoUrl.trim()) {
-      setError(`Please enter a ${currentPlatform.name} URL`)
+      setError('Please enter a social media URL')
       return
     }
 
-    if (!validateUrl(videoUrl, selectedPlatform)) {
-      setError(`Please enter a valid ${currentPlatform.name} URL`)
+    // Auto-detect platform if not already detected
+    const detectedPlatform = detectPlatform(videoUrl)
+    if (!detectedPlatform) {
+      setError('Unsupported platform. Supported platforms: YouTube, Instagram, Twitter/X, TikTok, Facebook, Reddit, Snapchat, Pinterest')
+      return
+    }
+
+    // Auto-set platform if detected and different
+    if (detectedPlatform !== selectedPlatform) {
+      setSelectedPlatform(detectedPlatform)
+    }
+
+    // Validate URL with detected platform
+    if (!validateUrl(videoUrl, detectedPlatform)) {
+      setError(`Please enter a valid ${platforms.find(p => p.id === detectedPlatform)?.name || 'social media'} URL`)
       return
     }
 
@@ -119,11 +151,14 @@ const SocialDownload = () => {
     setError('')
     
     try {
+      // Use the detected platform for processing
+      const platformToUse = detectedPlatform || selectedPlatform
+      
       // Extract media ID (not all platforms require it)
-      const mediaId = extractVideoId(videoUrl, selectedPlatform)
+      const mediaId = extractVideoId(videoUrl, platformToUse)
       
       // Some platforms like Facebook/Snapchat don't need strict ID extraction
-      const requiresMediaId = ['youtube', 'twitter'].includes(selectedPlatform)
+      const requiresMediaId = ['youtube', 'twitter'].includes(platformToUse)
       if (requiresMediaId && !mediaId) {
         throw new Error('Could not extract media ID from URL')
       }
@@ -143,19 +178,21 @@ const SocialDownload = () => {
       
       if (!infoResponse.ok) {
         // Better error messages for Facebook private/restricted videos
-        if (selectedPlatform === 'facebook' && infoData.error) {
+        if (platformToUse === 'facebook' && infoData.error) {
           throw new Error(infoData.error)
         }
         throw new Error(infoData.error || 'Failed to get video info')
       }
       
+      const platformInfo = platforms.find(p => p.id === platformToUse) || currentPlatform
+      
       // Show video info
       setVideoInfo({
         id: mediaId || 'processing',
         title: 'Processing video...',
-        thumbnail: selectedPlatform === 'youtube' && mediaId
+        thumbnail: platformToUse === 'youtube' && mediaId
           ? `https://img.youtube.com/vi/${mediaId}/maxresdefault.jpg`
-          : `https://via.placeholder.com/640x360/667eea/ffffff?text=${currentPlatform.icon}`,
+          : `https://via.placeholder.com/640x360/667eea/ffffff?text=${platformInfo.icon}`,
         duration: 'Ready',
       })
       
@@ -167,7 +204,7 @@ const SocialDownload = () => {
         },
         body: JSON.stringify({
           url: videoUrl,
-          platform: selectedPlatform,
+          platform: platformToUse,
           format: null // Use yt-dlp's best format selection
         })
       })
@@ -181,10 +218,10 @@ const SocialDownload = () => {
       // Set video info
       setVideoInfo({
         id: mediaId || 'downloaded',
-        title: data.filename || `${currentPlatform.name} Media`,
-        thumbnail: selectedPlatform === 'youtube' && mediaId
+        title: data.filename || `${platformInfo.name} Media`,
+        thumbnail: platformToUse === 'youtube' && mediaId
           ? `https://img.youtube.com/vi/${mediaId}/maxresdefault.jpg`
-          : `https://via.placeholder.com/640x360/667eea/ffffff?text=${currentPlatform.icon}`,
+          : `https://via.placeholder.com/640x360/667eea/ffffff?text=${platformInfo.icon}`,
         duration: 'Ready',
         downloadUrl: data.downloadUrl,
         filename: data.filename
@@ -209,9 +246,9 @@ const SocialDownload = () => {
   return (
     <div className="social-download-container">
       <div className="download-section" style={{ background: `linear-gradient(135deg, ${currentPlatform.color} 0%, ${currentPlatform.color}dd 100%)` }}>
-        <h3>{currentPlatform.icon} Download from {currentPlatform.name}</h3>
+        <h3>📱 Download from Social Media</h3>
         <p className="description">
-          Paste a {currentPlatform.name} link below to download it
+          Paste any social media link below to download it
         </p>
 
         <div className="info-notice-box" style={{
@@ -229,7 +266,7 @@ const SocialDownload = () => {
           </ul>
         </div>
 
-        {selectedPlatform === 'snapchat' && (
+        {selectedPlatform === 'snapchat' && videoUrl && (
           <div className="warning-box" style={{
             backgroundColor: 'rgba(255, 193, 7, 0.2)',
             border: '2px solid #ffc107',
@@ -243,7 +280,7 @@ const SocialDownload = () => {
         )}
 
         <div className="platform-selector">
-          <label>Select Platform:</label>
+          <label>Select Platform (or paste link below to auto-detect):</label>
           <div className="platform-grid">
             {platforms.map(platform => (
               <button
@@ -267,8 +304,17 @@ const SocialDownload = () => {
           <input
             type="text"
             value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder={`Paste ${currentPlatform.name} URL here...`}
+            onChange={(e) => {
+              const url = e.target.value
+              setVideoUrl(url)
+              // Auto-detect and set platform when URL is pasted
+              const detectedPlatform = detectPlatform(url)
+              if (detectedPlatform) {
+                setSelectedPlatform(detectedPlatform)
+                setError('') // Clear previous errors
+              }
+            }}
+            placeholder="Paste any social media link here (YouTube, Instagram, Twitter, TikTok, Facebook, etc.)"
             className="url-input"
             disabled={isDownloading}
             onKeyPress={(e) => {

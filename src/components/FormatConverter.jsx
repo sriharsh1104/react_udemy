@@ -32,6 +32,8 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
   const [downloadUrl, setDownloadUrl] = useState(null)
   const ffmpegRef = useRef(new FFmpeg())
   const videoRef = useRef(null)
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
 
   const loadFFmpeg = async () => {
     const ffmpeg = ffmpegRef.current
@@ -63,6 +65,46 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
       const isAudioOnly = format.type === 'audio'
       
       let execArgs = ['-i', inputFileName]
+
+      // Trim options (precise trim with re-encode; -ss/-to after -i are absolute times)
+      const hasStart = startTime && startTime.trim().length > 0
+      const hasEnd = endTime && endTime.trim().length > 0
+
+      // Basic validation vs duration if available
+      const duration = videoRef.current?.duration || null
+      const toSeconds = (t) => {
+        if (!t) return null
+        const parts = t.split(':').map(Number)
+        if (parts.some(isNaN)) return NaN
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        if (parts.length === 2) return parts[0] * 60 + parts[1]
+        if (parts.length === 1) return parts[0]
+        return NaN
+      }
+      const startSec = hasStart ? toSeconds(startTime.trim()) : null
+      const endSec = hasEnd ? toSeconds(endTime.trim()) : null
+
+      if ((hasStart && isNaN(startSec)) || (hasEnd && isNaN(endSec))) {
+        throw new Error('Invalid time format. Use HH:MM:SS, MM:SS, or seconds.')
+      }
+      if (hasStart && hasEnd && endSec <= startSec) {
+        throw new Error('End time must be greater than start time.')
+      }
+      if (duration) {
+        if (hasStart && startSec >= duration) {
+          throw new Error('Start time must be within the video duration.')
+        }
+        if (hasEnd && endSec > duration + 0.01) {
+          throw new Error('End time exceeds the video duration.')
+        }
+      }
+
+      if (hasStart) {
+        execArgs.push('-ss', startTime.trim())
+      }
+      if (hasEnd) {
+        execArgs.push('-to', endTime.trim())
+      }
       
       if (isAudioOnly) {
         // For audio formats, extract audio only
@@ -189,12 +231,38 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
           </select>
         </div>
 
+        <div className="trim-controls">
+          <div className="trim-field">
+            <label htmlFor="start-time">Start time (HH:MM:SS or MM:SS or seconds)</label>
+            <input
+              id="start-time"
+              type="text"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              placeholder="e.g. 00:00:05"
+              className="trim-input"
+            />
+          </div>
+          <div className="trim-field">
+            <label htmlFor="end-time">End time (optional)</label>
+            <input
+              id="end-time"
+              type="text"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              placeholder="e.g. 00:00:15"
+              className="trim-input"
+            />
+          </div>
+          <div className="trim-hint">Leave blank to use full length. If only start is set, export from start to end of video. If both set, export the range.</div>
+        </div>
+
         <button
           onClick={convertVideo}
           disabled={isConverting}
           className="convert-button"
         >
-          {isConverting ? 'Converting...' : `Convert to ${selectedFormat.toUpperCase()}`}
+          {isConverting ? 'Processing...' : `Convert/Trim to ${selectedFormat.toUpperCase()}`}
         </button>
 
         {convertedVideo && (
