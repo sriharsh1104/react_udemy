@@ -19,8 +19,7 @@ const SocialDownload = () => {
     { id: 'tiktok', name: 'TikTok', icon: '🎵', color: '#000000' },
     { id: 'facebook', name: 'Facebook', icon: '👥', color: '#1877F2' },
     { id: 'reddit', name: 'Reddit', icon: '🤖', color: '#FF4500' },
-    { id: 'snapchat', name: 'Snapchat', icon: '👻', color: '#FFFC00' },
-    { id: 'pinterest', name: 'Pinterest', icon: '📌', color: '#BD081C' }
+    { id: 'snapchat', name: 'Snapchat', icon: '👻', color: '#FFFC00' }
   ]
 
   const currentPlatform = platforms.find(p => p.id === selectedPlatform)
@@ -39,7 +38,6 @@ const SocialDownload = () => {
     if (/facebook\.com|fb\.watch/.test(urlLower)) return 'facebook'
     if (/reddit\.com/.test(urlLower)) return 'reddit'
     if (/snapchat\.com/.test(urlLower)) return 'snapchat'
-    if (/pinterest\.com/.test(urlLower)) return 'pinterest'
     
     return null
   }
@@ -97,17 +95,6 @@ const SocialDownload = () => {
           if (match && match[1]) return match[1] || match[2] || 'unknown'
         }
         return null
-      case 'pinterest':
-        // Match both numeric and alphanumeric pin IDs
-        const pinterestPatterns = [
-          /pinterest\.com\/pin\/(\d+)/,              // Old numeric format
-          /pinterest\.com\/pin\/([a-zA-Z0-9_-]+)/,    // Modern alphanumeric format
-        ]
-        for (const pattern of pinterestPatterns) {
-          const match = url.match(pattern)
-          if (match && match[1]) return match[1]
-        }
-        return null
     }
     return null
   }
@@ -120,8 +107,7 @@ const SocialDownload = () => {
       tiktok: /^(https?:\/\/)?(www\.)?(tiktok\.com|vm\.tiktok\.com)\/.+/,
       facebook: /^(https?:\/\/)?(www\.)?(facebook\.com|fb\.watch)\/.+/,
       reddit: /^(https?:\/\/)?(www\.)?reddit\.com\/r\/.+/,
-      snapchat: /^(https?:\/\/)?(www\.)?snapchat\.com\/.+/,
-      pinterest: /^(https?:\/\/)?(www\.)?pinterest\.com\/.+\/.+/
+      snapchat: /^(https?:\/\/)?(www\.)?snapchat\.com\/.+/
     }
     return patterns[platform] ? patterns[platform].test(url) : false
   }
@@ -280,7 +266,7 @@ const SocialDownload = () => {
         <div className="info-notice-box">
           <strong>ℹ️ Platform Status:</strong>
           <ul style={{ margin: '8px 0 0 20px', padding: 0, listStyle: 'disc' }}>
-            <li>YouTube, Facebook, and Pinterest servers are currently down</li>
+            <li>YouTube and Facebook servers are currently down</li>
             <li>TikTok is banned in India</li>
           </ul>
         </div>
@@ -366,7 +352,7 @@ const SocialDownload = () => {
             className="download-btn"
             disabled={!QUICK_OPEN_ENABLED}
           >
-            🔗 Youtube Download(Low quality free)
+            🔗 Youtube Download(Low Quality Free)
           </button>
         </div>
 
