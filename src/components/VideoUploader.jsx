@@ -12,19 +12,19 @@ const VideoUploader = ({ onVideoUpload }) => {
     e.preventDefault()
     
     const file = e.dataTransfer.files[0]
-    if (file && file.type.startsWith('video/')) {
+    if (file && (file.type.startsWith('video/') || file.type.startsWith('audio/'))) {
       onVideoUpload(file)
     } else {
-      alert('Please upload a valid video file')
+      alert('Please upload a valid video or audio file')
     }
   }
 
   const handleFileInput = (e) => {
     const file = e.target.files[0]
-    if (file && file.type.startsWith('video/')) {
+    if (file && (file.type.startsWith('video/') || file.type.startsWith('audio/'))) {
       onVideoUpload(file)
     } else {
-      alert('Please upload a valid video file')
+      alert('Please upload a valid video or audio file')
     }
   }
 
@@ -46,14 +46,14 @@ const VideoUploader = ({ onVideoUpload }) => {
             <path d="M12 12L9 15H13L10 12H12Z" fill="currentColor"/>
           </svg>
         </div>
-        <h3>Drag & Drop your video here</h3>
+        <h3>Drag & Drop your file here</h3>
         <p>or click to browse</p>
-        <p className="formats">Supported formats: MP4, WebM, MOV, AVI, MKV</p>
+        <p className="formats">Supported: Video (MP4, WebM, MOV, AVI, MKV) and Audio (MP3, WAV, OGG, AAC, M4A, WMA, FLAC)</p>
       </div>
       <input
         ref={fileInputRef}
         type="file"
-        accept="video/*"
+        accept="video/*,audio/*"
         onChange={handleFileInput}
         style={{ display: 'none' }}
       />

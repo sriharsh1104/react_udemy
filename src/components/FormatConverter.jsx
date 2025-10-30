@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile } from '@ffmpeg/util'
 import './FormatConverter.css'
@@ -30,10 +30,24 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
   const [isConverting, setIsConverting] = useState(false)
   const [convertedVideo, setConvertedVideo] = useState(null)
   const [downloadUrl, setDownloadUrl] = useState(null)
+  const [convertedBytes, setConvertedBytes] = useState(0)
   const ffmpegRef = useRef(new FFmpeg())
-  const videoRef = useRef(null)
+  const mediaRef = useRef(null)
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
+
+  const inputIsAudio = !!videoFile?.type?.startsWith('audio/')
+  const availableFormats = inputIsAudio ? FORMATS.filter(f => f.type === 'audio') : FORMATS
+
+  const originalBytes = videoFile?.size || 0
+
+  useEffect(() => {
+    // Ensure selected format is valid for the current input type
+    const stillValid = availableFormats.some(f => f.value === selectedFormat)
+    if (!stillValid) {
+      setSelectedFormat(availableFormats[0]?.value || 'mp3')
+    }
+  }, [inputIsAudio])
 
   const loadFFmpeg = async () => {
     const ffmpeg = ffmpegRef.current
@@ -71,7 +85,7 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
       const hasEnd = endTime && endTime.trim().length > 0
 
       // Basic validation vs duration if available
-      const duration = videoRef.current?.duration || null
+      const duration = mediaRef.current?.duration || null
       const toSeconds = (t) => {
         if (!t) return null
         const parts = t.split(':').map(Number)
@@ -139,6 +153,7 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
       const url = URL.createObjectURL(blob)
       
       setDownloadUrl(url)
+      setConvertedBytes(data.length || data.byteLength || 0)
       
       // Only show video preview for video formats
       if (!isAudioOnly) {
@@ -153,6 +168,56 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
     } catch (error) {
       console.error('Conversion error:', error)
       alert(`Conversion failed: ${error.message}. Please try a different format.`)
+    } finally {
+      setIsConverting(false)
+    }
+  }
+
+  const quickCompress = async () => {
+    try {
+      setIsConverting(true)
+      setConvertedVideo(null)
+      const ffmpeg = await loadFFmpeg()
+      const inputFileName = `input.${getFileExtension(videoFile.name)}`
+      const outputFileName = `output_compressed.${selectedFormat}`
+      const inputData = await fetchFile(videoUrl)
+      await ffmpeg.writeFile(inputFileName, inputData)
+
+      const format = FORMATS.find(f => f.value === selectedFormat)
+      const isAudioOnly = format.type === 'audio'
+
+      let execArgs = ['-i', inputFileName]
+
+      // Basic compression presets
+      if (isAudioOnly) {
+        execArgs.push('-vn', '-c:a', format.codec || 'aac', '-b:a', '128k')
+      } else {
+        execArgs.push(
+          '-c:v', format.codec || 'libx264',
+          '-crf', '28',
+          '-preset', 'veryfast',
+          '-c:a', format.audioCodec || 'aac',
+          '-b:a', '128k'
+        )
+      }
+      execArgs.push(outputFileName)
+
+      await ffmpeg.exec(execArgs)
+      const data = await ffmpeg.readFile(outputFileName)
+      const mimeType = getMimeType(selectedFormat, isAudioOnly)
+      const blob = new Blob([data.buffer], { type: mimeType })
+      const url = URL.createObjectURL(blob)
+      setDownloadUrl(url)
+      setConvertedBytes(data.length || data.byteLength || 0)
+      if (!isAudioOnly) {
+        setConvertedVideo(url)
+      } else {
+        setConvertedVideo('audio')
+      }
+      await ffmpeg.deleteFile(inputFileName)
+    } catch (error) {
+      console.error('Compression error:', error)
+      alert(`Compression failed: ${error.message}`)
     } finally {
       setIsConverting(false)
     }
@@ -210,25 +275,31 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
   return (
     <div className="converter-container">
       <div className="video-preview">
-        <h3>Original Video</h3>
-        <video ref={videoRef} src={videoUrl} controls className="video-player" />
+        <h3>Original {inputIsAudio ? 'Audio' : 'Video'}</h3>
+        {inputIsAudio ? (
+          <audio ref={mediaRef} src={videoUrl} controls className="audio-player" />
+        ) : (
+          <video ref={mediaRef} src={videoUrl} controls className="video-player" />
+        )}
       </div>
 
       <div className="converter-controls">
         <div className="format-selector">
           <label htmlFor="format-select">Select Output Format:</label>
+          <div className="select-wrapper">
           <select
             id="format-select"
             value={selectedFormat}
             onChange={(e) => setSelectedFormat(e.target.value)}
             className="format-select"
           >
-            {FORMATS.map(format => (
+            {availableFormats.map(format => (
               <option key={format.value} value={format.value}>
                 {format.label}
               </option>
             ))}
           </select>
+          </div>
         </div>
 
         <div className="trim-controls">
@@ -257,6 +328,7 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
           <div className="trim-hint">Leave blank to use full length. If only start is set, export from start to end of video. If both set, export the range.</div>
         </div>
 
+        <div className="action-buttons">
         <button
           onClick={convertVideo}
           disabled={isConverting}
@@ -264,10 +336,26 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
         >
           {isConverting ? 'Processing...' : `Convert/Trim to ${selectedFormat.toUpperCase()}`}
         </button>
+        <button
+          onClick={quickCompress}
+          disabled={isConverting}
+          className="compress-button"
+        >
+          {isConverting ? 'Processing...' : 'Quick Compress'}
+        </button>
+        </div>
 
-        {convertedVideo && (
+        {downloadUrl && (
           <div className="converted-video">
             <h3>Converted {getSelectedFormatType() === 'audio' ? 'Audio' : 'Video'} Preview</h3>
+            <div className="conversion-stats">
+              <div className="stat-pill"><span>Original</span><strong>{(originalBytes/1024/1024).toFixed(2)} MB</strong></div>
+              <div className="stat-pill"><span>Output</span><strong>{(convertedBytes/1024/1024).toFixed(2)} MB</strong></div>
+              <div className="stat-pill">
+                <span>Reduction</span>
+                <strong>{originalBytes > 0 ? Math.max(0, ((1 - (convertedBytes/Math.max(1,originalBytes))) * 100)).toFixed(1) : '0.0'}%</strong>
+              </div>
+            </div>
             {getSelectedFormatType() === 'audio' ? (
               <div className="audio-preview">
                 <audio src={downloadUrl} controls className="audio-player" />
@@ -284,7 +372,7 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
       </div>
 
       <button onClick={onReset} className="reset-button">
-        Upload Another Video
+        Upload Another File
       </button>
     </div>
   )
