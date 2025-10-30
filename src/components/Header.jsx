@@ -10,7 +10,7 @@ const Header = ({ activeTab, onTabChange }) => {
             className={`tab ${activeTab === 'video' ? 'active' : ''}`}
             onClick={() => onTabChange('video')}
           >
-            📹 Video Converter
+            🎵🎥 Audio / Video 
           </button>
           <button
             className={`tab ${activeTab === 'image' ? 'active' : ''}`}
