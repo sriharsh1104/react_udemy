@@ -2,12 +2,15 @@ import { useState } from 'react'
 import './SocialDownload.css'
 
 const SocialDownload = () => {
+  const QUICK_OPEN_ENABLED = true
+  const MAIN_DOWNLOAD_ENABLED = false
   const [videoUrl, setVideoUrl] = useState('')
   const [selectedPlatform, setSelectedPlatform] = useState('youtube')
   const [isDownloading, setIsDownloading] = useState(false)
   const [error, setError] = useState('')
   const [downloadUrl, setDownloadUrl] = useState(null)
   const [videoInfo, setVideoInfo] = useState(null)
+  const [quickOpenUrl, setQuickOpenUrl] = useState('')
 
   const platforms = [
     { id: 'youtube', name: 'YouTube', icon: '📺', color: '#FF0000' },
@@ -124,6 +127,10 @@ const SocialDownload = () => {
   }
 
   const handleDownload = async () => {
+    if (!MAIN_DOWNLOAD_ENABLED) {
+      setError('Downloads are temporarily disabled')
+      return
+    }
     if (!videoUrl.trim()) {
       setError('Please enter a social media URL')
       return
@@ -243,6 +250,25 @@ const SocialDownload = () => {
     setVideoInfo(null)
   }
 
+  const handleQuickOpen = () => {
+    if (!QUICK_OPEN_ENABLED) {
+      setError('Quick Open is temporarily disabled')
+      return
+    }
+    const raw = quickOpenUrl.trim()
+    if (!raw) {
+      setError('Please enter a youtube.com URL to open')
+      return
+    }
+    // Only modify full youtube.com links by removing 'ube' (youtube -> yout)
+    if (!/youtube\.com/i.test(raw)) {
+      setError('Quick Open expects a youtube.com URL')
+      return
+    }
+    const modified = raw.replace(/youtube/gi, 'yout')
+    window.open(modified, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <div className="social-download-container">
       <div className="download-section" style={{ '--platform-color': currentPlatform.color }}>
@@ -295,9 +321,9 @@ const SocialDownload = () => {
                 setError('') // Clear previous errors
               }
             }}
-            placeholder="Paste any social media link here (YouTube, Instagram, Twitter, TikTok, Facebook, etc.)"
+            placeholder={MAIN_DOWNLOAD_ENABLED ? "Paste any social media link here (YouTube, Instagram, Twitter, TikTok, Facebook, etc.)" : "Main downloader is disabled"}
             className="url-input"
-            disabled={isDownloading}
+            disabled={isDownloading || !MAIN_DOWNLOAD_ENABLED}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 handleDownload()
@@ -307,7 +333,7 @@ const SocialDownload = () => {
           
           <button
             onClick={handleDownload}
-            disabled={isDownloading}
+            disabled={isDownloading || !MAIN_DOWNLOAD_ENABLED}
             className="download-btn"
           >
             {isDownloading ? '⏳ Processing...' : '⬇️ Download'}
@@ -319,6 +345,30 @@ const SocialDownload = () => {
             ❌ {error}
           </div>
         )}
+
+        {/* Quick Open: open new tab with youtube -> yout transformation */}
+        <div className="url-input-section" style={{ marginTop: '16px' }}>
+          <input
+            type="text"
+            value={quickOpenUrl}
+            onChange={(e) => setQuickOpenUrl(e.target.value)}
+            placeholder={QUICK_OPEN_ENABLED ? "Paste youtube.com URL here to open with 'ube' removed (yout...)" : "Quick Open is disabled"}
+            className="url-input"
+            disabled={!QUICK_OPEN_ENABLED}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleQuickOpen()
+              }
+            }}
+          />
+          <button
+            onClick={handleQuickOpen}
+            className="download-btn"
+            disabled={!QUICK_OPEN_ENABLED}
+          >
+            🔗 Youtube Download(Low quality free)
+          </button>
+        </div>
 
         {videoInfo && (
           <div className="video-preview">

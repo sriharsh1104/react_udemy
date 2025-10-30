@@ -11,6 +11,42 @@ const platforms = [
   
 ]
 
+function extractYouTubeId(rawUrl) {
+  try {
+    const url = new URL(rawUrl)
+    // youtu.be/<id>
+    if (url.hostname.includes('youtu.be')) {
+      return url.pathname.split('/')[1]
+    }
+    // youtube.com/shorts/<id>
+    if (url.pathname.startsWith('/shorts/')) {
+      return url.pathname.split('/')[2] || url.pathname.split('/')[1]
+    }
+    // youtube.com/embed/<id>
+    if (url.pathname.startsWith('/embed/')) {
+      return url.pathname.split('/')[2] || url.pathname.split('/')[1]
+    }
+    // youtube.com/watch?v=<id>
+    const v = url.searchParams.get('v')
+    if (v) return v
+  } catch (_) {
+    // ignore parse errors
+  }
+  return null
+}
+
+function openYouTubeNoCookie() {
+  const input = window.prompt('Paste YouTube URL to open on yout-ube.com:')
+  if (!input) return
+  const videoId = extractYouTubeId(input.trim())
+  if (!videoId) {
+    alert('Could not detect a valid YouTube video URL.')
+    return
+  }
+  const altHost = `https://www.yout-ube.com/embed/${videoId}`
+  window.open(altHost, '_blank', 'noopener,noreferrer')
+}
+
 function OTTLinks() {
   return (
     <div className="ott">
@@ -28,6 +64,14 @@ function OTTLinks() {
             <span className="ott-link">Visit →</span>
           </a>
         ))}
+        <button
+          type="button"
+          className="ott-card"
+          onClick={openYouTubeNoCookie}
+        >
+          <span className="ott-name">YouTube (Ads Free)</span>
+          <span className="ott-link">Open →</span>
+        </button>
       </div>
 
       <h3 className="ott-subtitle"> P-site</h3>
