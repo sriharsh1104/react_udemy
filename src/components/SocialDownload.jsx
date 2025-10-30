@@ -245,20 +245,13 @@ const SocialDownload = () => {
 
   return (
     <div className="social-download-container">
-      <div className="download-section" style={{ background: `linear-gradient(135deg, ${currentPlatform.color} 0%, ${currentPlatform.color}dd 100%)` }}>
+      <div className="download-section" style={{ '--platform-color': currentPlatform.color }}>
         <h3>📱 Download from Social Media</h3>
         <p className="description">
           Paste any social media link below to download it
         </p>
 
-        <div className="info-notice-box" style={{
-          backgroundColor: 'rgba(33, 150, 243, 0.2)',
-          border: '2px solid #2196f3',
-          borderRadius: '8px',
-          padding: '12px',
-          margin: '15px 0',
-          color: '#fff'
-        }}>
+        <div className="info-notice-box">
           <strong>ℹ️ Platform Status:</strong>
           <ul style={{ margin: '8px 0 0 20px', padding: 0, listStyle: 'disc' }}>
             <li>YouTube, Facebook, and Pinterest servers are currently down</li>
@@ -267,14 +260,7 @@ const SocialDownload = () => {
         </div>
 
         {selectedPlatform === 'snapchat' && videoUrl && (
-          <div className="warning-box" style={{
-            backgroundColor: 'rgba(255, 193, 7, 0.2)',
-            border: '2px solid #ffc107',
-            borderRadius: '8px',
-            padding: '12px',
-            margin: '15px 0',
-            color: '#fff'
-          }}>
+          <div className="warning-box">
             <strong>⚠️ Important:</strong> Snapchat videos are heavily protected with DRM and authentication. Most Snapchat content <strong>cannot be downloaded</strong> due to security features. Public Stories may work, but private snaps and Memories will fail.
           </div>
         )}
@@ -287,12 +273,7 @@ const SocialDownload = () => {
                 key={platform.id}
                 className={`platform-btn ${selectedPlatform === platform.id ? 'active' : ''}`}
                 onClick={() => setSelectedPlatform(platform.id)}
-                style={{
-                  background: selectedPlatform === platform.id 
-                    ? platform.color 
-                    : 'rgba(255, 255, 255, 0.2)',
-                  color: 'white'
-                }}
+                style={{ '--platform-color': platform.color }}
               >
                 {platform.icon} {platform.name}
               </button>

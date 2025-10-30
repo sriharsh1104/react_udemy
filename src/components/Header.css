@@ -1,6 +1,7 @@
 .header {
-  background: white;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
   margin-bottom: 30px;
 }
 
@@ -12,8 +13,9 @@
 
 .header-title {
   font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--brand-500), var(--accent-500));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -30,25 +32,26 @@
 
 .tab {
   padding: 12px 30px;
-  border: none;
-  background: #f0f0f0;
-  border-radius: 25px;
-  font-size: 1rem;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  border-radius: 28px;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  color: #666;
+  transition: all 0.25s ease;
+  color: var(--text-secondary);
+  backdrop-filter: blur(6px);
 }
 
 .tab:hover {
-  background: #e0e0e0;
+  background: rgba(255,255,255,0.07);
   transform: translateY(-2px);
 }
 
 .tab.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-600), var(--accent-500));
   color: white;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 24px rgba(108, 124, 255, 0.35);
 }
 
 @media (max-width: 768px) {

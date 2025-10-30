@@ -6,11 +6,25 @@
 }
 
 .download-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
+  background:
+    radial-gradient(800px 400px at 0% 0%, rgba(255,255,255,0.05), transparent 60%),
+    radial-gradient(600px 400px at 100% 0%, rgba(255,255,255,0.04), transparent 55%),
+    linear-gradient(180deg, var(--surface), var(--surface-2));
+  position: relative;
+  border-radius: var(--radius-lg);
   padding: 40px;
-  color: white;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+}
+
+.download-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--platform-color, var(--brand-600)) 30%, transparent) 0%, transparent 60%);
+  pointer-events: none;
 }
 
 .download-section h3 {
@@ -22,8 +36,8 @@
 .description {
   text-align: center;
   margin-bottom: 30px;
-  opacity: 0.9;
-  font-size: 1.1rem;
+  color: var(--text-secondary);
+  font-size: 1.05rem;
 }
 
 .platform-selector {
@@ -47,25 +61,29 @@
 
 .platform-btn {
   padding: 12px 20px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: 28px;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  transition: all 0.25s ease;
+  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
 }
 
 .platform-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+  border-color: color-mix(in srgb, var(--platform-color, var(--brand-600)) 45%, var(--border));
 }
 
 .platform-btn.active {
-  border-color: white;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-  transform: scale(1.05);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--platform-color, var(--brand-600)) 65%, transparent), rgba(255,255,255,0.06));
+  color: white;
+  border-color: color-mix(in srgb, var(--platform-color, var(--brand-600)) 60%, var(--border));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--platform-color, var(--brand-600)) 30%, transparent);
+  transform: translateY(-2px);
 }
 
 .url-input-section {
@@ -77,33 +95,35 @@
 .url-input {
   flex: 1;
   padding: 15px 20px;
-  border: none;
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 1rem;
   outline: none;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
 }
 
 .url-input:focus {
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+  border-color: rgba(108, 124, 255, 0.65);
+  box-shadow: 0 0 0 4px rgba(108, 124, 255, 0.15);
 }
 
 .download-btn {
   padding: 15px 30px;
-  background: white;
-  color: #667eea;
+  background: linear-gradient(135deg, var(--brand-600), var(--accent-500));
+  color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   font-size: 1rem;
-  font-weight: bold;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 24px rgba(108, 124, 255, 0.35);
 }
 
 .download-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 12px 28px rgba(108, 124, 255, 0.45);
 }
 
 .download-btn:disabled {
@@ -112,23 +132,25 @@
 }
 
 .error-message {
-  background: rgba(255, 0, 0, 0.2);
-  border: 2px solid rgba(255, 0, 0, 0.5);
+  background: color-mix(in srgb, var(--danger-500) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger-500) 60%, var(--border));
   padding: 15px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   margin-bottom: 20px;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .video-preview {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 20px;
   margin: 20px 0;
   display: flex;
   gap: 20px;
   align-items: center;
+  box-shadow: var(--shadow-md);
 }
 
 .thumbnail {
@@ -153,13 +175,13 @@
   display: inline-block;
   margin-top: 15px;
   padding: 10px 20px;
-  background: white;
-  color: #667eea;
+  background: linear-gradient(135deg, var(--brand-600), var(--accent-500));
+  color: white;
   text-decoration: none;
-  border-radius: 8px;
-  font-weight: bold;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  transition: all 0.25s ease;
+  box-shadow: 0 6px 16px rgba(108, 124, 255, 0.35);
 }
 
 .download-link-btn:hover {
@@ -170,29 +192,48 @@
 .reset-btn {
   width: 100%;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 2px solid white;
-  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   font-size: 1rem;
-  font-weight: bold;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
   margin-top: 20px;
 }
 
 .reset-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255,255,255,0.1);
   transform: translateY(-2px);
 }
 
 .info-box {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-lg);
   padding: 25px;
   margin-top: 30px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.info-notice-box {
+  background: color-mix(in srgb, var(--brand-600) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-600) 55%, var(--border));
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin: 15px 0;
+  color: var(--text-primary);
+}
+
+.warning-box {
+  background: color-mix(in srgb, var(--warning-500) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning-500) 55%, var(--border));
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin: 15px 0;
+  color: var(--text-primary);
 }
 
 .info-box h4 {
