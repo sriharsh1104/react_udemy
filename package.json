@@ -16,6 +16,8 @@
     "@walletconnect/ethereum-provider": "^1.8.0",
     "@walletconnect/web3-provider": "^1.8.0",
     "ethers": "^6.15.0",
+    "framer-motion": "^12.23.24",
+    "gsap": "^3.13.0",
     "html2pdf.js": "^0.12.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^3.11.174",

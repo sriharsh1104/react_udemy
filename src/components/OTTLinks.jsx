@@ -36,7 +36,7 @@ function extractYouTubeId(rawUrl) {
 }
 
 function openYouTubeNoCookie() {
-  const input = window.prompt('Paste YouTube URL to open on yout-ube.com:')
+  const input = window.prompt('Paste YouTube URL to open on Ads free version:')
   if (!input) return
   const videoId = extractYouTubeId(input.trim())
   if (!videoId) {
@@ -50,7 +50,7 @@ function openYouTubeNoCookie() {
 function OTTLinks() {
   return (
     <div className="ott">
-      <h2 className="ott-title">Popular OTT Platforms</h2>
+      <h2 className="ott-title">Content</h2>
       <div className="ott-grid">
         {platforms.map((p) => (
           <a
@@ -92,6 +92,26 @@ function OTTLinks() {
             rel="noopener noreferrer"
           >
             <span className="ott-name">{p.name}</span>
+            <span className="ott-link">Visit →</span>
+          </a>
+        ))}
+      </div>
+
+      <h3 className="ott-subtitle">Sports</h3>
+      <div className="ott-grid">
+        {[
+          { name: 'CricBuzz', url: 'https://www.cricbuzz.com/', icon: '🏏' },
+          { name: 'LiveScore', url: 'https://www.livescore.com/en/', icon: '⚽' },
+          { name: 'Champions League', url: 'https://www.uefa.com/uefachampionsleague/', icon: '🏆' }
+        ].map((p) => (
+          <a
+            key={p.name}
+            href={p.url}
+            className="ott-card"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span className="ott-name">{p.icon} {p.name}</span>
             <span className="ott-link">Visit →</span>
           </a>
         ))}

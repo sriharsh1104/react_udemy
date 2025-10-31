@@ -34,7 +34,7 @@ const Header = ({ activeTab, onTabChange }) => {
             className={`tab ${activeTab === 'ott' ? 'active' : ''}`}
             onClick={() => onTabChange('ott')}
           >
-            📺 OTT
+            📺 OTT / Content
           </button>
           <button
             className={`tab ${activeTab === 'contract' ? 'active' : ''}`}
