@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import { esportsOfficialLinks, esportsThirdPartyLinks } from '../constants'
 import './OTTLinks.css'
+import youtubeIcon from '../assets/icons/youtube.svg'
+import instagramIcon from '../assets/icons/instagram.svg'
 
 function Esports() {
   const [subTab, setSubTab] = useState('official')
@@ -57,18 +59,30 @@ function Esports() {
       <>
         <h4 className="ott-subtitle">{title}</h4>
         <div className="ott-grid">
-          {items.map((p) => (
-            <a
-              key={p.name}
-              href={p.url}
-              className="ott-card"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="ott-name">{p.icon} {getDisplayName(p.name)} ({getLinkType(p.url)})</span>
-              <span className="ott-link">Visit →</span>
-            </a>
-          ))}
+          {items.map((p) => {
+            const linkType = getLinkType(p.url)
+            const isYouTube = linkType === 'YouTube'
+            const isInstagram = linkType === 'Instagram'
+            return (
+              <a
+                key={p.name}
+                href={p.url}
+                className="ott-card"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {isYouTube ? (
+                  <img src={youtubeIcon} alt="YouTube" className="ott-icon" />
+                ) : isInstagram ? (
+                  <img src={instagramIcon} alt="Instagram" className="ott-icon" />
+                ) : (
+                  <span className="ott-icon-emoji">{p.icon}</span>
+                )}
+                <span className="ott-name">{getDisplayName(p.name)} ({linkType})</span>
+                <span className="ott-link">Visit →</span>
+              </a>
+            )
+          })}
         </div>
       </>
     )
@@ -114,7 +128,19 @@ function Esports() {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <span>{link.type}</span>
+                        {link.type === 'YouTube' ? (
+                          <>
+                            <img src={youtubeIcon} alt="YouTube" className="esports-link-icon" />
+                            <span>{link.type}</span>
+                          </>
+                        ) : link.type === 'Instagram' ? (
+                          <>
+                            <img src={instagramIcon} alt="Instagram" className="esports-link-icon" />
+                            <span>{link.type}</span>
+                          </>
+                        ) : (
+                          <span>{link.type}</span>
+                        )}
                         <span>→</span>
                       </a>
                     ))}
