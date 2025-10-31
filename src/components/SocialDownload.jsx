@@ -339,29 +339,31 @@ const SocialDownload = () => {
           </div>
         )}
 
-        {/* Quick Open: open new tab with youtube -> yout transformation */}
-        <div className="url-input-section" style={{ marginTop: '16px' }}>
-          <input
-            type="text"
-            value={quickOpenUrl}
-            onChange={(e) => setQuickOpenUrl(e.target.value)}
-            placeholder="Paste youtube.com URL here to open with 'ube' removed (yout...)"
-            className="url-input"
-            disabled={!QUICK_OPEN_ENABLED}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && QUICK_OPEN_ENABLED) {
-                handleQuickOpen()
-              }
-            }}
-          />
-          <button
-            onClick={handleQuickOpen}
-            className="download-btn"
-            disabled={!QUICK_OPEN_ENABLED}
-          >
-            🔗 Youtube Download(Low Quality Free)
-          </button>
-        </div>
+        {/* Quick Open: open new tab with youtube -> yout transformation - Only for YouTube */}
+        {selectedPlatform === 'youtube' && (
+          <div className="url-input-section" style={{ marginTop: '16px' }}>
+            <input
+              type="text"
+              value={quickOpenUrl}
+              onChange={(e) => setQuickOpenUrl(e.target.value)}
+              placeholder="Paste youtube.com URL here to open with 'ube' removed (yout...)"
+              className="url-input"
+              disabled={!QUICK_OPEN_ENABLED}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && QUICK_OPEN_ENABLED) {
+                  handleQuickOpen()
+                }
+              }}
+            />
+            <button
+              onClick={handleQuickOpen}
+              className="download-btn"
+              disabled={!QUICK_OPEN_ENABLED}
+            >
+              🔗 Youtube Download(Low Quality Free)
+            </button>
+          </div>
+        )}
 
         {videoInfo && (
           <div className="video-preview">
