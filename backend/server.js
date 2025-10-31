@@ -15,8 +15,11 @@ const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST']
-  }
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
 })
 const PORT = process.env.PORT || 3001
 
@@ -702,7 +705,21 @@ app.post('/api/confirm-payment', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Backend server is running' })
+  res.json({ 
+    status: 'ok', 
+    message: 'Backend server is running',
+    socketio: 'enabled',
+    timestamp: new Date().toISOString()
+  })
+})
+
+// Socket.io test endpoint
+app.get('/socket-test', (req, res) => {
+  res.json({ 
+    message: 'Socket.io server is configured',
+    socketio: 'ready',
+    connectedUsers: connectedUsers.size
+  })
 })
 
 // Helper functions

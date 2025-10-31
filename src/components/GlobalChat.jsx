@@ -13,8 +13,42 @@ const GlobalChat = () => {
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
-    // Connect to socket server
-    socketRef.current = io(BACKEND_URL)
+    // Connect to socket server with production-ready options
+    socketRef.current = io(BACKEND_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      timeout: 20000,
+      forceNew: false
+    })
+
+    // Handle connection errors
+    socketRef.current.on('connect_error', (error) => {
+      console.error('Socket.io connection error:', error)
+      setMessages(prev => [...prev, {
+        type: 'system',
+        message: `Connection error: ${error.message}. Trying to reconnect...`,
+        timestamp: new Date().toISOString()
+      }])
+    })
+
+    socketRef.current.on('connect', () => {
+      console.log('Socket.io connected:', socketRef.current.id)
+      setMessages(prev => {
+        // Remove any previous connection error messages
+        const filtered = prev.filter(msg => !msg.message.includes('Connection error'))
+        return filtered
+      })
+    })
+
+    socketRef.current.on('disconnect', (reason) => {
+      console.log('Socket.io disconnected:', reason)
+      if (reason === 'io server disconnect') {
+        // Server disconnected, need to reconnect manually
+        socketRef.current.connect()
+      }
+    })
 
     socketRef.current.on('userConnected', (data) => {
       setUserName(data.userName)
