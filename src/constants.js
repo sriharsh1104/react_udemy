@@ -21,6 +21,7 @@ export const pSites = [
 export const sportsLinks = [
   { name: 'CricBuzz', url: 'https://www.cricbuzz.com/', icon: '🏏' },
   { name: 'LiveScore', url: 'https://www.livescore.com/en/', icon: '⚽' },
+  { name: 'Football', url: 'https://onefootball.com/en/competition/premier-league-9/fixtures', icon: '⚽' },
   { name: 'Champions League', url: 'https://www.uefa.com/uefachampionsleague/standings/', icon: '🏆' }
 ]
 

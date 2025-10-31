@@ -8,6 +8,7 @@ import ERC20Contract from './components/ERC20Contract'
 import StripePayment from './components/StripePayment'
 import OTTLinks from './components/OTTLinks'
 import Esports from './components/Esports'
+import AIChat from './components/AIChat'
 import './App.css'
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
           {activeTab === 'social' && <SocialDownload />}
           {activeTab === 'ott' && <OTTLinks />}
           {activeTab === 'esports' && <Esports />}
+          {activeTab === 'ai' && <AIChat />}
           {activeTab === 'contract' && <ERC20Contract />}
           {activeTab === 'stripe' && <StripePayment />}
         </div>

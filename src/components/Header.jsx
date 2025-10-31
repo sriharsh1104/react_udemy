@@ -42,6 +42,12 @@ const Header = ({ activeTab, onTabChange }) => {
           >
             🎮 Esports
           </button>
+          <button
+            className={`tab ${activeTab === 'ai' ? 'active' : ''}`}
+            onClick={() => onTabChange('ai')}
+          >
+            🤖 AI Chat
+          </button>
         </nav>
       </div>
     </div>
