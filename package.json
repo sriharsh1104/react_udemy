@@ -5,8 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "vite --mode development",
+    "dev:stage": "vite --mode stage",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:stage": "vite build --mode stage",
+    "build:prod": "vite build --mode production",
+    "preview": "vite preview",
+    "preview:stage": "vite preview --mode stage"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.10",

@@ -23,8 +23,19 @@ const io = new Server(server, {
 })
 const PORT = process.env.PORT || 3001
 
-// Middleware
-app.use(cors())
+// Middleware - CORS Configuration
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: false,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}))
+
+// Handle preflight requests explicitly
+app.options('*', cors())
+
 app.use(express.json())
 app.use('/downloads', express.static(path.join(__dirname, 'downloads')))
 
