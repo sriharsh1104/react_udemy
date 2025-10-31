@@ -571,8 +571,38 @@
 }
 
 @media (max-width: 768px) {
+  .upload-section {
+    min-height: 50vh;
+  }
+
   .upload-area {
     padding: 40px 20px;
+    max-width: 100%;
+  }
+
+  .upload-area h2 {
+    font-size: 1.5rem;
+  }
+
+  .upload-icon {
+    font-size: 3rem;
+  }
+
+  .editor-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+
+  .pdf-viewer-container {
+    min-height: 400px;
+    padding: 15px;
+  }
+
+  .editor-sidebar {
+    position: relative;
+    top: 0;
+    max-height: none;
   }
 
   .pdf-iframe {
@@ -581,6 +611,42 @@
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .page-controls {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .upload-area {
+    padding: 30px 15px;
+  }
+
+  .upload-area h2 {
+    font-size: 1.3rem;
+  }
+
+  .upload-description {
+    font-size: 0.9rem;
+  }
+
+  .pdf-viewer-container {
+    min-height: 300px;
+    padding: 10px;
+  }
+
+  .editor-sidebar {
+    padding: 15px;
+  }
+
+  .edit-form {
+    padding: 15px;
+  }
+
+  .edits-list {
+    margin-bottom: 15px;
   }
 }
 

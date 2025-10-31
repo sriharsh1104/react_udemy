@@ -303,6 +303,88 @@
   transform: translateX(2px);
 }
 
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .ott {
+    gap: 16px;
+  }
+
+  .ott-title {
+    font-size: 20px;
+  }
+
+  .ott-subtitle {
+    font-size: 15px;
+  }
+
+  .ott-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .ott-card {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .ott-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .ott-icon-emoji {
+    font-size: 18px;
+  }
+
+  .ott-name {
+    font-size: 0.95rem;
+    word-break: break-word;
+  }
+
+  /* Casters grid mobile */
+  .casters-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .caster-card {
+    padding: 16px;
+  }
+
+  .caster-name {
+    font-size: 1.05rem;
+  }
+
+  /* Esports dropdown mobile */
+  .esports-links-dropdown {
+    left: -8px;
+    right: -8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ott-grid {
+    gap: 10px;
+  }
+
+  .ott-card {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .ott-title {
+    font-size: 18px;
+  }
+
+  .ott-subtitle {
+    font-size: 14px;
+  }
+
+  .ott-name {
+    font-size: 0.9rem;
+  }
+}
+
 
 
 

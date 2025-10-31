@@ -464,12 +464,25 @@
     font-size: 1.5rem;
   }
 
+  .connection-methods {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .connection-btn {
+    width: 100%;
+  }
+
   .wallet-info {
     flex-direction: column;
     gap: 10px;
   }
 
   .functions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .info-grid {
     grid-template-columns: 1fr;
   }
 
@@ -480,5 +493,35 @@
   .unity-endpoints code {
     display: block;
     margin: 5px 0;
+    word-break: break-all;
+  }
+
+  .address-input {
+    font-size: 0.9rem;
+    word-break: break-all;
+  }
+}
+
+@media (max-width: 480px) {
+  .contract-container {
+    padding: 15px 10px;
+  }
+
+  .contract-title {
+    font-size: 1.3rem;
+  }
+
+  .wallet-section {
+    padding: 20px 15px;
+  }
+
+  .contract-setup,
+  .contract-info,
+  .contract-functions {
+    padding: 20px 15px;
+  }
+
+  .function-card {
+    padding: 15px;
   }
 }

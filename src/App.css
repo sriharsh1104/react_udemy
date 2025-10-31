@@ -21,7 +21,21 @@
 }
 
 @media (max-width: 768px) {
+  .app {
+    padding: 10px;
+  }
+
   .container {
     padding: 20px 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app {
+    padding: 8px;
+  }
+
+  .container {
+    padding: 16px 12px;
   }
 }

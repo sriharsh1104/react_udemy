@@ -273,10 +273,43 @@
 }
 
 @media (max-width: 768px) {
+  .converter-container {
+    gap: 20px;
+  }
+
   .video-player {
     max-height: 250px;
   }
+
   .trim-controls {
     grid-template-columns: 1fr;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .convert-button,
+  .compress-button {
+    width: 100%;
+  }
+
+  .converted-video {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .video-player {
+    max-height: 200px;
+  }
+
+  .action-buttons {
+    gap: 10px;
+  }
+
+  .conversion-stats {
+    flex-direction: column;
+    gap: 8px;
   }
 }

@@ -91,7 +91,7 @@ function OTTLinks() {
         </button>
       </div>
 
-      <h3 className="ott-subtitle"> P-site</h3>
+      <h3 className="ott-subtitle"> P-site(Download)</h3>
       <div className="ott-grid">
         {pSites.map((p) => (
           <a
