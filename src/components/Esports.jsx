@@ -30,6 +30,8 @@ function Esports() {
     return groups
   }, [])
 
+  const [hoveredOrg, setHoveredOrg] = useState(null)
+
   const getLinkType = (url) => {
     try {
       const u = new URL(url)
@@ -50,7 +52,7 @@ function Esports() {
       .trim()
   }
 
-  const renderGroup = (title, items) => (
+  const renderOfficialGroup = (title, items) => (
     items && items.length > 0 && (
       <>
         <h4 className="ott-subtitle">{title}</h4>
@@ -72,6 +74,60 @@ function Esports() {
     )
   )
 
+  const renderThirdPartyGroup = (title, items) => (
+    items && items.length > 0 && (
+      <>
+        <h4 className="ott-subtitle">{title}</h4>
+        <div className="ott-grid">
+          {items.map((org, idx) => {
+            const orgId = `${org.name}-${idx}`
+            const isHovered = hoveredOrg === orgId
+            const primaryLink = org.links?.[0] || { url: '#', type: 'Website' }
+            
+            return (
+              <div
+                key={orgId}
+                className="esports-org-card-wrapper"
+                onMouseEnter={() => setHoveredOrg(orgId)}
+                onMouseLeave={() => setHoveredOrg(null)}
+              >
+                <a
+                  href={primaryLink.url}
+                  className="ott-card esports-org-card"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span className="ott-name">{org.icon} {org.name}</span>
+                  <span className="ott-link">Visit →</span>
+                </a>
+                {isHovered && org.links && org.links.length > 1 && (
+                  <div 
+                    className="esports-links-dropdown"
+                    onMouseEnter={() => setHoveredOrg(orgId)}
+                    onMouseLeave={() => setHoveredOrg(null)}
+                  >
+                    {org.links.map((link, linkIdx) => (
+                      <a
+                        key={linkIdx}
+                        href={link.url}
+                        className="esports-link-item"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <span>{link.type}</span>
+                        <span>→</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </>
+    )
+  )
+
   return (
     <div className="ott">
       <h2 className="ott-title">Esports (India)</h2>
@@ -83,17 +139,17 @@ function Esports() {
 
       {subTab === 'official' && (
         <div>
-          {renderGroup('BGMI', officialByGame.BGMI)}
-          {renderGroup('Free Fire', officialByGame['Free Fire'])}
-          {renderGroup('Other', officialByGame.Other)}
+          {renderOfficialGroup('BGMI', officialByGame.BGMI)}
+          {renderOfficialGroup('Free Fire', officialByGame['Free Fire'])}
+          {renderOfficialGroup('Other', officialByGame.Other)}
         </div>
       )}
 
       {subTab === 'third' && (
         <div>
-          {renderGroup('BGMI', thirdPartyByGame.BGMI)}
-          {renderGroup('Free Fire', thirdPartyByGame['Free Fire'])}
-          {renderGroup('Other', thirdPartyByGame.Other)}
+          {renderThirdPartyGroup('BGMI', thirdPartyByGame.BGMI)}
+          {renderThirdPartyGroup('Free Fire', thirdPartyByGame['Free Fire'])}
+          {renderThirdPartyGroup('Other', thirdPartyByGame.Other)}
         </div>
       )}
     </div>

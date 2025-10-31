@@ -76,6 +76,85 @@
   flex-shrink: 0;
 }
 
+/* Esports Organization Card with Hover Dropdown */
+.esports-org-card-wrapper {
+  position: relative;
+  padding-bottom: 8px;
+}
+
+.esports-org-card-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 12px;
+  z-index: 99;
+  pointer-events: auto;
+}
+
+.esports-links-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: linear-gradient(180deg, rgba(30, 30, 40, 0.98), rgba(20, 20, 30, 0.98));
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: fadeInDown 0.2s ease;
+  pointer-events: auto;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.esports-link-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.esports-link-item:hover {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+  transform: translateX(2px);
+}
+
+.esports-link-item span:last-child {
+  color: #60a5fa;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.esports-link-item:hover span:last-child {
+  opacity: 1;
+}
+
 
 
 

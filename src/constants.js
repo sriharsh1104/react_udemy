@@ -34,8 +34,44 @@ export const esportsOfficialLinks = [
 ]
 
 export const esportsThirdPartyLinks = [
-  { name: 'NODWIN Gaming', url: 'https://www.youtube.com/@NODWINGaming', icon: '🏟️', games: ['BGMI'] },
-  { name: 'Lidoma Esports', url: 'https://www.youtube.com/@LidomaAsia', icon: '🎯', games: [ 'Free Fire'] },
-  { name: 'Skyesports', url: 'http://youtube.com/@skyesportsgaming', icon: '🎮', games: ['BGMI'] },
-  { name: 'Upthrust Esports', url: 'https://www.youtube.com/@upthrustesports', icon: '🚀', games: ['BGMI'] }
+  {
+    name: 'NODWIN Gaming',
+    icon: '🏟️',
+    games: ['BGMI'],
+    links: [
+      { type: 'Website', url: 'https://nodwingaming.com/' },
+      { type: 'YouTube', url: 'https://www.youtube.com/@NODWINGaming' },
+      { type: 'Instagram', url: 'https://www.instagram.com/nodwingaming/?hl=en' }
+    ]
+  },
+  {
+    name: 'Skyesports',
+    icon: '🎮',
+    games: ['BGMI'],
+    links: [
+      { type: 'Website', url: 'https://skyesports.in/' },
+      { type: 'YouTube', url: 'http://youtube.com/@skyesportsgaming' },
+      { type: 'Instagram', url: 'https://www.instagram.com/skyesportsgaming/?hl=en' }
+    ]
+  },
+  {
+    name: 'Upthrust Esports',
+    icon: '🚀',
+    games: ['BGMI'],
+    links: [
+      { type: 'Website', url: 'https://www.upthrustesports.com/' },
+      { type: 'YouTube', url: 'https://www.youtube.com/@upthrustesports' },
+      { type: 'Instagram', url: 'https://www.instagram.com/upthrust_esports/?hl=en' }
+    ]
+  },
+  {
+    name: 'Lidoma Esports',
+    icon: '🎯',
+    games: ['Free Fire'],
+    links: [
+      { type: 'Website', url: 'https://lidoma.com/' },
+      { type: 'YouTube', url: 'https://www.youtube.com/@LidomaAsia' },
+      { type: 'Instagram', url: 'https://www.instagram.com/lidoma.asia/?hl=en' }
+    ]
+  }
 ]
