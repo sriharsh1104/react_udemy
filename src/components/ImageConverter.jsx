@@ -8,6 +8,9 @@ const ImageConverter = () => {
   const [isConverting, setIsConverting] = useState(false)
   const [croppedImage, setCroppedImage] = useState(null)
   const [downloadUrl, setDownloadUrl] = useState(null)
+  const [isSvgInput, setIsSvgInput] = useState(false)
+  const [svgRaw, setSvgRaw] = useState('')
+  const [svgCode, setSvgCode] = useState('')
   const [isCropMode, setIsCropMode] = useState(false)
   const [cropData, setCropData] = useState({ x: 0, y: 0, width: 0, height: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -19,6 +22,7 @@ const ImageConverter = () => {
   const [resizeHeight, setResizeHeight] = useState('')
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true)
   const [previewUrl, setPreviewUrl] = useState(null)
+  const [iconSize, setIconSize] = useState(24)
   const canvasRef = useRef(null)
   const previewCanvasRef = useRef(null)
   const imageRef = useRef(null)
@@ -28,8 +32,40 @@ const ImageConverter = () => {
     { value: 'jpeg', label: 'JPEG' },
     { value: 'png', label: 'PNG' },
     { value: 'webp', label: 'WebP' },
-    { value: 'bmp', label: 'BMP' }
+    { value: 'bmp', label: 'BMP' },
+    { value: 'svg', label: 'SVG' }
   ]
+
+  const normalizeSvgForIcon = (svgText, sizePx, fallbackViewBox) => {
+    try {
+      const size = Math.max(8, Math.min(512, Number(sizePx) || 24))
+      let text = svgText
+      if (!/<svg[\s\S]*?>/i.test(text)) return svgText
+      const widthMatch = text.match(/\bwidth\s*=\s*"(\d+(?:\.\d+)?)"/i)
+      const heightMatch = text.match(/\bheight\s*=\s*"(\d+(?:\.\d+)?)"/i)
+      const viewBoxMatch = text.match(/\bviewBox\s*=\s*"([^"]+)"/i)
+      let viewBox = viewBoxMatch ? viewBoxMatch[1] : ''
+      if (!viewBox) {
+        const w = Number(widthMatch?.[1] || fallbackViewBox?.w || 24)
+        const h = Number(heightMatch?.[1] || fallbackViewBox?.h || 24)
+        viewBox = `0 0 ${Math.max(1, Math.round(w))} ${Math.max(1, Math.round(h))}`
+        text = text.replace(/<svg(\s[^>]*)?>/i, (m) => m.replace('>', ` viewBox="${viewBox}">`))
+      }
+      if (/\bwidth\s*=/.test(text)) {
+        text = text.replace(/\bwidth\s*=\s*"[^"]*"/i, `width="${size}"`)
+      } else {
+        text = text.replace(/<svg(\s[^>]*)?>/i, (m) => m.replace('>', ` width="${size}">`))
+      }
+      if (/\bheight\s*=/.test(text)) {
+        text = text.replace(/\bheight\s*=\s*"[^"]*"/i, `height="${size}` + `"`)
+      } else {
+        text = text.replace(/<svg(\s[^>]*)?>/i, (m) => m.replace('>', ` height="${size}">`))
+      }
+      return text
+    } catch {
+      return svgText
+    }
+  }
 
   // Live preview when dimensions change
   useEffect(() => {
@@ -81,6 +117,21 @@ const ImageConverter = () => {
         img.src = event.target.result
       }
       reader.readAsDataURL(file)
+
+      if (file.type === 'image/svg+xml') {
+        setIsSvgInput(true)
+        const textReader = new FileReader()
+        textReader.onload = (ev) => {
+          const raw = String(ev.target.result || '')
+          setSvgRaw(raw)
+          setSvgCode(normalizeSvgForIcon(raw, iconSize, { w: originalDimensions.width, h: originalDimensions.height }))
+        }
+        textReader.readAsText(file)
+      } else {
+        setIsSvgInput(false)
+        setSvgRaw('')
+        setSvgCode('')
+      }
     } else {
       alert('Please upload a valid image file')
     }
@@ -103,14 +154,63 @@ const ImageConverter = () => {
         img.src = event.target.result
       }
       reader.readAsDataURL(file)
+      if (file.type === 'image/svg+xml') {
+        setIsSvgInput(true)
+        const textReader = new FileReader()
+        textReader.onload = (ev) => {
+          const raw = String(ev.target.result || '')
+          setSvgRaw(raw)
+          setSvgCode(normalizeSvgForIcon(raw, iconSize, { w: originalDimensions.width, h: originalDimensions.height }))
+        }
+        textReader.readAsText(file)
+      } else {
+        setIsSvgInput(false)
+        setSvgRaw('')
+        setSvgCode('')
+      }
     }
   }
+
+  useEffect(() => {
+    if (isSvgInput && svgRaw) {
+      setSvgCode(normalizeSvgForIcon(svgRaw, iconSize, { w: originalDimensions.width, h: originalDimensions.height }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iconSize])
 
   const convertImage = () => {
     if (!uploadedImage) return
 
     setIsConverting(true)
     
+    // SVG output handling
+    if (selectedFormat === 'svg') {
+      const img = new Image()
+      img.onload = () => {
+        const width = img.width
+        const height = img.height
+        let outSvg = ''
+
+        if (isSvgInput && svgCode) {
+          outSvg = normalizeSvgForIcon(svgCode, iconSize, { w: width, h: height })
+        } else {
+          // Wrap raster as embedded image inside SVG
+          const href = uploadedImage
+          const baseSvg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <image href="${href}" width="${width}" height="${height}" />\n</svg>`
+          outSvg = normalizeSvgForIcon(baseSvg, iconSize, { w: width, h: height })
+        }
+
+        const blob = new Blob([outSvg], { type: 'image/svg+xml' })
+        const url = URL.createObjectURL(blob)
+        setSvgCode(outSvg)
+        setDownloadUrl(url)
+        setCroppedImage(url)
+        setIsConverting(false)
+      }
+      img.src = uploadedImage
+      return
+    }
+
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     const img = new Image()
@@ -377,6 +477,19 @@ const ImageConverter = () => {
       ctx.imageSmoothingQuality = 'high'
       ctx.drawImage(img, 0, 0, width, height)
 
+      if (selectedFormat === 'svg') {
+        const dataUrl = canvas.toDataURL('image/png')
+        const baseSvg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <image href="${dataUrl}" width="${width}" height="${height}" />\n</svg>`
+        const outSvg = normalizeSvgForIcon(baseSvg, iconSize, { w: width, h: height })
+        const blob = new Blob([outSvg], { type: 'image/svg+xml' })
+        const url = URL.createObjectURL(blob)
+        setSvgCode(outSvg)
+        setDownloadUrl(url)
+        setCroppedImage(url)
+        setIsConverting(false)
+        return
+      }
+
       const mimeType = getMimeType(selectedFormat)
       canvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob)
@@ -454,6 +567,19 @@ const ImageConverter = () => {
       
       ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight)
       
+      if (selectedFormat === 'svg') {
+        const dataUrl = canvas.toDataURL('image/png')
+        const baseSvg = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${cropWidth}\" height=\"${cropHeight}\" viewBox=\"0 0 ${cropWidth} ${cropHeight}\">\n  <image href=\"${dataUrl}\" width=\"${cropWidth}\" height=\"${cropHeight}\" />\n</svg>`
+        const outSvg = normalizeSvgForIcon(baseSvg, iconSize, { w: cropWidth, h: cropHeight })
+        const blob = new Blob([outSvg], { type: 'image/svg+xml' })
+        const url = URL.createObjectURL(blob)
+        setSvgCode(outSvg)
+        setDownloadUrl(url)
+        setCroppedImage(url)
+        setIsCropMode(false)
+        return
+      }
+
       const mimeType = getMimeType(selectedFormat)
       canvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob)
@@ -517,6 +643,10 @@ const ImageConverter = () => {
     setIsCropMode(false)
     setResizeWidth('')
     setResizeHeight('')
+    setIsSvgInput(false)
+    setSvgRaw('')
+    setSvgCode('')
+    setIconSize(24)
   }
 
   return (
@@ -557,6 +687,37 @@ const ImageConverter = () => {
                   <p className="image-dimensions">
                     Size: {originalDimensions.width} × {originalDimensions.height} pixels
                   </p>
+                )}
+                {isSvgInput && !isCropMode && (
+                  <div className="svg-code-panel">
+                    <h4>SVG Code</h4>
+                    <textarea
+                      value={svgCode}
+                      readOnly
+                      className="svg-code-textarea"
+                      rows={8}
+                    />
+                    <div className="svg-actions">
+                      <button
+                        onClick={async () => { try { await navigator.clipboard.writeText(svgCode) } catch {} }}
+                        className="action-button"
+                      >Copy Code</button>
+                      <button
+                        onClick={() => {
+                          const blob = new Blob([svgCode], { type: 'image/svg+xml' })
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = 'image.svg'
+                          document.body.appendChild(a)
+                          a.click()
+                          document.body.removeChild(a)
+                          URL.revokeObjectURL(url)
+                        }}
+                        className="download-button"
+                      >Download SVG</button>
+                    </div>
+                  </div>
                 )}
                 {isCropMode && (
                   <div className="crop-controls">
@@ -626,6 +787,25 @@ const ImageConverter = () => {
               
               {!isCropMode && (
               <div className="controls-section">
+                {(selectedFormat === 'svg' || isSvgInput) && (
+                  <div className="icon-size-section">
+                    <h4>Icon Size</h4>
+                    <div className="resize-inputs">
+                      <div className="input-group">
+                        <label htmlFor="icon-size">Size (px):</label>
+                        <input
+                          id="icon-size"
+                          type="number"
+                          min="8"
+                          max="512"
+                          value={iconSize}
+                          onChange={(e) => setIconSize(parseInt(e.target.value) || 24)}
+                          className="dimension-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="resize-section">
                   <h4>Resize Image (Pixels)</h4>
                   <div className="resize-inputs">
@@ -728,6 +908,24 @@ const ImageConverter = () => {
                   Download Image
                 </button>
               </div>
+              {selectedFormat === 'svg' && svgCode && (
+                <div className="svg-code-panel">
+                  <h4>SVG Code</h4>
+                  <textarea
+                    value={svgCode}
+                    readOnly
+                    className="svg-code-textarea"
+                    rows={10}
+                  />
+                  <div className="svg-actions">
+                    <button
+                      onClick={async () => { try { await navigator.clipboard.writeText(svgCode) } catch {} }}
+                      className="action-button"
+                    >Copy Code</button>
+                    <button onClick={handleDownload} className="download-button">Download SVG</button>
+                  </div>
+                </div>
+              )}
               <button onClick={handleReset} className="reset-button">
                 Upload Another Image
               </button>
