@@ -29,8 +29,8 @@ export const esportsOfficialLinks = [
   { name: 'KRAFTON India Esports', url: 'https://www.youtube.com/@KraftonIndiaEsports', icon: '🇮🇳' },
   { name: 'Free Fire (Official)', url: 'https://ff.garena.com/en', icon: '🔥' },
   { name: 'Free Fire India Official', url: 'https://www.youtube.com/@FreeFireIndiaOfficial', icon: '🔥' },
-  { name: 'BGMI Instagram', url: 'https://www.instagram.com/battlegroundsmobilein_official/?hl=en', icon: '📸' },
-  { name: 'Free Fire India Instagram', url: 'https://www.instagram.com/freefireindiaofficial/', icon: '📸' }
+  { name: 'BGMI', url: 'https://www.instagram.com/battlegroundsmobilein_official/?hl=en', icon: '📸' },
+  { name: 'Free Fire India', url: 'https://www.instagram.com/freefireindiaofficial/', icon: '📸' }
 ]
 
 export const esportsThirdPartyLinks = [

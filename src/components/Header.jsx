@@ -4,7 +4,7 @@ const Header = ({ activeTab, onTabChange }) => {
   return (
     <div className="header">
       <div className="header-content">
-        <h1 className="header-title">Media Converter</h1>
+        <h1 className="header-title">All in One Toolbox</h1>
         <nav className="tabs">
           <button
             className={`tab ${activeTab === 'video' ? 'active' : ''}`}
