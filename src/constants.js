@@ -30,7 +30,15 @@ export const esportsOfficialLinks = [
   { name: 'Free Fire (Official)', url: 'https://ff.garena.com/en', icon: '🔥' },
   { name: 'Free Fire India Official', url: 'https://www.youtube.com/@FreeFireIndiaOfficial', icon: '🔥' },
   { name: 'BGMI', url: 'https://www.instagram.com/battlegroundsmobilein_official/?hl=en', icon: '📸' },
-  { name: 'Free Fire India', url: 'https://www.instagram.com/freefireindiaofficial/', icon: '📸' }
+  { name: 'Free Fire India', url: 'https://www.instagram.com/freefireindiaofficial/', icon: '📸' },
+  // Clash of Clans
+  { name: 'Clash of Clans (Official)', url: 'https://supercell.com/en/games/clashofclans/', icon: '🛡️' },
+  { name: 'Clash of Clans YouTube', url: 'https://www.youtube.com/@ClashOfClans', icon: '▶️' },
+  { name: 'Clash of Clans Instagram', url: 'https://www.instagram.com/clashofclans/?hl=en', icon: '📸' },
+  // Call of Duty Mobile
+  { name: 'Call of Duty: Mobile (Official)', url: 'https://www.callofduty.com/mobile', icon: '🪖' },
+  { name: 'Call of Duty: Mobile YouTube', url: 'https://www.youtube.com/@callofdutymobile', icon: '▶️' },
+  { name: 'Call of Duty: Mobile Instagram', url: 'https://www.instagram.com/callofdutymobile/?hl=en', icon: '📸' }
 ]
 
 export const esportsThirdPartyLinks = [

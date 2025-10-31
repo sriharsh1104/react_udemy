@@ -12,11 +12,16 @@ function Esports() {
     const groups = {
       BGMI: [],
       'Free Fire': [],
+      'Clash of Clans': [],
+      'Call of Duty': [],
       Other: [],
     }
     for (const item of esportsOfficialLinks) {
-      if (item.name.toLowerCase().includes('free fire')) groups['Free Fire'].push(item)
-      else if (item.name.toLowerCase().includes('krafton') || item.name.toLowerCase().includes('bgmi')) groups.BGMI.push(item)
+      const name = item.name.toLowerCase()
+      if (name.includes('free fire')) groups['Free Fire'].push(item)
+      else if (name.includes('krafton') || name.includes('bgmi')) groups.BGMI.push(item)
+      else if (name.includes('clash of clans') || name.includes('coc')) groups['Clash of Clans'].push(item)
+      else if (name.includes('call of duty') || name.includes('cod')) groups['Call of Duty'].push(item)
       else groups.Other.push(item)
     }
     return groups
@@ -87,9 +92,12 @@ function Esports() {
 
   const getDisplayName = (name) => {
     // Remove any form of "Official" including within parentheses
+    // Also remove "YouTube" and "Instagram" from names
     return name
       .replace(/\(\s*official\s*\)/gi, '')
       .replace(/\bofficial\b/gi, '')
+      .replace(/\byoutube\b/gi, '')
+      .replace(/\binstagram\b/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim()
   }
@@ -119,8 +127,7 @@ function Esports() {
                 ) : (
                   <img src={websiteIcon} alt="Website" className="ott-icon" />
                 )}
-                <span className="ott-name">{getDisplayName(p.name)} ({linkType})</span>
-                <span className="ott-link">Visit →</span>
+                <span className="ott-name">{getDisplayName(p.name)}</span>
               </a>
             )
           })}
@@ -211,6 +218,8 @@ function Esports() {
         <div>
           {renderOfficialGroup('BGMI', officialByGame.BGMI)}
           {renderOfficialGroup('Free Fire', officialByGame['Free Fire'])}
+          {renderOfficialGroup('Clash of Clans', officialByGame['Clash of Clans'])}
+          {renderOfficialGroup('Call of Duty', officialByGame['Call of Duty'])}
           {renderOfficialGroup('Other', officialByGame.Other)}
         </div>
       )}
