@@ -164,15 +164,24 @@ const SocialDownload = () => {
       }
 
       // First, get video info (like ytdown.to approach)
-      const infoResponse = await fetch(`${BACKEND_URL}/api/formats`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: videoUrl
+      let infoResponse
+      try {
+        infoResponse = await fetch(`${BACKEND_URL}/api/formats`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: videoUrl
+          })
         })
-      })
+      } catch (fetchError) {
+        // Handle CORS or network errors
+        if (fetchError.message.includes('CORS') || fetchError.message.includes('Failed to fetch')) {
+          throw new Error(`CORS Error: Cannot connect to backend. Please check if ${BACKEND_URL} is accessible.`)
+        }
+        throw new Error(`Network Error: ${fetchError.message}`)
+      }
       
       const infoData = await infoResponse.json()
       
@@ -197,17 +206,26 @@ const SocialDownload = () => {
       })
       
       // Now download with the best available format
-      const response = await fetch(`${BACKEND_URL}/api/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: videoUrl,
-          platform: platformToUse,
-          format: null // Use yt-dlp's best format selection
+      let response
+      try {
+        response = await fetch(`${BACKEND_URL}/api/download`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: videoUrl,
+            platform: platformToUse,
+            format: null // Use yt-dlp's best format selection
+          })
         })
-      })
+      } catch (fetchError) {
+        // Handle CORS or network errors for download
+        if (fetchError.message.includes('CORS') || fetchError.message.includes('Failed to fetch')) {
+          throw new Error(`CORS Error: Cannot connect to backend. Please check if ${BACKEND_URL} is accessible.`)
+        }
+        throw new Error(`Network Error: ${fetchError.message}`)
+      }
 
       const data = await response.json()
 
@@ -341,28 +359,28 @@ const SocialDownload = () => {
 
         {/* Quick Open: open new tab with youtube -> yout transformation - Only for YouTube */}
         {selectedPlatform === 'youtube' && (
-          <div className="url-input-section" style={{ marginTop: '16px' }}>
-            <input
-              type="text"
-              value={quickOpenUrl}
-              onChange={(e) => setQuickOpenUrl(e.target.value)}
-              placeholder="Paste youtube.com URL here to open with 'ube' removed (yout...)"
-              className="url-input"
-              disabled={!QUICK_OPEN_ENABLED}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && QUICK_OPEN_ENABLED) {
-                  handleQuickOpen()
-                }
-              }}
-            />
-            <button
-              onClick={handleQuickOpen}
-              className="download-btn"
-              disabled={!QUICK_OPEN_ENABLED}
-            >
-              🔗 Youtube Download(Low Quality Free)
-            </button>
-          </div>
+        <div className="url-input-section" style={{ marginTop: '16px' }}>
+          <input
+            type="text"
+            value={quickOpenUrl}
+            onChange={(e) => setQuickOpenUrl(e.target.value)}
+            placeholder="Paste youtube.com URL here to open with 'ube' removed (yout...)"
+            className="url-input"
+            disabled={!QUICK_OPEN_ENABLED}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && QUICK_OPEN_ENABLED) {
+                handleQuickOpen()
+              }
+            }}
+          />
+          <button
+            onClick={handleQuickOpen}
+            className="download-btn"
+            disabled={!QUICK_OPEN_ENABLED}
+          >
+            🔗 Youtube Download(Low Quality Free)
+          </button>
+        </div>
         )}
 
         {videoInfo && (

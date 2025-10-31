@@ -1,5 +1,6 @@
 // Backend API Configuration
 // Priority: .env.local > .env > default production URL
+// For Vercel: Set VITE_BACKEND_URL environment variable in Vercel dashboard
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://react-udemy-r43h.onrender.com'
 
 export const platforms = [
