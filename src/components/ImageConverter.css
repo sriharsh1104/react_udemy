@@ -397,20 +397,7 @@
   font-size: 1rem;
 }
 
-.format-select {
-  padding: 12px 15px;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-  background: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.format-select:focus {
-  outline: none;
-  border-color: #667eea;
-}
+/* .format-select styles moved to PremiumDropdown.css */
 
 .button-group {
   display: flex;
@@ -438,11 +425,57 @@
   color: white;
   border: none;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  position: relative;
+  overflow: hidden;
 }
 
 .action-button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.convert-btn-shimmer {
+  position: relative;
+}
+
+.convert-btn-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.convert-btn-shimmer:hover::before {
+  left: 100%;
+}
+
+.convert-btn-shimmer:hover {
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6),
+              0 0 0 3px rgba(102, 126, 234, 0.3),
+              0 0 20px rgba(102, 126, 234, 0.5);
+  animation: boundary-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes boundary-pulse {
+  0%, 100% {
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6),
+                0 0 0 3px rgba(102, 126, 234, 0.3),
+                0 0 20px rgba(102, 126, 234, 0.5);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6),
+                0 0 0 4px rgba(102, 126, 234, 0.5),
+                0 0 30px rgba(102, 126, 234, 0.7);
+  }
 }
 
 .action-button:disabled {

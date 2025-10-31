@@ -79,7 +79,6 @@ function OTTLinks() {
               )
             )}
             <span className="ott-name">{p.name}</span>
-            <span className="ott-link">Visit →</span>
           </a>
         ))}
         <button
@@ -89,7 +88,6 @@ function OTTLinks() {
         >
           <img src={youtubeIcon} alt="YouTube" className="ott-icon" />
           <span className="ott-name">YouTube (Ads Free)</span>
-          <span className="ott-link">Open →</span>
         </button>
       </div>
 
@@ -104,7 +102,6 @@ function OTTLinks() {
             rel="noopener noreferrer"
           >
             <span className="ott-name">{p.name}</span>
-            <span className="ott-link">Visit →</span>
           </a>
         ))}
       </div>
@@ -120,7 +117,6 @@ function OTTLinks() {
             rel="noopener noreferrer"
           >
             <span className="ott-name">{p.icon} {p.name}</span>
-            <span className="ott-link">Visit →</span>
           </a>
         ))}
       </div>

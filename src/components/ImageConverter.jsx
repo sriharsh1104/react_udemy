@@ -880,13 +880,13 @@ const ImageConverter = () => {
                   </div>
 
                   <div className="button-group">
-                    <button onClick={startCrop} className="action-button">
+                    <button onClick={startCrop} className="action-button primary">
                       🖼️ Crop Image
                     </button>
                     <button
                       onClick={convertImage}
                       disabled={isConverting}
-                      className="action-button primary"
+                      className="action-button primary convert-btn-shimmer"
                     >
                       {isConverting ? 'Converting...' : `Convert to ${selectedFormat.toUpperCase()}`}
                     </button>
