@@ -5,7 +5,6 @@ import ImageConverter from './components/ImageConverter'
 import PDFEditor from './components/PDFEditor'
 import SocialDownload from './components/SocialDownload'
 import ERC20Contract from './components/ERC20Contract'
-import StripePayment from './components/StripePayment'
 import OTTLinks from './components/OTTLinks'
 import Esports from './components/Esports'
 import AIChat from './components/AIChat'
@@ -33,7 +32,6 @@ function App() {
           {activeTab === 'esports' && <Esports />}
           {activeTab === 'ai' && <AIChat />}
           {activeTab === 'contract' && <ERC20Contract />}
-          {activeTab === 'stripe' && <StripePayment />}
         </div>
       </div>
       <GlobalChat />
