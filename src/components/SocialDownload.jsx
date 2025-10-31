@@ -3,7 +3,6 @@ import './SocialDownload.css'
 
 const SocialDownload = () => {
   const QUICK_OPEN_ENABLED = true
-  const MAIN_DOWNLOAD_ENABLED = false
   const [videoUrl, setVideoUrl] = useState('')
   const [selectedPlatform, setSelectedPlatform] = useState('youtube')
   const [isDownloading, setIsDownloading] = useState(false)
@@ -113,8 +112,9 @@ const SocialDownload = () => {
   }
 
   const handleDownload = async () => {
-    if (!MAIN_DOWNLOAD_ENABLED) {
-      setError('Downloads are temporarily disabled')
+    // Disable main download only for YouTube
+    if (selectedPlatform === 'youtube') {
+      setError('YouTube downloads are disabled. Please use the "Youtube Download(Low Quality Free)" option below.')
       return
     }
     if (!videoUrl.trim()) {
@@ -125,7 +125,13 @@ const SocialDownload = () => {
     // Auto-detect platform if not already detected
     const detectedPlatform = detectPlatform(videoUrl)
     if (!detectedPlatform) {
-      setError('Unsupported platform. Supported platforms: YouTube, Instagram, Twitter/X, TikTok, Facebook, Reddit, Snapchat, Pinterest')
+      setError('Unsupported platform. Supported platforms: YouTube, Instagram, Twitter/X, TikTok, Facebook, Reddit, Snapchat')
+      return
+    }
+
+    // Disable main download for YouTube (use quick open option instead)
+    if (detectedPlatform === 'youtube') {
+      setError('YouTube downloads are disabled. Please use the "Youtube Download(Low Quality Free)" option below.')
       return
     }
 
@@ -307,9 +313,9 @@ const SocialDownload = () => {
                 setError('') // Clear previous errors
               }
             }}
-            placeholder={MAIN_DOWNLOAD_ENABLED ? "Paste any social media link here (YouTube, Instagram, Twitter, TikTok, Facebook, etc.)" : "Main downloader is disabled"}
+            placeholder={selectedPlatform === 'youtube' ? "YouTube downloads disabled - use the below option instead" : "Paste any social media link here (Instagram, Twitter, TikTok, Facebook, etc.)"}
             className="url-input"
-            disabled={isDownloading || !MAIN_DOWNLOAD_ENABLED}
+            disabled={isDownloading || selectedPlatform === 'youtube'}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 handleDownload()
@@ -319,7 +325,7 @@ const SocialDownload = () => {
           
           <button
             onClick={handleDownload}
-            disabled={isDownloading || !MAIN_DOWNLOAD_ENABLED}
+            disabled={isDownloading || selectedPlatform === 'youtube'}
             className="download-btn"
           >
             {isDownloading ? '⏳ Processing...' : '⬇️ Download'}
@@ -338,11 +344,11 @@ const SocialDownload = () => {
             type="text"
             value={quickOpenUrl}
             onChange={(e) => setQuickOpenUrl(e.target.value)}
-            placeholder={QUICK_OPEN_ENABLED ? "Paste youtube.com URL here to open with 'ube' removed (yout...)" : "Quick Open is disabled"}
+            placeholder="Paste youtube.com URL here to open with 'ube' removed (yout...)"
             className="url-input"
             disabled={!QUICK_OPEN_ENABLED}
             onKeyPress={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && QUICK_OPEN_ENABLED) {
                 handleQuickOpen()
               }
             }}
