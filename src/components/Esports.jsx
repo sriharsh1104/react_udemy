@@ -54,6 +54,36 @@ function Esports() {
     }
   }
 
+  const getYouTubeLiveUrl = (url) => {
+    try {
+      const u = new URL(url)
+      if (u.hostname.includes('youtube.com')) {
+        // If it's a channel URL like /@channelname, redirect to /@channelname/live
+        if (u.pathname.startsWith('/@')) {
+          // Remove trailing slash if exists and add /live
+          const channelPath = u.pathname.replace(/\/$/, '')
+          return `https://www.youtube.com${channelPath}/live`
+        }
+        // If already has /live, return as is
+        if (u.pathname.includes('/live')) {
+          return url
+        }
+      }
+      return url
+    } catch (_) {
+      return url
+    }
+  }
+
+  const handleLinkClick = (e, url) => {
+    const linkType = getLinkType(url)
+    if (linkType === 'YouTube') {
+      e.preventDefault()
+      const liveUrl = getYouTubeLiveUrl(url)
+      window.open(liveUrl, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   const getDisplayName = (name) => {
     // Remove any form of "Official" including within parentheses
     return name
@@ -79,6 +109,7 @@ function Esports() {
                 className="ott-card"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => handleLinkClick(e, p.url)}
               >
                 {isYouTube ? (
                   <img src={youtubeIcon} alt="YouTube" className="ott-icon" />
@@ -119,6 +150,7 @@ function Esports() {
                   className="ott-card esports-org-card"
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => primaryLink.type === 'YouTube' && handleLinkClick(e, primaryLink.url)}
                 >
                   <span className="ott-name">{org.icon} {org.name}</span>
                   <span className="ott-link">Visit →</span>
@@ -136,6 +168,7 @@ function Esports() {
                         className="esports-link-item"
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => link.type === 'YouTube' && handleLinkClick(e, link.url)}
                       >
                         {link.type === 'YouTube' ? (
                           <>
