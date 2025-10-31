@@ -42,18 +42,6 @@ const Header = ({ activeTab, onTabChange }) => {
           >
             🎮 Esports
           </button>
-          <button
-            className={`tab ${activeTab === 'contract' ? 'active' : ''}`}
-            onClick={() => onTabChange('contract')}
-          >
-            🔗 ERC20 Contract
-          </button>
-          <button
-            className={`tab ${activeTab === 'stripe' ? 'active' : ''}`}
-            onClick={() => onTabChange('stripe')}
-          >
-            💳 Stripe Payment
-          </button>
         </nav>
       </div>
     </div>
