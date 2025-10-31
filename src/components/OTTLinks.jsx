@@ -1,15 +1,14 @@
+import { platforms, pSites, sportsLinks } from '../constants'
 import './OTTLinks.css'
+import netflixIcon from '../assets/icons/netflix.svg'
+import youtubeIcon from '../assets/icons/youtube.svg'
+import amazonIcon from '../assets/icons/amazon.svg'
+import hotstarIcon from '../assets/icons/hotstar.svg'
+import sonyLivIcon from '../assets/icons/sonyliv.jpeg'
+import zee5Icon from '../assets/icons/zee5.png'
+import fancodeIcon from '../assets/icons/fancode.png'
 
-const platforms = [
-  { name: 'Netflix', url: 'https://www.netflix.com/' },
-  { name: 'Amazon Prime Video', url: 'https://www.primevideo.com/' },
-  { name: 'JioHotstar', url: 'https://www.hotstar.com/' },
-  { name: 'Sony LIV', url: 'https://www.sonyliv.com/' },
-  { name: 'ZEE5', url: 'https://www.zee5.com/' },
-  { name: 'FanCode', url: 'https://www.fancode.com/' },
-  { name: 'YouTube', url: 'https://www.youtube.com/' },
-  
-]
+
 
 function extractYouTubeId(rawUrl) {
   try {
@@ -60,6 +59,23 @@ function OTTLinks() {
             target="_blank"
             rel="noopener noreferrer"
           >
+            {p.icon === 'svg' && p.name === 'Netflix' ? (
+              <img src={netflixIcon} alt={p.name} className="ott-icon" />
+            ) : p.icon === 'svg' && p.name === 'YouTube' ? (
+              <img src={youtubeIcon} alt={p.name} className="ott-icon" />
+            ) : p.icon === 'svg' && p.name === 'Amazon Prime' ? (
+              <img src={amazonIcon} alt={p.name} className="ott-icon" />
+            ) : p.icon === 'svg' && p.name === 'Hotstar' ? (
+              <img src={hotstarIcon} alt={p.name} className="ott-icon" />
+            ) : p.icon === 'svg' && p.name === 'Sony LIV' ? (
+              <img src={sonyLivIcon} alt={p.name} className="ott-icon" />
+            ) : p.icon === 'svg' && p.name === 'ZEE5' ? (
+              <img src={zee5Icon} alt={p.name} className="ott-icon" />
+            ) : p.icon === 'svg' && p.name === 'FanCode' ? (
+              <img src={fancodeIcon} alt={p.name} className="ott-icon" />
+            ) : (
+              p.icon && <span className="ott-icon-emoji">{p.icon}</span>
+            )}
             <span className="ott-name">{p.name}</span>
             <span className="ott-link">Visit →</span>
           </a>
@@ -69,6 +85,7 @@ function OTTLinks() {
           className="ott-card"
           onClick={openYouTubeNoCookie}
         >
+          <img src={youtubeIcon} alt="YouTube" className="ott-icon" />
           <span className="ott-name">YouTube (Ads Free)</span>
           <span className="ott-link">Open →</span>
         </button>
@@ -76,14 +93,7 @@ function OTTLinks() {
 
       <h3 className="ott-subtitle"> P-site</h3>
       <div className="ott-grid">
-        {[
-          { name: 'HdHub4u', url: 'https://hdhub4u.gd/' },
-          { name: 'WorldFree4u', url: 'https://worldfree4u.prof/' },
-          { name: 'FilmyZillaMoviez', url: 'https://filmyzillamoviez.com/' },
-          { name: 'IndexMovies', url: 'http://103.145.232.246/Data/movies/' },
-          { name: 'Movies4u', url: 'https://movies4u.sx/' },
-          // { name: 'Tab 6', url: 'https://example.com' }
-        ].map((p) => (
+        {pSites.map((p) => (
           <a
             key={p.name}
             href={p.url}
@@ -99,11 +109,7 @@ function OTTLinks() {
 
       <h3 className="ott-subtitle">Sports</h3>
       <div className="ott-grid">
-        {[
-          { name: 'CricBuzz', url: 'https://www.cricbuzz.com/', icon: '🏏' },
-          { name: 'LiveScore', url: 'https://www.livescore.com/en/', icon: '⚽' },
-          { name: 'Champions League', url: 'https://www.uefa.com/uefachampionsleague/', icon: '🏆' }
-        ].map((p) => (
+        {sportsLinks.map((p) => (
           <a
             key={p.name}
             href={p.url}
