@@ -74,7 +74,9 @@ function OTTLinks() {
             ) : p.icon === 'svg' && p.name === 'FanCode' ? (
               <img src={fancodeIcon} alt={p.name} className="ott-icon" />
             ) : (
-              p.icon && <span className="ott-icon-emoji">{p.icon}</span>
+              p.icon && p.icon !== 'svg' && (
+                <span className="ott-icon-emoji">{p.icon}</span>
+              )
             )}
             <span className="ott-name">{p.name}</span>
             <span className="ott-link">Visit →</span>
@@ -122,6 +124,8 @@ function OTTLinks() {
           </a>
         ))}
       </div>
+
+      {/* Esports moved to its own tab */}
     </div>
   )
 }

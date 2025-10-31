@@ -37,6 +37,12 @@ const Header = ({ activeTab, onTabChange }) => {
             📺 OTT / Content
           </button>
           <button
+            className={`tab ${activeTab === 'esports' ? 'active' : ''}`}
+            onClick={() => onTabChange('esports')}
+          >
+            🎮 Esports
+          </button>
+          <button
             className={`tab ${activeTab === 'contract' ? 'active' : ''}`}
             onClick={() => onTabChange('contract')}
           >

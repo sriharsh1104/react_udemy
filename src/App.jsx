@@ -7,6 +7,7 @@ import SocialDownload from './components/SocialDownload'
 import ERC20Contract from './components/ERC20Contract'
 import StripePayment from './components/StripePayment'
 import OTTLinks from './components/OTTLinks'
+import Esports from './components/Esports'
 import './App.css'
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
           {activeTab === 'pdf' && <PDFEditor />}
           {activeTab === 'social' && <SocialDownload />}
           {activeTab === 'ott' && <OTTLinks />}
+          {activeTab === 'esports' && <Esports />}
           {activeTab === 'contract' && <ERC20Contract />}
           {activeTab === 'stripe' && <StripePayment />}
         </div>
