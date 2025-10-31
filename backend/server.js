@@ -7,9 +7,18 @@ const fs = require('fs')
 const path = require('path')
 const { exec } = require('child_process')
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+const http = require('http')
+const { Server } = require('socket.io')
 
 const app = express()
-const PORT = 3001
+const server = http.createServer(app)
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+})
+const PORT = process.env.PORT || 3001
 
 // Middleware
 app.use(cors())
@@ -777,9 +786,75 @@ function extractPinterestId(url) {
   return null
 }
 
-app.listen(PORT, () => {
+// Socket.io connection handling
+const connectedUsers = new Map()
+
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id)
+  
+  // Generate random name for user
+  const randomName = generateRandomName()
+  connectedUsers.set(socket.id, { name: randomName, socketId: socket.id })
+  
+  // Send welcome message and user's name
+  socket.emit('userConnected', { 
+    userId: socket.id, 
+    userName: randomName,
+    connectedUsers: Array.from(connectedUsers.values())
+  })
+  
+  // Broadcast new user joined
+  socket.broadcast.emit('userJoined', {
+    userId: socket.id,
+    userName: randomName
+  })
+  
+  // Handle incoming messages
+  socket.on('sendMessage', (data) => {
+    const user = connectedUsers.get(socket.id)
+    if (user) {
+      const messageData = {
+        userId: socket.id,
+        userName: user.name,
+        message: data.message,
+        timestamp: new Date().toISOString()
+      }
+      
+      // Broadcast message to all users including sender
+      io.emit('newMessage', messageData)
+    }
+  })
+  
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    const user = connectedUsers.get(socket.id)
+    if (user) {
+      connectedUsers.delete(socket.id)
+      socket.broadcast.emit('userLeft', {
+        userId: socket.id,
+        userName: user.name
+      })
+      console.log('User disconnected:', socket.id, user.name)
+    }
+  })
+})
+
+// Generate random name
+function generateRandomName() {
+  const adjectives = ['Cool', 'Swift', 'Brave', 'Smart', 'Bright', 'Fast', 'Sharp', 'Bold', 'Wild', 'Calm', 'Epic', 'Mega', 'Super', 'Ultra', 'Pro', 'Ace', 'Star', 'Moon', 'Sun', 'Fire', 'Ice', 'Storm', 'Rock', 'Wave']
+  const nouns = ['Tiger', 'Eagle', 'Wolf', 'Lion', 'Falcon', 'Shark', 'Dragon', 'Phoenix', 'Fox', 'Bear', 'Hawk', 'Panther', 'Cobra', 'Jaguar', 'Lynx', 'Viper', 'Rhino', 'Panda', 'Orca', 'Raven', 'Thunder', 'Lightning', 'Flame', 'Blade']
+  
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
+  const noun = nouns[Math.floor(Math.random() * nouns.length)]
+  const num = Math.floor(Math.random() * 999) + 1
+  
+  return `${adj}${noun}${num}`
+}
+
+server.listen(PORT, () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`)
   console.log(`📥 Download directory: ${downloadsDir}`)
+  console.log(`💬 Socket.io server running`)
   console.log(`⚠️  Make sure yt-dlp is installed: apt install yt-dlp or pip install yt-dlp`)
 })
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BACKEND_URL } from '../constants'
 import './SocialDownload.css'
 
 const SocialDownload = () => {
@@ -163,7 +164,7 @@ const SocialDownload = () => {
       }
 
       // First, get video info (like ytdown.to approach)
-      const infoResponse = await fetch(`http://localhost:3001/api/formats`, {
+      const infoResponse = await fetch(`${BACKEND_URL}/api/formats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +197,7 @@ const SocialDownload = () => {
       })
       
       // Now download with the best available format
-      const response = await fetch(`http://localhost:3001/api/download`, {
+      const response = await fetch(`${BACKEND_URL}/api/download`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -394,7 +395,7 @@ const SocialDownload = () => {
         <div className="info-box">
           <h4>ℹ️ How to Use</h4>
           <p>
-            This feature connects to a backend service running on <code>localhost:3001</code>
+            This feature connects to a backend service running on <code>{BACKEND_URL}</code>
           </p>
           <p>
             <strong>To start the backend:</strong>

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: react-udemy-backend
+    env: node
+    buildCommand: ""
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    # Note: PORT is automatically set by Render, no need to specify
+    # Optional: Add your Stripe key if needed
+    # - key: STRIPE_SECRET_KEY
+    #   sync: false
+

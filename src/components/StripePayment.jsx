@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { BACKEND_URL } from '../constants'
 import './StripePayment.css'
 
 // Initialize Stripe with test key (you can get your own from https://dashboard.stripe.com)
@@ -51,7 +52,7 @@ const PaymentForm = () => {
 
     try {
       // Step 1: Create payment intent with backend
-      const response = await fetch('http://localhost:3001/api/create-payment-intent', {
+      const response = await fetch(`${BACKEND_URL}/api/create-payment-intent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,7 +233,7 @@ const PaymentForm = () => {
 
         <div className="api-info">
           <h4>⚙️ How to Test</h4>
-          <p>1. Make sure backend is running on port 3001</p>
+          <p>1. Make sure backend is running at {BACKEND_URL}</p>
           <p>2. Use test cards (listed below) - no real money is charged</p>
           <p>3. Backend is already configured with demo Stripe keys</p>
           <p>4. To use your own Stripe account:</p>

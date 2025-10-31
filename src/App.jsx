@@ -9,6 +9,7 @@ import StripePayment from './components/StripePayment'
 import OTTLinks from './components/OTTLinks'
 import Esports from './components/Esports'
 import AIChat from './components/AIChat'
+import GlobalChat from './components/GlobalChat'
 import './App.css'
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
           {activeTab === 'stripe' && <StripePayment />}
         </div>
       </div>
+      <GlobalChat />
     </div>
   )
 }

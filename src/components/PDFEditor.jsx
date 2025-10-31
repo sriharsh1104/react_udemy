@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
+import { BACKEND_URL } from '../constants'
 import './PDFEditor.css'
 
 // Configure PDF.js worker
@@ -362,7 +363,7 @@ const PDFEditor = () => {
       formData.append('edits', JSON.stringify(edits))
       
       // Call backend API
-      const response = await fetch('http://localhost:3001/api/pdf/edit', {
+      const response = await fetch(`${BACKEND_URL}/api/pdf/edit`, {
         method: 'POST',
         body: formData
       })
@@ -387,7 +388,7 @@ const PDFEditor = () => {
       let errorMessage = 'PDF save करने में त्रुटि: '
       
       if (error.message.includes('fetch') || error.message.includes('network')) {
-        errorMessage += '\nBackend server चल रहा है? http://localhost:3001 check करें'
+        errorMessage += `\nBackend server चल रहा है? ${BACKEND_URL} check करें`
       } else {
         errorMessage += error.message
       }
