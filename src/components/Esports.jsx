@@ -3,6 +3,7 @@ import { esportsOfficialLinks, esportsThirdPartyLinks, esportsCasters } from '..
 import './OTTLinks.css'
 import youtubeIcon from '../assets/icons/youtube.svg'
 import instagramIcon from '../assets/icons/instagram.svg'
+import websiteIcon from '../assets/icons/website.svg'
 
 function Esports() {
   const [subTab, setSubTab] = useState('official')
@@ -116,7 +117,7 @@ function Esports() {
                 ) : isInstagram ? (
                   <img src={instagramIcon} alt="Instagram" className="ott-icon" />
                 ) : (
-                  <span className="ott-icon-emoji">{p.icon}</span>
+                  <img src={websiteIcon} alt="Website" className="ott-icon" />
                 )}
                 <span className="ott-name">{getDisplayName(p.name)} ({linkType})</span>
                 <span className="ott-link">Visit →</span>
@@ -146,14 +147,11 @@ function Esports() {
                 onMouseLeave={() => setHoveredOrg(null)}
               >
                 <a
-                  href={primaryLink.url}
+                  href="#"
                   className="ott-card esports-org-card"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => primaryLink.type === 'YouTube' && handleLinkClick(e, primaryLink.url)}
+                  onClick={(e) => e.preventDefault()}
                 >
                   <span className="ott-name">{org.icon} {org.name}</span>
-                  <span className="ott-link">Visit →</span>
                 </a>
                 {isHovered && org.links && org.links.length > 1 && (
                   <div 
@@ -181,7 +179,10 @@ function Esports() {
                             <span>{link.type}</span>
                           </>
                         ) : (
-                          <span>{link.type}</span>
+                          <>
+                            <img src={websiteIcon} alt="Website" className="esports-link-icon" />
+                            <span>{link.type}</span>
+                          </>
                         )}
                         <span>→</span>
                       </a>
