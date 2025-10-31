@@ -201,6 +201,11 @@ function Esports() {
                       <h5 className="caster-name">🎙️ {caster.name}</h5>
                       <div className="caster-category-wrapper">
                         <span className="caster-category">{caster.category}</span>
+                        {caster.language && (
+                          <span className={`caster-language ${caster.language.toLowerCase()}`}>
+                            {caster.language}
+                          </span>
+                        )}
                         {caster.youtubeUrl && (
                           <a
                             href={caster.youtubeUrl}
@@ -232,6 +237,11 @@ function Esports() {
                       <h5 className="caster-name">🎙️ {caster.name}</h5>
                       <div className="caster-category-wrapper">
                         <span className="caster-category">{caster.category}</span>
+                        {caster.language && (
+                          <span className={`caster-language ${caster.language.toLowerCase()}`}>
+                            {caster.language}
+                          </span>
+                        )}
                         {caster.youtubeUrl && (
                           <a
                             href={caster.youtubeUrl}
