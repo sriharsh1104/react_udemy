@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { esportsOfficialLinks, esportsThirdPartyLinks } from '../constants'
+import { esportsOfficialLinks, esportsThirdPartyLinks, esportsCasters } from '../constants'
 import './OTTLinks.css'
 import youtubeIcon from '../assets/icons/youtube.svg'
 import instagramIcon from '../assets/icons/instagram.svg'
@@ -33,6 +33,15 @@ function Esports() {
   }, [])
 
   const [hoveredOrg, setHoveredOrg] = useState(null)
+
+  const castersByGame = useMemo(() => {
+    const groups = { BGMI: [], 'Free Fire': [] }
+    for (const caster of esportsCasters) {
+      if (caster.game === 'BGMI') groups.BGMI.push(caster)
+      if (caster.game === 'Free Fire') groups['Free Fire'].push(caster)
+    }
+    return groups
+  }, [])
 
   const getLinkType = (url) => {
     try {
@@ -161,6 +170,7 @@ function Esports() {
       <div className="tabs" style={{ marginBottom: 12 }}>
         <button className={`tab ${subTab === 'official' ? 'active' : ''}`} onClick={() => setSubTab('official')} style={{ textTransform: 'none' }}>Official</button>
         <button className={`tab ${subTab === 'third' ? 'active' : ''}`} onClick={() => setSubTab('third')}>3rd Party</button>
+        <button className={`tab ${subTab === 'casters' ? 'active' : ''}`} onClick={() => setSubTab('casters')}>Casters</button>
       </div>
 
       {subTab === 'official' && (
@@ -176,6 +186,49 @@ function Esports() {
           {renderThirdPartyGroup('BGMI', thirdPartyByGame.BGMI)}
           {renderThirdPartyGroup('Free Fire', thirdPartyByGame['Free Fire'])}
           {renderThirdPartyGroup('Other', thirdPartyByGame.Other)}
+        </div>
+      )}
+
+      {subTab === 'casters' && (
+        <div>
+          {castersByGame.BGMI.length > 0 && (
+            <>
+              <h4 className="ott-subtitle">BGMI</h4>
+              <div className="casters-grid">
+                {castersByGame.BGMI.map((caster, idx) => (
+                  <div key={`bgmi-${idx}`} className="caster-card">
+                    <div className="caster-header">
+                      <h5 className="caster-name">🎙️ {caster.name}</h5>
+                      <span className="caster-category">{caster.category}</span>
+                    </div>
+                    <div className="caster-deserve">
+                      <strong>Why they deserve:</strong>
+                      <p>{caster.deserveReason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {castersByGame['Free Fire'].length > 0 && (
+            <>
+              <h4 className="ott-subtitle">Free Fire</h4>
+              <div className="casters-grid">
+                {castersByGame['Free Fire'].map((caster, idx) => (
+                  <div key={`ff-${idx}`} className="caster-card">
+                    <div className="caster-header">
+                      <h5 className="caster-name">🎙️ {caster.name}</h5>
+                      <span className="caster-category">{caster.category}</span>
+                    </div>
+                    <div className="caster-deserve">
+                      <strong>Why they deserve:</strong>
+                      <p>{caster.deserveReason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

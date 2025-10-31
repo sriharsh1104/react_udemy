@@ -75,3 +75,74 @@ export const esportsThirdPartyLinks = [
     ]
   }
 ]
+
+export const esportsCasters = [
+  // BGMI Casters
+  {
+    name: 'Ocean Sharma',
+    game: 'BGMI',
+    category: 'Play-by-Play Caster',
+    deserveReason: 'Known for energetic commentary and deep game knowledge. One of the most recognized voices in BGMI esports with years of experience.'
+  },
+  {
+    name: 'Piyush "Spero" Bathla',
+    game: 'BGMI',
+    category: 'Color Commentary',
+    deserveReason: 'Exceptional analytical skills and ability to break down complex gameplay moments. Brings strategic insights that enhance viewer understanding.'
+  },
+  {
+    name: 'Mazy',
+    game: 'BGMI',
+    category: 'Play-by-Play Caster',
+    deserveReason: 'High-energy play-by-play with clear fight callouts and timing; keeps pacing tight in late circles.'
+  },
+  {
+    name: 'Ankibot',
+    game: 'BGMI',
+    category: 'Color Commentary',
+    deserveReason: 'Strong mid-round analysis and rotation reads; simplifies complex macro for viewers without losing depth.'
+  },
+  {
+    name: 'Nexrou',
+    game: 'BGMI',
+    category: 'Host & Analyst',
+    deserveReason: 'Smooth hosting with concise desk analysis; connects storylines between matches and day segments.'
+  },
+  {
+    name: 'Fyxs',
+    game: 'BGMI',
+    category: 'Play-by-Play / Hybrid',
+    deserveReason: 'Flexible voice who can swap between hype casting and key-fight breakdowns; consistent clarity under pressure.'
+  },
+  // Free Fire Casters
+  {
+    name: 'Divyansh "Maxtern" Meena',
+    game: 'Free Fire',
+    category: 'Play-by-Play Caster',
+    deserveReason: 'One of the most experienced Free Fire casters in India. Known for precise play-by-play commentary and understanding of game meta.'
+  },
+  {
+    name: 'Vivek "ClutchGod" Horo',
+    game: 'Free Fire',
+    category: 'Color Commentary',
+    deserveReason: 'Expert analyst with deep understanding of Free Fire strategies. Provides valuable insights that help viewers appreciate high-level gameplay.'
+  },
+  {
+    name: 'Naman "Snax" Vatsa',
+    game: 'Free Fire',
+    category: 'Host & Play-by-Play',
+    deserveReason: 'Versatile talent excelling in both hosting and casting. Known for smooth transitions and ability to handle multiple roles seamlessly.'
+  },
+  {
+    name: 'Rohit "Roronoa" Sharma',
+    game: 'Free Fire',
+    category: 'Color Commentary',
+    deserveReason: 'Technical expert who breaks down complex team fights brilliantly. Exceptional at explaining positioning and decision-making in real-time.'
+  },
+  {
+    name: 'Kaashvi "KSHVI" Hiranandani',
+    game: 'Free Fire',
+    category: 'Host & Analyst',
+    deserveReason: 'Engaging host with strong analytical background. Brings fresh perspective and maintains high energy during tournaments.'
+  }
+]
