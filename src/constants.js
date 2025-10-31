@@ -116,33 +116,27 @@ export const esportsCasters = [
   },
   // Free Fire Casters
   {
-    name: 'Divyansh "Maxtern" Meena',
+    name: 'Evil',
     game: 'Free Fire',
     category: 'Play-by-Play Caster',
-    deserveReason: 'One of the most experienced Free Fire casters in India. Known for precise play-by-play commentary and understanding of game meta.'
+    deserveReason: 'Pure caster who actually narrates fights - explains how and why teams are fighting, the patterns and why certain strategies are necessary. Possesses deep knowledge of game mechanics and team tactics that helps viewers understand the strategic depth of competitive Free Fire.'
   },
   {
-    name: 'Vivek "ClutchGod" Horo',
+    name: 'Rocky Raichan',
     game: 'Free Fire',
     category: 'Color Commentary',
-    deserveReason: 'Expert analyst with deep understanding of Free Fire strategies. Provides valuable insights that help viewers appreciate high-level gameplay.'
-  },
+    deserveReason: 'Best because good at licking big YouTuber and Esports creators. Does not know casting much - too much shouting. Always shows what he has done for the community and consistently demonstrates efforts to contribute something meaningful to the esports community which he did not did.'
+    },
   {
-    name: 'Naman "Snax" Vatsa',
+    name: 'Aura Gaming',
     game: 'Free Fire',
     category: 'Host & Play-by-Play',
-    deserveReason: 'Versatile talent excelling in both hosting and casting. Known for smooth transitions and ability to handle multiple roles seamlessly.'
+    deserveReason: 'Versatile talent combining hosting skills with quality play-by-play commentary. Known for professional delivery and ability to guide viewers through tournament narratives.'
   },
   {
-    name: 'Rohit "Roronoa" Sharma',
+    name: 'Gaming with AB',
     game: 'Free Fire',
-    category: 'Color Commentary',
-    deserveReason: 'Technical expert who breaks down complex team fights brilliantly. Exceptional at explaining positioning and decision-making in real-time.'
-  },
-  {
-    name: 'Kaashvi "KSHVI" Hiranandani',
-    game: 'Free Fire',
-    category: 'Host & Analyst',
-    deserveReason: 'Engaging host with strong analytical background. Brings fresh perspective and maintains high energy during tournaments.'
+    category: 'Play-by-Play Caster',
+    deserveReason: 'Passionate caster with clear communication style and strong game knowledge. Brings enthusiasm and clarity to Free Fire tournament broadcasts.'
   }
 ]
