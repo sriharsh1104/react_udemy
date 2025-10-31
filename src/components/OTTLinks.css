@@ -204,6 +204,12 @@
   margin: 0;
 }
 
+.caster-category-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .caster-category {
   display: inline-block;
   padding: 4px 12px;
@@ -214,6 +220,24 @@
   font-weight: 600;
   color: #60a5fa;
   width: fit-content;
+}
+
+.caster-yt-icon-link {
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.caster-yt-icon-link:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.caster-yt-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .caster-deserve {
@@ -233,6 +257,28 @@
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.7);
   margin: 0;
+}
+
+.caster-youtube-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  border-radius: 8px;
+  text-decoration: none;
+  color: #ff4444;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.caster-youtube-link:hover {
+  background: rgba(255, 0, 0, 0.2);
+  border-color: rgba(255, 0, 0, 0.5);
+  transform: translateX(2px);
 }
 
 

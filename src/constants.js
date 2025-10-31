@@ -82,36 +82,42 @@ export const esportsCasters = [
     name: 'Ocean Sharma',
     game: 'BGMI',
     category: 'Play-by-Play Caster',
+    youtubeUrl: 'https://www.youtube.com/@OceanUnplugged',
     deserveReason: 'Known for energetic commentary and deep game knowledge. One of the most recognized voices in BGMI esports with years of experience.'
   },
   {
     name: 'Piyush "Spero" Bathla',
     game: 'BGMI',
     category: 'Color Commentary',
+    youtubeUrl: 'https://www.youtube.com/@SpeRocasts',
     deserveReason: 'Exceptional analytical skills and ability to break down complex gameplay moments. Brings strategic insights that enhance viewer understanding.'
   },
   {
     name: 'Mazy',
     game: 'BGMI',
     category: 'Play-by-Play Caster',
+    youtubeUrl: 'https://www.youtube.com/@MazyisLive',
     deserveReason: 'High-energy play-by-play with clear fight callouts and timing; keeps pacing tight in late circles.'
   },
   {
     name: 'Ankibot',
     game: 'BGMI',
     category: 'Color Commentary',
+    youtubeUrl: 'https://www.youtube.com/@AnkiiiBOT',
     deserveReason: 'Strong mid-round analysis and rotation reads; simplifies complex macro for viewers without losing depth.'
   },
   {
-    name: 'Nexrou',
+    name: 'Nekro',
     game: 'BGMI',
     category: 'Host & Analyst',
+    youtubeUrl: 'https://www.youtube.com/@Nekrouu',
     deserveReason: 'Smooth hosting with concise desk analysis; connects storylines between matches and day segments.'
   },
   {
     name: 'Fyxs',
     game: 'BGMI',
     category: 'Play-by-Play / Hybrid',
+    youtubeUrl: 'https://www.youtube.com/@PAiNFyXs',
     deserveReason: 'Flexible voice who can swap between hype casting and key-fight breakdowns; consistent clarity under pressure.'
   },
   // Free Fire Casters
@@ -119,24 +125,28 @@ export const esportsCasters = [
     name: 'Evil',
     game: 'Free Fire',
     category: 'Play-by-Play Caster',
+    youtubeUrl: 'https://www.youtube.com/@Evil_official',
     deserveReason: 'Pure caster who actually narrates fights - explains how and why teams are fighting, the patterns and why certain strategies are necessary. Possesses deep knowledge of game mechanics and team tactics that helps viewers understand the strategic depth of competitive Free Fire.'
   },
   {
     name: 'Rocky Raichan',
     game: 'Free Fire',
     category: 'Color Commentary',
-    deserveReason: 'Best because good at licking big YouTuber and Esports creators. Does not know casting much - too much shouting. Always shows what he has done for the community and consistently demonstrates efforts to contribute something meaningful to the esports community which he did not did.'
-    },
+    youtubeUrl: 'https://www.youtube.com/@ROCKYRDX',
+    deserveReason: 'Best because good at linking big YouTuber and Esports creators. Does not know casting much - too much shouting. Always shows what he has done for the community and consistently demonstrates efforts to contribute something meaningful to the esports community.'
+  },
   {
     name: 'Aura Gaming',
     game: 'Free Fire',
     category: 'Host & Play-by-Play',
+    youtubeUrl: 'https://www.youtube.com/@GamingAura',
     deserveReason: 'Versatile talent combining hosting skills with quality play-by-play commentary. Known for professional delivery and ability to guide viewers through tournament narratives.'
   },
   {
     name: 'Gaming with AB',
     game: 'Free Fire',
     category: 'Play-by-Play Caster',
+    youtubeUrl: 'https://www.youtube.com/@ArrowGaming',
     deserveReason: 'Passionate caster with clear communication style and strong game knowledge. Brings enthusiasm and clarity to Free Fire tournament broadcasts.'
   }
 ]

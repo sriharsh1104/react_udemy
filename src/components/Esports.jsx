@@ -199,7 +199,19 @@ function Esports() {
                   <div key={`bgmi-${idx}`} className="caster-card">
                     <div className="caster-header">
                       <h5 className="caster-name">🎙️ {caster.name}</h5>
-                      <span className="caster-category">{caster.category}</span>
+                      <div className="caster-category-wrapper">
+                        <span className="caster-category">{caster.category}</span>
+                        {caster.youtubeUrl && (
+                          <a
+                            href={caster.youtubeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="caster-yt-icon-link"
+                          >
+                            <img src={youtubeIcon} alt="YouTube" className="caster-yt-icon" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                     <div className="caster-deserve">
                       <strong>Why they deserve:</strong>
@@ -218,7 +230,19 @@ function Esports() {
                   <div key={`ff-${idx}`} className="caster-card">
                     <div className="caster-header">
                       <h5 className="caster-name">🎙️ {caster.name}</h5>
-                      <span className="caster-category">{caster.category}</span>
+                      <div className="caster-category-wrapper">
+                        <span className="caster-category">{caster.category}</span>
+                        {caster.youtubeUrl && (
+                          <a
+                            href={caster.youtubeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="caster-yt-icon-link"
+                          >
+                            <img src={youtubeIcon} alt="YouTube" className="caster-yt-icon" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                     <div className="caster-deserve">
                       <strong>Why they deserve:</strong>
