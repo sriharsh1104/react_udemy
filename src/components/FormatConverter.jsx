@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile } from '@ffmpeg/util'
 import './FormatConverter.css'
+import PremiumDropdown from './PremiumDropdown'
 
 const FORMATS = [
   // Video formats
@@ -285,21 +286,14 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
 
       <div className="converter-controls">
         <div className="format-selector">
-          <label htmlFor="format-select">Select Output Format:</label>
-          <div className="select-wrapper">
-          <select
+          <PremiumDropdown
             id="format-select"
+            label="Select Output Format:"
             value={selectedFormat}
             onChange={(e) => setSelectedFormat(e.target.value)}
+            options={availableFormats.map(f => ({ value: f.value, label: f.label }))}
             className="format-select"
-          >
-            {availableFormats.map(format => (
-              <option key={format.value} value={format.value}>
-                {format.label}
-              </option>
-            ))}
-          </select>
-          </div>
+          />
         </div>
 
         <div className="trim-controls">

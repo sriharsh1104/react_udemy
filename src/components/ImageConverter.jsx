@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import './ImageConverter.css'
+import PremiumDropdown from './PremiumDropdown'
 
 const ImageConverter = () => {
   const [uploadedImage, setUploadedImage] = useState(null)
@@ -868,19 +869,14 @@ const ImageConverter = () => {
                 <div className="divider">OR</div>
                 <div className="format-section">
                   <div className="format-selector">
-                    <label htmlFor="format-select">Select Output Format:</label>
-                    <select
+                    <PremiumDropdown
                       id="format-select"
+                      label="Select Output Format:"
                       value={selectedFormat}
                       onChange={(e) => setSelectedFormat(e.target.value)}
+                      options={FORMATS.map(f => ({ value: f.value, label: f.label }))}
                       className="format-select"
-                    >
-                      {FORMATS.map(format => (
-                        <option key={format.value} value={format.value}>
-                          {format.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   <div className="button-group">
