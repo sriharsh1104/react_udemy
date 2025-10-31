@@ -23,18 +23,27 @@ const io = new Server(server, {
 })
 const PORT = process.env.PORT || 3001
 
-// Middleware - CORS Configuration
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+// Middleware - CORS Configuration for Production
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true)
+    // Allow all origins
+    callback(null, true)
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
   credentials: false,
   preflightContinue: false,
-  optionsSuccessStatus: 204
-}))
+  optionsSuccessStatus: 204,
+  maxAge: 86400 // 24 hours
+}
 
-// Handle preflight requests explicitly
-app.options('*', cors())
+app.use(cors(corsOptions))
+
+// Handle preflight requests explicitly for all routes
+app.options('*', cors(corsOptions))
 
 app.use(express.json())
 app.use('/downloads', express.static(path.join(__dirname, 'downloads')))
