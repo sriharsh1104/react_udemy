@@ -23,27 +23,37 @@ const io = new Server(server, {
 })
 const PORT = process.env.PORT || 3001
 
-// Middleware - CORS Configuration for Production
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, Postman)
-    if (!origin) return callback(null, true)
-    // Allow all origins
-    callback(null, true)
-  },
+// Middleware - CORS Configuration for Public API (No Auth Required)
+// Allow all origins - Public API for anyone to use
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type')
+  res.header('Access-Control-Max-Age', '86400')
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204)
+  }
+  next()
+})
+
+// Also use cors middleware as backup
+app.use(cors({
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
-  credentials: false,
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
-  maxAge: 86400 // 24 hours
-}
+  allowedHeaders: ['*'],
+  credentials: false
+}))
 
-app.use(cors(corsOptions))
-
-// Handle preflight requests explicitly for all routes
-app.options('*', cors(corsOptions))
+// Handle preflight for all routes
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.header('Access-Control-Allow-Headers', '*')
+  res.sendStatus(204)
+})
 
 app.use(express.json())
 app.use('/downloads', express.static(path.join(__dirname, 'downloads')))
