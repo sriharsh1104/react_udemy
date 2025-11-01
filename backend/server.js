@@ -12,9 +12,31 @@ const { Server } = require('socket.io')
 
 const app = express()
 const server = http.createServer(app)
+
+// Allowed origins list for CORS
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://react-udemy-rc44-lm6ymtpr0-sriharsh1104s-projects.vercel.app',
+  'https://react-udemy-rc44.vercel.app',
+  // Add any other origins you need
+]
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, curl, Postman, etc.)
+      if (!origin) return callback(null, true)
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true)
+      }
+      
+      // Allow all origins as fallback (public API)
+      callback(null, true)
+    },
     methods: ['GET', 'POST', 'OPTIONS'],
     credentials: false,
     allowedHeaders: ['*']
@@ -27,9 +49,18 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3001
 
 // Middleware - CORS Configuration for Public API (No Auth Required)
-// Allow all origins - Public API for anyone to use
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*')
+  const origin = req.headers.origin
+  
+  // Check if origin is in allowed list, or allow all in development
+  if (allowedOrigins.includes(origin) || !origin || process.env.NODE_ENV !== 'production') {
+    res.header('Access-Control-Allow-Origin', origin || '*')
+  } else {
+    // Allow all origins in production as fallback (public API)
+    res.header('Access-Control-Allow-Origin', '*')
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
   res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type')
@@ -42,19 +73,36 @@ app.use((req, res, next) => {
   next()
 })
 
-// Also use cors middleware as backup
+// Also use cors middleware as backup with dynamic origin
 app.use(cors({
-  origin: '*',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Postman, etc.)
+    if (!origin) return callback(null, true)
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    
+    // Allow all origins as fallback (public API)
+    callback(null, true)
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['*'],
-  credentials: false
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  credentials: false,
+  optionsSuccessStatus: 204
 }))
 
 // Handle preflight for all routes
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*')
+  const origin = req.headers.origin
+  if (allowedOrigins.includes(origin) || !origin) {
+    res.header('Access-Control-Allow-Origin', origin || '*')
+  } else {
+    res.header('Access-Control-Allow-Origin', '*')
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
-  res.header('Access-Control-Allow-Headers', '*')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
   res.sendStatus(204)
 })
 
