@@ -26,6 +26,24 @@ const allowedOrigins = [
   // Add any other origins you need
 ]
 
+// Helper function to check if origin is allowed (supports strings and regex patterns)
+// MUST be defined before Socket.io uses it
+function isOriginAllowed(origin) {
+  if (!origin) return true
+  
+  for (const allowed of allowedOrigins) {
+    if (typeof allowed === 'string' && allowed === origin) {
+      return true
+    }
+    if (allowed instanceof RegExp && allowed.test(origin)) {
+      return true
+    }
+  }
+  
+  // Allow all origins as fallback (public API)
+  return true
+}
+
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
@@ -52,23 +70,7 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3001
 
 // Middleware - CORS Configuration for Public API (No Auth Required)
-
-// Helper function to check if origin is allowed (supports strings and regex patterns)
-function isOriginAllowed(origin) {
-  if (!origin) return true
-  
-  for (const allowed of allowedOrigins) {
-    if (typeof allowed === 'string' && allowed === origin) {
-      return true
-    }
-    if (allowed instanceof RegExp && allowed.test(origin)) {
-      return true
-    }
-  }
-  
-  // Allow all origins as fallback (public API)
-  return true
-}
+// Note: isOriginAllowed() is already defined above (before Socket.io)
 
 app.use((req, res, next) => {
   const origin = req.headers.origin
