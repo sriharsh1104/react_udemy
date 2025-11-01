@@ -19,7 +19,10 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'https://react-udemy-rc44-lm6ymtpr0-sriharsh1104s-projects.vercel.app',
+  'https://react-udemy-rc44-dvq0ffddo-sriharsh1104s-projects.vercel.app',
   'https://react-udemy-rc44.vercel.app',
+  // Vercel preview deployments (pattern matching for preview URLs)
+  /^https:\/\/react-udemy-rc44-.*-sriharsh1104s-projects\.vercel\.app$/,
   // Add any other origins you need
 ]
 
@@ -29,8 +32,8 @@ const io = new Server(server, {
       // Allow requests with no origin (mobile apps, curl, Postman, etc.)
       if (!origin) return callback(null, true)
       
-      // Check if origin is in allowed list
-      if (allowedOrigins.includes(origin)) {
+      // Check if origin is in allowed list (supports pattern matching)
+      if (isOriginAllowed(origin)) {
         return callback(null, true)
       }
       
@@ -50,11 +53,28 @@ const PORT = process.env.PORT || 3001
 
 // Middleware - CORS Configuration for Public API (No Auth Required)
 
+// Helper function to check if origin is allowed (supports strings and regex patterns)
+function isOriginAllowed(origin) {
+  if (!origin) return true
+  
+  for (const allowed of allowedOrigins) {
+    if (typeof allowed === 'string' && allowed === origin) {
+      return true
+    }
+    if (allowed instanceof RegExp && allowed.test(origin)) {
+      return true
+    }
+  }
+  
+  // Allow all origins as fallback (public API)
+  return true
+}
+
 app.use((req, res, next) => {
   const origin = req.headers.origin
   
-  // Check if origin is in allowed list, or allow all in development
-  if (allowedOrigins.includes(origin) || !origin || process.env.NODE_ENV !== 'production') {
+  // Check if origin is in allowed list (supports pattern matching)
+  if (isOriginAllowed(origin) || !origin || process.env.NODE_ENV !== 'production') {
     res.header('Access-Control-Allow-Origin', origin || '*')
   } else {
     // Allow all origins in production as fallback (public API)
@@ -79,8 +99,8 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, curl, Postman, etc.)
     if (!origin) return callback(null, true)
     
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
+    // Check if origin is in allowed list (supports pattern matching)
+    if (isOriginAllowed(origin)) {
       return callback(null, true)
     }
     
@@ -96,7 +116,7 @@ app.use(cors({
 // Handle preflight for all routes
 app.options('*', (req, res) => {
   const origin = req.headers.origin
-  if (allowedOrigins.includes(origin) || !origin) {
+  if (isOriginAllowed(origin) || !origin) {
     res.header('Access-Control-Allow-Origin', origin || '*')
   } else {
     res.header('Access-Control-Allow-Origin', '*')
@@ -509,7 +529,7 @@ app.post('/api/formats', async (req, res) => {
   
   // Set CORS headers explicitly for this response
   const origin = req.headers.origin
-  if (allowedOrigins.includes(origin) || !origin) {
+  if (isOriginAllowed(origin) || !origin) {
     res.header('Access-Control-Allow-Origin', origin || '*')
   } else {
     res.header('Access-Control-Allow-Origin', '*')
@@ -524,7 +544,7 @@ app.post('/api/formats', async (req, res) => {
     exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
       // Ensure CORS headers are set in callback too
       const respOrigin = req.headers.origin
-      if (allowedOrigins.includes(respOrigin) || !respOrigin) {
+      if (isOriginAllowed(respOrigin) || !respOrigin) {
         res.header('Access-Control-Allow-Origin', respOrigin || '*')
       } else {
         res.header('Access-Control-Allow-Origin', '*')
@@ -569,7 +589,7 @@ app.post('/api/formats', async (req, res) => {
 app.post('/api/download', async (req, res) => {
   // Set CORS headers explicitly for this response
   const origin = req.headers.origin
-  if (allowedOrigins.includes(origin) || !origin) {
+  if (isOriginAllowed(origin) || !origin) {
     res.header('Access-Control-Allow-Origin', origin || '*')
   } else {
     res.header('Access-Control-Allow-Origin', '*')
