@@ -1,6 +1,6 @@
 // Backend API Configuration
 // Priority: .env.local > .env > default production URL
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://react-udemy-r43h.onrender.com'
 
 export const platforms = [
     { name: 'Netflix', url: 'https://www.netflix.com/', icon: 'svg' },

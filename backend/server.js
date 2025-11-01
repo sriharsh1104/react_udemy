@@ -507,11 +507,29 @@ app.post('/api/download/pinterest', async (req, res) => {
 app.post('/api/formats', async (req, res) => {
   const { url } = req.body
   
+  // Set CORS headers explicitly for this response
+  const origin = req.headers.origin
+  if (allowedOrigins.includes(origin) || !origin) {
+    res.header('Access-Control-Allow-Origin', origin || '*')
+  } else {
+    res.header('Access-Control-Allow-Origin', '*')
+  }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  
   try {
     console.log('Getting formats for:', url)
     const command = `yt-dlp --list-formats --dump-json --no-playlist "${url}" 2>&1`
     
     exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
+      // Ensure CORS headers are set in callback too
+      const respOrigin = req.headers.origin
+      if (allowedOrigins.includes(respOrigin) || !respOrigin) {
+        res.header('Access-Control-Allow-Origin', respOrigin || '*')
+      } else {
+        res.header('Access-Control-Allow-Origin', '*')
+      }
+      
       // Check for common errors in stderr
       const errorOutput = stderr || (error ? error.message : '')
       
@@ -549,6 +567,16 @@ app.post('/api/formats', async (req, res) => {
 
 // Generic download endpoint
 app.post('/api/download', async (req, res) => {
+  // Set CORS headers explicitly for this response
+  const origin = req.headers.origin
+  if (allowedOrigins.includes(origin) || !origin) {
+    res.header('Access-Control-Allow-Origin', origin || '*')
+  } else {
+    res.header('Access-Control-Allow-Origin', '*')
+  }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  
   const { url, platform, format } = req.body
   
   console.log(`Downloading from ${platform}:`, url, format ? `format: ${format}` : '')
@@ -581,6 +609,16 @@ app.post('/api/download', async (req, res) => {
     console.log(`Executing command: ${command}`)
     
     exec(command, { timeout: 300000, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      // Ensure CORS headers are set in callback
+      const respOrigin = req.headers.origin
+      if (allowedOrigins.includes(respOrigin) || !respOrigin) {
+        res.header('Access-Control-Allow-Origin', respOrigin || '*')
+      } else {
+        res.header('Access-Control-Allow-Origin', '*')
+      }
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+      
       if (error) {
         console.error(`${platform} download error:`, error.message)
         console.error('stderr:', stderr)
