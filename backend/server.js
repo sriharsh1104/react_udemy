@@ -8,7 +8,8 @@ const path = require('path')
 const { exec } = require('child_process')
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const http = require('http')
-const { Server } = require('socket.io')
+// TEMPORARILY DISABLED: Socket.io
+// const { Server } = require('socket.io')
 
 const app = express()
 const server = http.createServer(app)
@@ -27,7 +28,6 @@ const allowedOrigins = [
 ]
 
 // Helper function to check if origin is allowed (supports strings and regex patterns)
-// MUST be defined before Socket.io uses it
 function isOriginAllowed(origin) {
   if (!origin) return true
   
@@ -44,6 +44,8 @@ function isOriginAllowed(origin) {
   return true
 }
 
+// TEMPORARILY DISABLED: Socket.io
+/*
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
@@ -67,6 +69,7 @@ const io = new Server(server, {
   pingTimeout: 60000,
   pingInterval: 25000
 })
+*/
 const PORT = process.env.PORT || 3001
 
 // Middleware - CORS Configuration for Public API (No Auth Required)
@@ -77,16 +80,17 @@ app.use((req, res, next) => {
   
   // Check if origin is in allowed list (supports pattern matching)
   if (isOriginAllowed(origin) || !origin || process.env.NODE_ENV !== 'production') {
-    res.header('Access-Control-Allow-Origin', origin || '*')
+    res.setHeader('Access-Control-Allow-Origin', origin || '*')
   } else {
     // Allow all origins in production as fallback (public API)
-    res.header('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Origin', '*')
   }
   
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
-  res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type')
-  res.header('Access-Control-Max-Age', '86400')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type')
+  res.setHeader('Access-Control-Max-Age', '86400')
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
@@ -119,12 +123,14 @@ app.use(cors({
 app.options('*', (req, res) => {
   const origin = req.headers.origin
   if (isOriginAllowed(origin) || !origin) {
-    res.header('Access-Control-Allow-Origin', origin || '*')
+    res.setHeader('Access-Control-Allow-Origin', origin || '*')
   } else {
-    res.header('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Origin', '*')
   }
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+  res.setHeader('Access-Control-Max-Age', '86400')
   res.sendStatus(204)
 })
 
@@ -529,28 +535,32 @@ app.post('/api/download/pinterest', async (req, res) => {
 app.post('/api/formats', async (req, res) => {
   const { url } = req.body
   
-  // Set CORS headers explicitly for this response
+  // Set CORS headers explicitly for this response - BEFORE async operation
   const origin = req.headers.origin
   if (isOriginAllowed(origin) || !origin) {
-    res.header('Access-Control-Allow-Origin', origin || '*')
+    res.setHeader('Access-Control-Allow-Origin', origin || '*')
   } else {
-    res.header('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Origin', '*')
   }
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
   
   try {
     console.log('Getting formats for:', url)
     const command = `yt-dlp --list-formats --dump-json --no-playlist "${url}" 2>&1`
     
     exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
-      // Ensure CORS headers are set in callback too
+      // CRITICAL: Set CORS headers FIRST in callback before any response
       const respOrigin = req.headers.origin
       if (isOriginAllowed(respOrigin) || !respOrigin) {
-        res.header('Access-Control-Allow-Origin', respOrigin || '*')
+        res.setHeader('Access-Control-Allow-Origin', respOrigin || '*')
       } else {
-        res.header('Access-Control-Allow-Origin', '*')
+        res.setHeader('Access-Control-Allow-Origin', '*')
       }
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+      res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+      res.setHeader('Access-Control-Allow-Credentials', 'false')
       
       // Check for common errors in stderr
       const errorOutput = stderr || (error ? error.message : '')
@@ -589,15 +599,16 @@ app.post('/api/formats', async (req, res) => {
 
 // Generic download endpoint
 app.post('/api/download', async (req, res) => {
-  // Set CORS headers explicitly for this response
+  // Set CORS headers explicitly for this response - BEFORE async operation
   const origin = req.headers.origin
   if (isOriginAllowed(origin) || !origin) {
-    res.header('Access-Control-Allow-Origin', origin || '*')
+    res.setHeader('Access-Control-Allow-Origin', origin || '*')
   } else {
-    res.header('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Origin', '*')
   }
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
   
   const { url, platform, format } = req.body
   
@@ -631,15 +642,16 @@ app.post('/api/download', async (req, res) => {
     console.log(`Executing command: ${command}`)
     
     exec(command, { timeout: 300000, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-      // Ensure CORS headers are set in callback
+      // CRITICAL: Set CORS headers FIRST in callback before any response
       const respOrigin = req.headers.origin
-      if (allowedOrigins.includes(respOrigin) || !respOrigin) {
-        res.header('Access-Control-Allow-Origin', respOrigin || '*')
+      if (isOriginAllowed(respOrigin) || !respOrigin) {
+        res.setHeader('Access-Control-Allow-Origin', respOrigin || '*')
       } else {
-        res.header('Access-Control-Allow-Origin', '*')
+        res.setHeader('Access-Control-Allow-Origin', '*')
       }
-      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
-      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+      res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+      res.setHeader('Access-Control-Allow-Credentials', 'false')
       
       if (error) {
         console.error(`${platform} download error:`, error.message)
@@ -846,15 +858,25 @@ app.post('/api/confirm-payment', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
+  // Set CORS headers
+  const origin = req.headers.origin
+  if (isOriginAllowed(origin) || !origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*')
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+  
   res.json({ 
     status: 'ok', 
     message: 'Backend server is running',
-    socketio: 'enabled',
+    socketio: 'disabled',
     timestamp: new Date().toISOString()
   })
 })
 
-// Socket.io test endpoint
+// TEMPORARILY DISABLED: Socket.io test endpoint
+/*
 app.get('/socket-test', (req, res) => {
   res.json({ 
     message: 'Socket.io server is configured',
@@ -862,6 +884,7 @@ app.get('/socket-test', (req, res) => {
     connectedUsers: connectedUsers.size
   })
 })
+*/
 
 // Helper functions
 function extractYouTubeId(url) {
@@ -944,7 +967,8 @@ function extractPinterestId(url) {
   return null
 }
 
-// Socket.io connection handling
+// TEMPORARILY DISABLED: Socket.io connection handling
+/*
 const connectedUsers = new Map()
 
 io.on('connection', (socket) => {
@@ -1008,11 +1032,12 @@ function generateRandomName() {
   
   return `${adj}${noun}${num}`
 }
+*/
 
 server.listen(PORT, () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`)
   console.log(`📥 Download directory: ${downloadsDir}`)
-  console.log(`💬 Socket.io server running`)
+  console.log(`💬 Socket.io DISABLED (temporarily)`)
   console.log(`⚠️  Make sure yt-dlp is installed: apt install yt-dlp or pip install yt-dlp`)
 })
 
