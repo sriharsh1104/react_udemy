@@ -14,23 +14,28 @@ const GlobalChat = () => {
 
   useEffect(() => {
     // Connect to socket server with production-ready options
+    // Use polling first for better compatibility, then upgrade to websocket
     socketRef.current = io(BACKEND_URL, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // Try polling first, then websocket
+      upgrade: true, // Allow upgrade from polling to websocket
+      rememberUpgrade: false,
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 10,
       timeout: 20000,
-      forceNew: false
+      forceNew: false,
+      autoConnect: true
     })
 
     // Handle connection errors
     socketRef.current.on('connect_error', (error) => {
       console.error('Socket.io connection error:', error)
-      setMessages(prev => [...prev, {
-        type: 'system',
-        message: `Connection error: ${error.message}. Trying to reconnect...`,
-        timestamp: new Date().toISOString()
-      }])
+      // Don't show error message for every reconnect attempt
+      // Only show once or on final failure
+      if (error.message && !error.message.includes('xhr poll error')) {
+        console.log('Connection error (will retry):', error.message)
+      }
     })
 
     socketRef.current.on('connect', () => {

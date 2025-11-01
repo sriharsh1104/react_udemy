@@ -164,24 +164,15 @@ const SocialDownload = () => {
       }
 
       // First, get video info (like ytdown.to approach)
-      let infoResponse
-      try {
-        infoResponse = await fetch(`${BACKEND_URL}/api/formats`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: videoUrl
-          })
+      const infoResponse = await fetch(`${BACKEND_URL}/api/formats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: videoUrl
         })
-      } catch (fetchError) {
-        // Handle CORS or network errors
-        if (fetchError.message.includes('CORS') || fetchError.message.includes('Failed to fetch')) {
-          throw new Error(`CORS Error: Cannot connect to backend. Please check if ${BACKEND_URL} is accessible.`)
-        }
-        throw new Error(`Network Error: ${fetchError.message}`)
-      }
+      })
       
       const infoData = await infoResponse.json()
       
@@ -206,26 +197,17 @@ const SocialDownload = () => {
       })
       
       // Now download with the best available format
-      let response
-      try {
-        response = await fetch(`${BACKEND_URL}/api/download`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: videoUrl,
-            platform: platformToUse,
-            format: null // Use yt-dlp's best format selection
-          })
+      const response = await fetch(`${BACKEND_URL}/api/download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: videoUrl,
+          platform: platformToUse,
+          format: null // Use yt-dlp's best format selection
         })
-      } catch (fetchError) {
-        // Handle CORS or network errors for download
-        if (fetchError.message.includes('CORS') || fetchError.message.includes('Failed to fetch')) {
-          throw new Error(`CORS Error: Cannot connect to backend. Please check if ${BACKEND_URL} is accessible.`)
-        }
-        throw new Error(`Network Error: ${fetchError.message}`)
-      }
+      })
 
       const data = await response.json()
 

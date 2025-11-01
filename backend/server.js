@@ -15,54 +15,47 @@ const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST'],
-    credentials: true
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: false,
+    allowedHeaders: ['*']
   },
-  transports: ['websocket', 'polling'],
-  allowEIO3: true
+  transports: ['polling', 'websocket'], // Polling first for better compatibility
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000
 })
 const PORT = process.env.PORT || 3001
 
-// CORS Configuration - MUST be FIRST middleware (before express.json)
-// Render free tier compatible - handles proxy/load balancer
+// Middleware - CORS Configuration for Public API (No Auth Required)
+// Allow all origins - Public API for anyone to use
 app.use((req, res, next) => {
-  // Set CORS headers explicitly for Render
-  const origin = req.headers.origin || req.headers.referer || '*'
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+  res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type')
+  res.header('Access-Control-Max-Age', '86400')
   
-  res.setHeader('Access-Control-Allow-Origin', origin === 'undefined' ? '*' : origin)
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD')
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma')
-  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type, Content-Disposition')
-  res.setHeader('Access-Control-Allow-Credentials', 'false')
-  res.setHeader('Access-Control-Max-Age', '86400')
-  
-  // Handle preflight immediately
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    res.status(204).end()
-    return
+    return res.sendStatus(204)
   }
-  
   next()
 })
 
-// CORS middleware as additional layer for Render compatibility
+// Also use cors middleware as backup
 app.use(cors({
-  origin: true, // Reflect the request origin
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control'],
-  exposedHeaders: ['Content-Length', 'Content-Type', 'Content-Disposition'],
-  credentials: false,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['*'],
+  credentials: false
 }))
 
-// Explicit OPTIONS handler for all routes (Render free tier fix)
+// Handle preflight for all routes
 app.options('*', (req, res) => {
-  const origin = req.headers.origin || req.headers.referer || '*'
-  res.setHeader('Access-Control-Allow-Origin', origin === 'undefined' ? '*' : origin)
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD')
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
-  res.status(204).end()
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.header('Access-Control-Allow-Headers', '*')
+  res.sendStatus(204)
 })
 
 app.use(express.json())
