@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build:render": "echo 'No build needed for backend'"
+    "build:render": "npm install"
   },
   "keywords": [
     "downloader",
