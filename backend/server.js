@@ -9,6 +9,7 @@ const { exec } = require('child_process')
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const http = require('http')
 const { Server } = require('socket.io')
+const { STOCK_APIS, TOP_NSE_STOCKS, TOP_US_STOCKS } = require('./constants')
 
 const app = express()
 const server = http.createServer(app)
@@ -893,11 +894,535 @@ app.get('/api/health', (req, res) => {
   })
 })
 
+// Stock Market APIs - Free endpoints with real-time data
+app.get('/api/stocks/india', async (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  
+  try {
+    // Using Yahoo Finance screener to get top gainers from NSE
+    // This endpoint returns actual trending/gaining stocks dynamically
+    try {
+      const response = await axios.get(STOCK_APIS.YAHOO_SCREENER_INDIA, {
+        timeout: STOCK_APIS.TIMEOUT.SCREENER,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      
+      if (response.data && response.data.finance && response.data.finance.result) {
+        const results = response.data.finance.result[0]
+        const quotes = results.quotes || []
+        
+        const stocks = quotes.map(quote => {
+          const regularMarketPrice = quote.regularMarketPrice || 0
+          const previousClose = quote.regularMarketPreviousClose || regularMarketPrice
+          const change = regularMarketPrice - previousClose
+          const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0
+          
+          return {
+            symbol: quote.symbol?.replace('.NS', '') || quote.shortName || 'N/A',
+            price: parseFloat(regularMarketPrice.toFixed(2)),
+            change: parseFloat(change.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2))
+          }
+        }).filter(stock => stock.price > 0 && stock.symbol !== 'N/A')
+        
+        if (stocks.length > 0) {
+          return res.json({ success: true, stocks: stocks.slice(0, 10) })
+        }
+      }
+    } catch (screenerError) {
+      console.log('Screener API failed, trying alternative method...', screenerError.message)
+    }
+    
+    // Fallback: Use NSE top gainers API
+    try {
+      const nseResponse = await axios.get(STOCK_APIS.NSE_INDICES, {
+        timeout: STOCK_APIS.TIMEOUT.SCREENER,
+        headers: STOCK_APIS.HEADERS.NSE
+      })
+      
+      // If this works, process it
+      if (nseResponse.data) {
+        // Process NSE data if available
+      }
+    } catch (nseError) {
+      console.log('NSE API failed, using Yahoo Finance with multiple stocks...')
+    }
+    
+    // Final fallback: Fetch top NSE stocks and sort by gainers
+    const allStocks = []
+    
+    for (const symbol of TOP_NSE_STOCKS) {
+      try {
+        const response = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${symbol}`, {
+          timeout: STOCK_APIS.TIMEOUT.CHART,
+          headers: STOCK_APIS.HEADERS.YAHOO
+        })
+        
+        if (response.data?.chart?.result?.[0]) {
+          const meta = response.data.chart.result[0].meta
+          const price = meta.regularMarketPrice || 0
+          const prev = meta.previousClose || price
+          const change = price - prev
+          const changePercent = prev > 0 ? (change / prev) * 100 : 0
+          
+          allStocks.push({
+            symbol: symbol.replace('.NS', ''),
+            price: parseFloat(price.toFixed(2)),
+            change: parseFloat(change.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2))
+          })
+        }
+      } catch (err) {
+        // Skip failed stocks
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    // Sort by gainers and return top 10
+    const topGainers = allStocks
+      .filter(s => s.price > 0)
+      .sort((a, b) => b.changePercent - a.changePercent)
+      .slice(0, 10)
+    
+    res.json({ success: true, stocks: topGainers })
+  } catch (error) {
+    console.error('Error fetching India stocks:', error.message)
+    res.status(500).json({ success: false, error: error.message, stocks: [] })
+  }
+})
+
+app.get('/api/stocks/american', async (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  
+  try {
+    // Using Yahoo Finance screener to get top gainers from US market
+    // This endpoint returns actual trending/gaining stocks dynamically
+    try {
+      const response = await axios.get(STOCK_APIS.YAHOO_SCREENER_US, {
+        timeout: STOCK_APIS.TIMEOUT.SCREENER,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      
+      if (response.data && response.data.finance && response.data.finance.result) {
+        const results = response.data.finance.result[0]
+        const quotes = results.quotes || []
+        
+        const stocks = quotes.map(quote => {
+          const regularMarketPrice = quote.regularMarketPrice || 0
+          const previousClose = quote.regularMarketPreviousClose || regularMarketPrice
+          const change = regularMarketPrice - previousClose
+          const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0
+          
+          return {
+            symbol: quote.symbol || quote.shortName || 'N/A',
+            price: parseFloat(regularMarketPrice.toFixed(2)),
+            change: parseFloat(change.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2))
+          }
+        }).filter(stock => stock.price > 0 && stock.symbol !== 'N/A')
+        
+        if (stocks.length > 0) {
+          return res.json({ success: true, stocks: stocks.slice(0, 10) })
+        }
+      }
+    } catch (screenerError) {
+      console.log('Screener API failed, trying most active stocks...', screenerError.message)
+    }
+    
+    // Fallback: Use Yahoo Finance most active/trending
+    try {
+      const response = await axios.get(STOCK_APIS.YAHOO_SCREENER_US_MOST_ACTIVE, {
+        timeout: STOCK_APIS.TIMEOUT.SCREENER,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      
+      if (response.data?.finance?.result?.[0]?.quotes) {
+        const quotes = response.data.finance.result[0].quotes
+        const stocks = quotes.map(quote => {
+          const price = quote.regularMarketPrice || 0
+          const prev = quote.regularMarketPreviousClose || price
+          const change = price - prev
+          const changePercent = prev > 0 ? (change / prev) * 100 : 0
+          
+          return {
+            symbol: quote.symbol || 'N/A',
+            price: parseFloat(price.toFixed(2)),
+            change: parseFloat(change.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2))
+          }
+        }).filter(s => s.price > 0 && s.symbol !== 'N/A')
+          .sort((a, b) => b.changePercent - a.changePercent)
+        
+        if (stocks.length > 0) {
+          return res.json({ success: true, stocks: stocks.slice(0, 10) })
+        }
+      }
+    } catch (trendingError) {
+      console.log('Trending API failed, using fallback...', trendingError.message)
+    }
+    
+    // Final fallback: S&P 500 top stocks sorted by gainers
+    const allStocks = []
+    
+    for (const symbol of TOP_US_STOCKS) {
+      try {
+        const response = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${symbol}`, {
+          timeout: STOCK_APIS.TIMEOUT.CHART,
+          headers: STOCK_APIS.HEADERS.YAHOO
+        })
+        
+        if (response.data?.chart?.result?.[0]) {
+          const meta = response.data.chart.result[0].meta
+          const price = meta.regularMarketPrice || 0
+          const prev = meta.previousClose || price
+          const change = price - prev
+          const changePercent = prev > 0 ? (change / prev) * 100 : 0
+          
+          allStocks.push({
+            symbol: symbol,
+            price: parseFloat(price.toFixed(2)),
+            change: parseFloat(change.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2))
+          })
+        }
+      } catch (err) {
+        // Skip failed stocks
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    // Sort by gainers and return top 10
+    const topGainers = allStocks
+      .filter(s => s.price > 0)
+      .sort((a, b) => b.changePercent - a.changePercent)
+      .slice(0, 10)
+    
+    res.json({ success: true, stocks: topGainers })
+  } catch (error) {
+    console.error('Error fetching American stocks:', error.message)
+    res.status(500).json({ success: false, error: error.message, stocks: [] })
+  }
+})
+
+app.get('/api/commodities', async (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  
+  try {
+    const commodities = []
+    
+    // Gold (XAU/USD)
+    try {
+      const goldRes = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${STOCK_APIS.COMMODITIES.GOLD}`, {
+        timeout: STOCK_APIS.TIMEOUT.CHART,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (goldRes.data?.chart?.result?.[0]) {
+        const meta = goldRes.data.chart.result[0].meta
+        const price = meta.regularMarketPrice || 0
+        const prev = meta.previousClose || price
+        commodities.push({
+          name: 'Gold vs Dollar',
+          symbol: 'XAU/USD',
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat((price - prev).toFixed(2)),
+          changePercent: parseFloat(((price - prev) / prev * 100).toFixed(2))
+        })
+      }
+    } catch (e) {
+      console.error('Gold error:', e.message)
+    }
+    
+    // Bitcoin (BTC/USD)
+    try {
+      const btcRes = await axios.get(STOCK_APIS.COINGECKO_BTC, {
+        timeout: STOCK_APIS.TIMEOUT.COINGECKO
+      })
+      if (btcRes.data?.bitcoin) {
+        const btc = btcRes.data.bitcoin
+        commodities.push({
+          name: 'BTC vs Dollar',
+          symbol: 'BTC/USD',
+          price: parseFloat(btc.usd.toFixed(2)),
+          change: parseFloat((btc.usd * (btc.usd_24h_change || 0) / 100).toFixed(2)),
+          changePercent: parseFloat((btc.usd_24h_change || 0).toFixed(2))
+        })
+      }
+    } catch (e) {
+      console.error('BTC error:', e.message)
+    }
+    
+    // US Oil (WTI)
+    try {
+      const oilRes = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${STOCK_APIS.COMMODITIES.US_OIL}`, {
+        timeout: STOCK_APIS.TIMEOUT.CHART,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (oilRes.data?.chart?.result?.[0]) {
+        const meta = oilRes.data.chart.result[0].meta
+        const price = meta.regularMarketPrice || 0
+        const prev = meta.previousClose || price
+        commodities.push({
+          name: 'US Oil',
+          symbol: 'USOIL',
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat((price - prev).toFixed(2)),
+          changePercent: parseFloat(((price - prev) / prev * 100).toFixed(2))
+        })
+      }
+    } catch (e) {
+      console.error('US Oil error:', e.message)
+    }
+    
+    // UK Oil (Brent)
+    try {
+      const brentRes = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${STOCK_APIS.COMMODITIES.UK_OIL}`, {
+        timeout: STOCK_APIS.TIMEOUT.CHART,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (brentRes.data?.chart?.result?.[0]) {
+        const meta = brentRes.data.chart.result[0].meta
+        const price = meta.regularMarketPrice || 0
+        const prev = meta.previousClose || price
+        commodities.push({
+          name: 'UK Oil',
+          symbol: 'UKOIL',
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat((price - prev).toFixed(2)),
+          changePercent: parseFloat(((price - prev) / prev * 100).toFixed(2))
+        })
+      }
+    } catch (e) {
+      console.error('UK Oil error:', e.message)
+    }
+    
+    // Silver (XAG/USD)
+    try {
+      const silverRes = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${STOCK_APIS.COMMODITIES.SILVER}`, {
+        timeout: STOCK_APIS.TIMEOUT.CHART,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (silverRes.data?.chart?.result?.[0]) {
+        const meta = silverRes.data.chart.result[0].meta
+        const price = meta.regularMarketPrice || 0
+        const prev = meta.previousClose || price
+        commodities.push({
+          name: 'Silver vs Dollar',
+          symbol: 'XAG/USD',
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat((price - prev).toFixed(2)),
+          changePercent: parseFloat(((price - prev) / prev * 100).toFixed(2))
+        })
+      }
+    } catch (e) {
+      console.error('Silver error:', e.message)
+    }
+    
+    res.json({ success: true, commodities })
+  } catch (error) {
+    console.error('Error fetching commodities:', error.message)
+    res.status(500).json({ success: false, error: error.message, commodities: [] })
+  }
+})
+
 // Socket.io test endpoint
 const connectedUsers = new Map()
 // Store recent chat messages (max 100 messages)
 const chatMessages = []
 const MAX_CHAT_MESSAGES = 100
+
+// Stock data cache for WebSocket updates
+let stockDataCache = {
+  india: [],
+  american: [],
+  commodities: [],
+  lastUpdate: null
+}
+
+// Function to fetch all stock data (used by both HTTP and WebSocket)
+async function fetchAllStockData() {
+  try {
+    // Fetch India stocks
+    let indiaStocks = []
+    try {
+      const response = await axios.get(STOCK_APIS.YAHOO_SCREENER_INDIA, {
+        timeout: STOCK_APIS.TIMEOUT.SCREENER,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (response.data?.finance?.result?.[0]?.quotes) {
+        const quotes = response.data.finance.result[0].quotes
+        indiaStocks = quotes.map(quote => {
+          const price = quote.regularMarketPrice || 0
+          const prev = quote.regularMarketPreviousClose || price
+          const change = price - prev
+          const changePercent = prev > 0 ? (change / prev) * 100 : 0
+          return {
+            symbol: quote.symbol?.replace('.NS', '') || quote.shortName || 'N/A',
+            price: parseFloat(price.toFixed(2)),
+            change: parseFloat(change.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2))
+          }
+        }).filter(s => s.price > 0 && s.symbol !== 'N/A').slice(0, 10)
+      }
+    } catch (e) {
+      console.log('India screener failed:', e.message)
+    }
+
+    // Fetch US stocks
+    let americanStocks = []
+    try {
+      const response = await axios.get(STOCK_APIS.YAHOO_SCREENER_US, {
+        timeout: STOCK_APIS.TIMEOUT.SCREENER,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (response.data?.finance?.result?.[0]?.quotes) {
+        const quotes = response.data.finance.result[0].quotes
+        americanStocks = quotes.map(quote => {
+          const price = quote.regularMarketPrice || 0
+          const prev = quote.regularMarketPreviousClose || price
+          const change = price - prev
+          const changePercent = prev > 0 ? (change / prev) * 100 : 0
+          return {
+            symbol: quote.symbol || 'N/A',
+            price: parseFloat(price.toFixed(2)),
+            change: parseFloat(change.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2))
+          }
+        }).filter(s => s.price > 0 && s.symbol !== 'N/A').slice(0, 10)
+      }
+    } catch (e) {
+      console.log('US screener failed:', e.message)
+    }
+
+    // Fetch commodities
+    const commodities = []
+    
+    // Gold
+    try {
+      const goldRes = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${STOCK_APIS.COMMODITIES.GOLD}`, {
+        timeout: STOCK_APIS.TIMEOUT.CHART,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (goldRes.data?.chart?.result?.[0]) {
+        const meta = goldRes.data.chart.result[0].meta
+        const price = meta.regularMarketPrice || 0
+        const prev = meta.previousClose || price
+        commodities.push({
+          name: 'Gold vs Dollar',
+          symbol: 'XAU/USD',
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat((price - prev).toFixed(2)),
+          changePercent: parseFloat(((price - prev) / prev * 100).toFixed(2))
+        })
+      }
+    } catch (e) {}
+    
+    // BTC
+    try {
+      const btcRes = await axios.get(STOCK_APIS.COINGECKO_BTC, {
+        timeout: STOCK_APIS.TIMEOUT.COINGECKO
+      })
+      if (btcRes.data?.bitcoin) {
+        const btc = btcRes.data.bitcoin
+        commodities.push({
+          name: 'BTC vs Dollar',
+          symbol: 'BTC/USD',
+          price: parseFloat(btc.usd.toFixed(2)),
+          change: parseFloat((btc.usd * (btc.usd_24h_change || 0) / 100).toFixed(2)),
+          changePercent: parseFloat((btc.usd_24h_change || 0).toFixed(2))
+        })
+      }
+    } catch (e) {}
+    
+    // US Oil
+    try {
+      const oilRes = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${STOCK_APIS.COMMODITIES.US_OIL}`, {
+        timeout: STOCK_APIS.TIMEOUT.CHART,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (oilRes.data?.chart?.result?.[0]) {
+        const meta = oilRes.data.chart.result[0].meta
+        const price = meta.regularMarketPrice || 0
+        const prev = meta.previousClose || price
+        commodities.push({
+          name: 'US Oil',
+          symbol: 'USOIL',
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat((price - prev).toFixed(2)),
+          changePercent: parseFloat(((price - prev) / prev * 100).toFixed(2))
+        })
+      }
+    } catch (e) {}
+    
+    // UK Oil
+    try {
+      const brentRes = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${STOCK_APIS.COMMODITIES.UK_OIL}`, {
+        timeout: STOCK_APIS.TIMEOUT.CHART,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (brentRes.data?.chart?.result?.[0]) {
+        const meta = brentRes.data.chart.result[0].meta
+        const price = meta.regularMarketPrice || 0
+        const prev = meta.previousClose || price
+        commodities.push({
+          name: 'UK Oil',
+          symbol: 'UKOIL',
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat((price - prev).toFixed(2)),
+          changePercent: parseFloat(((price - prev) / prev * 100).toFixed(2))
+        })
+      }
+    } catch (e) {}
+    
+    // Silver
+    try {
+      const silverRes = await axios.get(`${STOCK_APIS.YAHOO_CHART_BASE}/${STOCK_APIS.COMMODITIES.SILVER}`, {
+        timeout: STOCK_APIS.TIMEOUT.CHART,
+        headers: STOCK_APIS.HEADERS.YAHOO
+      })
+      if (silverRes.data?.chart?.result?.[0]) {
+        const meta = silverRes.data.chart.result[0].meta
+        const price = meta.regularMarketPrice || 0
+        const prev = meta.previousClose || price
+        commodities.push({
+          name: 'Silver vs Dollar',
+          symbol: 'XAG/USD',
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat((price - prev).toFixed(2)),
+          changePercent: parseFloat(((price - prev) / prev * 100).toFixed(2))
+        })
+      }
+    } catch (e) {}
+
+    // Update cache
+    stockDataCache = {
+      india: indiaStocks,
+      american: americanStocks,
+      commodities: commodities,
+      lastUpdate: new Date().toISOString()
+    }
+
+    // Broadcast to all connected clients
+    io.emit('stockDataUpdate', stockDataCache)
+    
+    return stockDataCache
+  } catch (error) {
+    console.error('Error in fetchAllStockData:', error.message)
+    return stockDataCache
+  }
+}
+
+// Start periodic stock data updates (every 30 seconds)
+setInterval(() => {
+  fetchAllStockData()
+}, 30000)
+
+// Initial fetch
+fetchAllStockData()
 
 app.get('/socket-test', (req, res) => {
   res.json({ 
@@ -1002,6 +1527,15 @@ io.on('connection', (socket) => {
     userName: randomName,
     connectedUsers: Array.from(connectedUsers.values()),
     messageHistory: chatMessages // Send all stored messages
+  })
+  
+  // Send initial stock data to client
+  socket.emit('stockDataUpdate', stockDataCache)
+  
+  // Handle stock data subscription requests
+  socket.on('subscribeStockUpdates', () => {
+    socket.emit('stockDataUpdate', stockDataCache)
+    console.log('Client subscribed to stock updates:', socket.id)
   })
   
   // Broadcast new user joined
