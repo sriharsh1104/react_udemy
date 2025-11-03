@@ -12,6 +12,7 @@ const GlobalChat = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem('chat_theme') || 'dark')
   const [showJumpToBottom, setShowJumpToBottom] = useState(false)
   const [showJumpToTop, setShowJumpToTop] = useState(false)
+  const [fullscreenImage, setFullscreenImage] = useState(null)
   const fileInputRef = useRef(null)
   const socketRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -147,6 +148,17 @@ const GlobalChat = () => {
   useEffect(() => {
     localStorage.setItem('chat_theme', theme)
   }, [theme])
+
+  // Handle ESC key to close fullscreen image
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && fullscreenImage) {
+        setFullscreenImage(null)
+      }
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [fullscreenImage])
 
   useEffect(() => {
     // Auto-scroll to bottom when new messages arrive (only if user hasn't manually scrolled up)
@@ -319,7 +331,13 @@ const GlobalChat = () => {
                   )}
                   <div className="message-content">
                     {msg.imageUrl ? (
-                      <img src={msg.imageUrl} alt="shared" style={{ maxWidth: '260px', borderRadius: 12 }} />
+                      <img 
+                        src={msg.imageUrl} 
+                        alt="shared" 
+                        className="chat-image"
+                        onClick={() => setFullscreenImage(msg.imageUrl)}
+                        style={{ cursor: 'pointer' }}
+                      />
                     ) : (
                       msg.message
                     )}
@@ -371,6 +389,27 @@ const GlobalChat = () => {
               Send
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Fullscreen Image Modal */}
+      {fullscreenImage && (
+        <div 
+          className="fullscreen-image-modal"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button 
+            className="close-fullscreen-btn"
+            onClick={() => setFullscreenImage(null)}
+            title="Close (ESC)"
+          >
+            ✕
+          </button>
+          <img 
+            src={fullscreenImage} 
+            alt="Fullscreen" 
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </>
