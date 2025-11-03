@@ -10,7 +10,7 @@
     "build": "vite build",
     "build:stage": "vite build --mode stage",
     "build:prod": "vite build --mode production",
-    "build:render": "vite build",
+    "build:render": "npm install && vite build",
     "preview": "vite preview",
     "preview:stage": "vite preview --mode stage"
   },
