@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build:render": "npm install"
+    "build:render": "npm install --legacy-peer-deps"
   },
   "keywords": [
     "downloader",

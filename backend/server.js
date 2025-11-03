@@ -66,6 +66,8 @@ const io = new Server(server, {
   pingTimeout: 60000,
   pingInterval: 25000
 })
+// PORT is automatically set by Render via environment variable
+// Fallback to 3001 for local development only
 const PORT = process.env.PORT || 3001
 
 // Trust proxy for proper URL detection on Render/Heroku/etc
@@ -127,6 +129,15 @@ app.options('*', (req, res) => {
 
 app.use(express.json())
 app.use('/downloads', express.static(path.join(__dirname, 'downloads')))
+
+// Root endpoint for Render health check
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Backend server is running',
+    service: 'social-media-downloader-backend'
+  })
+})
 
 // File uploads (for PDF edit)
 const upload = multer({ dest: path.join(__dirname, 'uploads') })
@@ -1005,6 +1016,12 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Backend server running on http://0.0.0.0:${PORT}`)
   console.log(`📥 Download directory: ${downloadsDir}`)
   console.log(`💬 Socket.io ENABLED`)
+  console.log(`✅ Server ready to accept connections`)
   console.log(`⚠️  Make sure yt-dlp is installed: apt install yt-dlp or pip install yt-dlp`)
+  
+  // Immediate signal that server is ready (helps with Render health checks)
+  if (process.send) {
+    process.send('ready')
+  }
 })
 
