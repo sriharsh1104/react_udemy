@@ -152,6 +152,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
 }
 
 .global-chat-container.dark .global-chat-messages {
@@ -317,6 +318,67 @@
 .chat-send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Jump Buttons */
+.jump-button {
+  position: absolute;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  z-index: 1001;
+  transition: all 0.3s ease;
+  animation: fadeInButton 0.2s ease;
+}
+
+@keyframes fadeInButton {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.jump-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+}
+
+.jump-button:active {
+  transform: scale(0.95);
+}
+
+.jump-to-top {
+  top: 16px;
+}
+
+.jump-to-bottom {
+  position: fixed;
+  bottom: 162px; /* Above send button: container bottom (90px) + input padding (16px) + input field height (~48px) + button margin (8px) */
+  right: 36px; /* Right corner: container right (20px) + container padding (16px) */
+}
+
+.global-chat-container.dark .jump-button {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  box-shadow: 0 4px 12px rgba(118, 75, 162, 0.5);
+}
+
+.global-chat-container.dark .jump-button:hover {
+  box-shadow: 0 6px 16px rgba(118, 75, 162, 0.7);
 }
 
 /* Mobile Responsive */

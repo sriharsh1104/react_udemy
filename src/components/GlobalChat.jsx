@@ -10,14 +10,32 @@ const GlobalChat = () => {
   const [userName, setUserName] = useState('')
   const [connectedUsers, setConnectedUsers] = useState(0)
   const [theme, setTheme] = useState(() => localStorage.getItem('chat_theme') || 'dark')
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false)
+  const [showJumpToTop, setShowJumpToTop] = useState(false)
   const fileInputRef = useRef(null)
   const socketRef = useRef(null)
   const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
+  const userScrolledUpRef = useRef(false)
 
   const appendMessage = (newMsg) => {
     setMessages(prev => {
       const next = [...prev, newMsg]
-      return next.length > 100 ? next.slice(next.length - 100) : next
+      // Only count user messages toward the 100 limit
+      // System messages (welcome/left) are excluded from the count
+      const userMessages = next.filter(msg => msg.type === 'user')
+      const systemMessages = next.filter(msg => msg.type === 'system')
+      
+      // Keep only last 100 user messages
+      const limitedUserMessages = userMessages.length > 100 
+        ? userMessages.slice(userMessages.length - 100)
+        : userMessages
+      
+      // Combine system messages with limited user messages, sorted by timestamp
+      const combined = [...limitedUserMessages, ...systemMessages]
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      
+      return combined
     })
   }
 
@@ -131,11 +149,56 @@ const GlobalChat = () => {
   }, [theme])
 
   useEffect(() => {
-    // Auto-scroll to bottom when new messages arrive
-    if (isOpen) {
+    // Auto-scroll to bottom when new messages arrive (only if user hasn't manually scrolled up)
+    if (isOpen && !userScrolledUpRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, isOpen])
+
+  // Track scroll position to show/hide jump buttons
+  useEffect(() => {
+    const messagesContainer = messagesContainerRef.current
+    if (!messagesContainer || !isOpen) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainer
+      const isAtTop = scrollTop < 50
+      // Show jump to bottom immediately when even 1px scrolled up from bottom
+      const isAtBottom = scrollHeight - scrollTop - clientHeight <= 1
+
+      setShowJumpToTop(!isAtTop && messages.length > 0)
+      // Show jump to bottom button if not exactly at bottom (even 1px scroll up)
+      setShowJumpToBottom(!isAtBottom && messages.length > 0 && scrollHeight > clientHeight)
+
+      // Track if user manually scrolled up (don't auto-scroll if they did)
+      if (!isAtBottom && scrollTop > 0) {
+        userScrolledUpRef.current = true
+      } else if (isAtBottom) {
+        userScrolledUpRef.current = false
+      }
+    }
+
+    messagesContainer.addEventListener('scroll', handleScroll)
+    // Initial check
+    handleScroll()
+
+    return () => {
+      messagesContainer.removeEventListener('scroll', handleScroll)
+    }
+  }, [messages, isOpen])
+
+  const jumpToTop = () => {
+    messagesContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const jumpToBottom = () => {
+    userScrolledUpRef.current = false
+    messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' })
+    // Also scroll the end ref into view
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 100)
+  }
 
   const sendMessage = () => {
     if (!inputMessage.trim() || !socketRef.current) return
@@ -145,6 +208,8 @@ const GlobalChat = () => {
     })
 
     setInputMessage('')
+    // Reset scroll tracking when user sends a message
+    userScrolledUpRef.current = false
   }
 
   const handleImageButtonClick = () => {
@@ -173,6 +238,8 @@ const GlobalChat = () => {
       const data = await res.json()
       if (!res.ok || !data?.url) throw new Error(data?.error || 'Upload failed')
       socketRef.current?.emit('sendMessage', { imageUrl: data.url })
+      // Reset scroll tracking when user sends an image
+      userScrolledUpRef.current = false
     } catch (err) {
       console.error('Image upload error:', err)
       alert('Failed to upload image')
@@ -228,7 +295,7 @@ const GlobalChat = () => {
             </div>
           </div>
 
-          <div className="global-chat-messages">
+          <div className="global-chat-messages" ref={messagesContainerRef}>
             {messages.length === 0 ? (
               <div className="empty-chat">
                 <p>No messages yet. Start chatting!</p>
@@ -261,7 +328,29 @@ const GlobalChat = () => {
               ))
             )}
             <div ref={messagesEndRef} />
+
+            {/* Jump to Top Button - inside messages container */}
+            {showJumpToTop && (
+              <button 
+                className="jump-button jump-to-top"
+                onClick={jumpToTop}
+                title="Jump to top"
+              >
+                ↑
+              </button>
+            )}
           </div>
+
+          {/* Jump to Bottom Button - fixed at bottom right, above send button */}
+          {showJumpToBottom && (
+            <button 
+              className="jump-button jump-to-bottom"
+              onClick={jumpToBottom}
+              title="Jump to bottom"
+            >
+              ↓
+            </button>
+          )}
 
           <div className="global-chat-input">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelected} style={{ display: 'none' }} />
