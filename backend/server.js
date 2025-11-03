@@ -1001,8 +1001,8 @@ function generateRandomName() {
   return `${adj}${noun}${num}`
 }
 
-server.listen(PORT, () => {
-  console.log(`🚀 Backend server running on http://localhost:${PORT}`)
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Backend server running on http://0.0.0.0:${PORT}`)
   console.log(`📥 Download directory: ${downloadsDir}`)
   console.log(`💬 Socket.io ENABLED`)
   console.log(`⚠️  Make sure yt-dlp is installed: apt install yt-dlp or pip install yt-dlp`)
