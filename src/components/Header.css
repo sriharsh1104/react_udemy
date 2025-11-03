@@ -3,12 +3,14 @@
   border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow-md);
   margin-bottom: 30px;
+  position: relative;
 }
 
 .header-content {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px 40px;
+  position: relative;
 }
 
 .header-title {

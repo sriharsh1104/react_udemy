@@ -1,8 +1,10 @@
 import './Header.css'
+import PingDisplay from './PingDisplay'
 
 const Header = ({ activeTab, onTabChange }) => {
   return (
     <div className="header">
+      <PingDisplay />
       <div className="header-content">
         <h1 className="header-title">All in One Toolbox</h1>
         <nav className="tabs">
