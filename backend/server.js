@@ -68,6 +68,22 @@ const io = new Server(server, {
 })
 const PORT = process.env.PORT || 3001
 
+// Trust proxy for proper URL detection on Render/Heroku/etc
+app.set('trust proxy', true)
+
+// Helper function to get backend base URL (works for both local and Render)
+function getBackendUrl(req) {
+  // If BACKEND_URL env variable is set, use it
+  if (process.env.BACKEND_URL) {
+    return process.env.BACKEND_URL
+  }
+  
+  // Otherwise, construct from request
+  const protocol = req.protocol || (req.headers['x-forwarded-proto'] || 'http')
+  const host = req.headers.host || req.get('host') || `localhost:${PORT}`
+  return `${protocol}://${host}`
+}
+
 // Middleware - CORS Configuration - AGGRESSIVE FIX (ALLOW EVERYTHING)
 // MUST be before any routes
 
@@ -167,7 +183,7 @@ app.post('/api/download/youtube', async (req, res) => {
       
       res.json({ 
         success: true, 
-        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        downloadUrl: `${getBackendUrl(req)}/downloads/${downloadedFile}`,
         filename: downloadedFile
       })
     })
@@ -212,7 +228,7 @@ app.post('/api/download/instagram', async (req, res) => {
       
       res.json({ 
         success: true, 
-        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        downloadUrl: `${getBackendUrl(req)}/downloads/${downloadedFile}`,
         filename: downloadedFile
       })
     })
@@ -254,7 +270,7 @@ app.post('/api/download/twitter', async (req, res) => {
       
       res.json({ 
         success: true, 
-        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        downloadUrl: `${getBackendUrl(req)}/downloads/${downloadedFile}`,
         filename: downloadedFile
       })
     })
@@ -296,7 +312,7 @@ app.post('/api/download/tiktok', async (req, res) => {
       
       res.json({ 
         success: true, 
-        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        downloadUrl: `${getBackendUrl(req)}/downloads/${downloadedFile}`,
         filename: downloadedFile
       })
     })
@@ -338,7 +354,7 @@ app.post('/api/download/facebook', async (req, res) => {
       
       res.json({ 
         success: true, 
-        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        downloadUrl: `${getBackendUrl(req)}/downloads/${downloadedFile}`,
         filename: downloadedFile
       })
     })
@@ -380,7 +396,7 @@ app.post('/api/download/reddit', async (req, res) => {
       
       res.json({ 
         success: true, 
-        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        downloadUrl: `${getBackendUrl(req)}/downloads/${downloadedFile}`,
         filename: downloadedFile
       })
     })
@@ -438,7 +454,7 @@ app.post('/api/download/snapchat', async (req, res) => {
       
       res.json({ 
         success: true, 
-        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        downloadUrl: `${getBackendUrl(req)}/downloads/${downloadedFile}`,
         filename: downloadedFile
       })
     })
@@ -496,7 +512,7 @@ app.post('/api/download/pinterest', async (req, res) => {
       
       res.json({ 
         success: true, 
-        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        downloadUrl: `${getBackendUrl(req)}/downloads/${downloadedFile}`,
         filename: downloadedFile
       })
     })
@@ -649,7 +665,7 @@ app.post('/api/download', async (req, res) => {
       
       res.json({ 
         success: true, 
-        downloadUrl: `http://localhost:${PORT}/downloads/${downloadedFile}`,
+        downloadUrl: `${getBackendUrl(req)}/downloads/${downloadedFile}`,
         filename: downloadedFile,
         platform
       })
@@ -750,7 +766,7 @@ app.post('/api/pdf/edit', upload.single('file'), async (req, res) => {
 
     res.json({
       success: true,
-      downloadUrl: `http://localhost:${PORT}/downloads/${outName}`,
+      downloadUrl: `${getBackendUrl(req)}/downloads/${outName}`,
       filename: outName
     })
   } catch (err) {
