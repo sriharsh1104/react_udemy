@@ -9,8 +9,17 @@ const GlobalChat = () => {
   const [inputMessage, setInputMessage] = useState('')
   const [userName, setUserName] = useState('')
   const [connectedUsers, setConnectedUsers] = useState(0)
+  const [theme, setTheme] = useState(() => localStorage.getItem('chat_theme') || 'dark')
+  const fileInputRef = useRef(null)
   const socketRef = useRef(null)
   const messagesEndRef = useRef(null)
+
+  const appendMessage = (newMsg) => {
+    setMessages(prev => {
+      const next = [...prev, newMsg]
+      return next.length > 100 ? next.slice(next.length - 100) : next
+    })
+  }
 
   useEffect(() => {
     // Connect to socket server with production-ready options
@@ -58,40 +67,56 @@ const GlobalChat = () => {
     socketRef.current.on('userConnected', (data) => {
       setUserName(data.userName)
       setConnectedUsers(data.connectedUsers?.length || 0)
-      setMessages(prev => [...prev, {
+      
+      // Load message history if available
+      if (data.messageHistory && data.messageHistory.length > 0) {
+        const historyMessages = data.messageHistory.map(msg => ({
+          type: 'user',
+          userId: msg.userId,
+          userName: msg.userName,
+          message: msg.message,
+          imageUrl: msg.imageUrl || null,
+          timestamp: msg.timestamp,
+          isOwn: msg.userId === socketRef.current?.id
+        }))
+        setMessages(historyMessages)
+      }
+      
+      appendMessage({
         type: 'system',
         message: `Welcome ${data.userName}! You joined the chat.`,
         timestamp: new Date().toISOString()
-      }])
+      })
     })
 
     socketRef.current.on('userJoined', (data) => {
-      setMessages(prev => [...prev, {
+      appendMessage({
         type: 'system',
         message: `${data.userName} joined the chat`,
         timestamp: new Date().toISOString()
-      }])
+      })
       setConnectedUsers(prev => prev + 1)
     })
 
     socketRef.current.on('userLeft', (data) => {
-      setMessages(prev => [...prev, {
+      appendMessage({
         type: 'system',
         message: `${data.userName} left the chat`,
         timestamp: new Date().toISOString()
-      }])
+      })
       setConnectedUsers(prev => Math.max(0, prev - 1))
     })
 
     socketRef.current.on('newMessage', (data) => {
-      setMessages(prev => [...prev, {
+      appendMessage({
         type: 'user',
         userId: data.userId,
         userName: data.userName,
         message: data.message,
+        imageUrl: data.imageUrl || null,
         timestamp: data.timestamp,
         isOwn: data.userId === socketRef.current?.id
-      }])
+      })
     })
 
     return () => {
@@ -100,6 +125,10 @@ const GlobalChat = () => {
       }
     }
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem('chat_theme', theme)
+  }, [theme])
 
   useEffect(() => {
     // Auto-scroll to bottom when new messages arrive
@@ -116,6 +145,38 @@ const GlobalChat = () => {
     })
 
     setInputMessage('')
+  }
+
+  const handleImageButtonClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImageSelected = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      alert('Only image files allowed')
+      return
+    }
+    if (file.size > 1024 * 1024) {
+      alert('Image must be 1MB or less')
+      return
+    }
+    try {
+      const form = new FormData()
+      form.append('image', file)
+      const res = await fetch(`${BACKEND_URL}/api/chat/upload-image`, {
+        method: 'POST',
+        body: form
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.url) throw new Error(data?.error || 'Upload failed')
+      socketRef.current?.emit('sendMessage', { imageUrl: data.url })
+    } catch (err) {
+      console.error('Image upload error:', err)
+      alert('Failed to upload image')
+    }
   }
 
   const handleKeyPress = (e) => {
@@ -141,7 +202,7 @@ const GlobalChat = () => {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="global-chat-container">
+        <div className={`global-chat-container ${theme === 'light' ? 'light' : 'dark'}`}>
           <div className="global-chat-header">
             <div className="chat-header-info">
               <h3>Global Chat</h3>
@@ -150,12 +211,21 @@ const GlobalChat = () => {
                 <span className="online-users">{connectedUsers} online</span>
               )}
             </div>
-            <button 
-              className="chat-close-btn"
-              onClick={() => setIsOpen(false)}
-            >
-              ✕
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="chat-close-btn"
+                title={theme === 'light' ? 'Switch to dark' : 'Switch to light'}
+                onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+              >
+                {theme === 'light' ? '🌙' : '☀️'}
+              </button>
+              <button 
+                className="chat-close-btn"
+                onClick={() => setIsOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           <div className="global-chat-messages">
@@ -181,7 +251,11 @@ const GlobalChat = () => {
                     </div>
                   )}
                   <div className="message-content">
-                    {msg.message}
+                    {msg.imageUrl ? (
+                      <img src={msg.imageUrl} alt="shared" style={{ maxWidth: '260px', borderRadius: 12 }} />
+                    ) : (
+                      msg.message
+                    )}
                   </div>
                 </div>
               ))
@@ -190,6 +264,7 @@ const GlobalChat = () => {
           </div>
 
           <div className="global-chat-input">
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelected} style={{ display: 'none' }} />
             <input
               type="text"
               value={inputMessage}
@@ -198,6 +273,7 @@ const GlobalChat = () => {
               placeholder="Type a message..."
               className="chat-input-field"
             />
+            <button onClick={handleImageButtonClick} className="chat-send-btn" title="Send image (<=1MB)">📷</button>
             <button 
               onClick={sendMessage}
               disabled={!inputMessage.trim()}

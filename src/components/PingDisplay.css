@@ -95,21 +95,27 @@
 
 @media (max-width: 768px) {
   .ping-display {
-    top: 10px;
-    right: 10px;
-    padding: 4px 8px;
-    font-size: 0.75rem;
+    position: fixed;
+    top: auto;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: auto;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    gap: 6px;
+    border-radius: 16px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
   }
   
   .ping-icon {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
   }
   
   .refresh-btn {
-    width: 20px;
-    height: 20px;
-    font-size: 0.85rem;
-    padding: 2px;
+    width: 32px; /* better tap target */
+    height: 32px;
+    font-size: 1rem;
+    padding: 6px;
   }
 }
 

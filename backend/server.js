@@ -154,6 +154,29 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
 }
 
+// Create chat uploads dir and static mount (for chat images)
+const chatUploadsDir = path.join(__dirname, 'chat_uploads')
+if (!fs.existsSync(chatUploadsDir)) {
+  fs.mkdirSync(chatUploadsDir, { recursive: true })
+}
+app.use('/chat_uploads', express.static(chatUploadsDir))
+
+// Multer config for chat images (<= 1MB)
+const chatImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, chatUploadsDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || '.png'
+      cb(null, `chat_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`)
+    }
+  }),
+  limits: { fileSize: 1 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']
+    cb(allowed.includes(file.mimetype) ? null : new Error('Only image files allowed'), allowed.includes(file.mimetype))
+  }
+})
+
 // YouTube download endpoint
 app.post('/api/download/youtube', async (req, res) => {
   const { url } = req.body
@@ -842,6 +865,19 @@ app.post('/api/confirm-payment', async (req, res) => {
   }
 })
 
+// Chat image upload endpoint (<=1MB)
+app.post('/api/chat/upload-image', chatImageUpload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Image file is required' })
+    }
+    const publicUrl = `${getBackendUrl(req)}/chat_uploads/${req.file.filename}`
+    res.json({ success: true, url: publicUrl, filename: req.file.filename })
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Upload failed' })
+  }
+})
+
 // Health check
 app.get('/api/health', (req, res) => {
   // ALWAYS set CORS headers - NO CONDITIONS
@@ -859,6 +895,9 @@ app.get('/api/health', (req, res) => {
 
 // Socket.io test endpoint
 const connectedUsers = new Map()
+// Store recent chat messages (max 100 messages)
+const chatMessages = []
+const MAX_CHAT_MESSAGES = 100
 
 app.get('/socket-test', (req, res) => {
   res.json({ 
@@ -957,11 +996,12 @@ io.on('connection', (socket) => {
   const randomName = generateRandomName()
   connectedUsers.set(socket.id, { name: randomName, socketId: socket.id })
   
-  // Send welcome message and user's name
+  // Send welcome message, user's name, and message history
   socket.emit('userConnected', { 
     userId: socket.id, 
     userName: randomName,
-    connectedUsers: Array.from(connectedUsers.values())
+    connectedUsers: Array.from(connectedUsers.values()),
+    messageHistory: chatMessages // Send all stored messages
   })
   
   // Broadcast new user joined
@@ -970,15 +1010,23 @@ io.on('connection', (socket) => {
     userName: randomName
   })
   
-  // Handle incoming messages
+  // Handle incoming messages (text or image)
   socket.on('sendMessage', (data) => {
     const user = connectedUsers.get(socket.id)
     if (user) {
       const messageData = {
         userId: socket.id,
         userName: user.name,
-        message: data.message,
+        message: data.message || '',
+        imageUrl: data.imageUrl || null,
+        type: data.imageUrl ? 'image' : 'text',
         timestamp: new Date().toISOString()
+      }
+      
+      // Store message in history (keep only last MAX_CHAT_MESSAGES)
+      chatMessages.push(messageData)
+      if (chatMessages.length > MAX_CHAT_MESSAGES) {
+        chatMessages.shift() // Remove oldest message
       }
       
       // Broadcast message to all users including sender
