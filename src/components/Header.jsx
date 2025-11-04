@@ -50,12 +50,6 @@ const Header = ({ activeTab, onTabChange }) => {
           >
             🤖 AI Chat
           </button>
-          <button
-            className={`tab ${activeTab === 'trade' ? 'active' : ''}`}
-            onClick={() => onTabChange('trade')}
-          >
-            📈 Trade Chart
-          </button>
         </nav>
       </div>
     </div>

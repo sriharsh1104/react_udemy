@@ -8,7 +8,6 @@ import ERC20Contract from './components/ERC20Contract'
 import OTTLinks from './components/OTTLinks'
 import Esports from './components/Esports'
 import AIChat from './components/AIChat'
-import TradeChart from './components/TradeChart'
 import GlobalChat from './components/GlobalChat'
 import './App.css'
 
@@ -32,7 +31,6 @@ function App() {
           {activeTab === 'ott' && <OTTLinks />}
           {activeTab === 'esports' && <Esports />}
           {activeTab === 'ai' && <AIChat />}
-          {activeTab === 'trade' && <TradeChart />}
           {activeTab === 'contract' && <ERC20Contract />}
         </div>
       </div>

@@ -37,12 +37,17 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
   const mediaRef = useRef(null)
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
+  const [timeRanges, setTimeRanges] = useState([]) // Array of {start, end} objects
+  const [useMultipleRanges, setUseMultipleRanges] = useState(false)
   const [isExtractingAudio, setIsExtractingAudio] = useState(false)
   const [isSeparating, setIsSeparating] = useState(false)
   const [extractedAudioUrl, setExtractedAudioUrl] = useState(null)
   const [separatedAudioUrl, setSeparatedAudioUrl] = useState(null)
   const [separationMode, setSeparationMode] = useState('voice') // 'voice' or 'music'
   const [audioExtractFormat, setAudioExtractFormat] = useState('mp3')
+  const [customFilename, setCustomFilename] = useState('')
+  const [customExtractedFilename, setCustomExtractedFilename] = useState('')
+  const [customSeparatedFilename, setCustomSeparatedFilename] = useState('')
 
   const inputIsAudio = !!videoFile?.type?.startsWith('audio/')
   const availableFormats = inputIsAudio ? FORMATS.filter(f => f.type === 'audio') : FORMATS
@@ -68,6 +73,16 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
     return ffmpeg
   }
 
+  const toSeconds = (t) => {
+    if (!t) return null
+    const parts = t.split(':').map(Number)
+    if (parts.some(isNaN)) return NaN
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    if (parts.length === 2) return parts[0] * 60 + parts[1]
+    if (parts.length === 1) return parts[0]
+    return NaN
+  }
+
   const convertVideo = async () => {
     try {
       setIsConverting(true)
@@ -86,70 +101,130 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
       const format = FORMATS.find(f => f.value === selectedFormat)
       const isAudioOnly = format.type === 'audio'
       
-      let execArgs = ['-i', inputFileName]
-
-      // Trim options (precise trim with re-encode; -ss/-to after -i are absolute times)
-      const hasStart = startTime && startTime.trim().length > 0
-      const hasEnd = endTime && endTime.trim().length > 0
-
-      // Basic validation vs duration if available
       const duration = mediaRef.current?.duration || null
-      const toSeconds = (t) => {
-        if (!t) return null
-        const parts = t.split(':').map(Number)
-        if (parts.some(isNaN)) return NaN
-        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
-        if (parts.length === 2) return parts[0] * 60 + parts[1]
-        if (parts.length === 1) return parts[0]
-        return NaN
-      }
-      const startSec = hasStart ? toSeconds(startTime.trim()) : null
-      const endSec = hasEnd ? toSeconds(endTime.trim()) : null
 
-      if ((hasStart && isNaN(startSec)) || (hasEnd && isNaN(endSec))) {
-        throw new Error('Invalid time format. Use HH:MM:SS, MM:SS, or seconds.')
-      }
-      if (hasStart && hasEnd && endSec <= startSec) {
-        throw new Error('End time must be greater than start time.')
-      }
-      if (duration) {
-        if (hasStart && startSec >= duration) {
-          throw new Error('Start time must be within the video duration.')
+      // Handle multiple time ranges
+      if (useMultipleRanges) {
+        if (timeRanges.length === 0) {
+          throw new Error('Please add at least one time range.')
         }
-        if (hasEnd && endSec > duration + 0.01) {
-          throw new Error('End time exceeds the video duration.')
+        
+        // Filter out empty ranges
+        const nonEmptyRanges = timeRanges.filter(r => r.start && r.end && r.start.trim() && r.end.trim())
+        if (nonEmptyRanges.length === 0) {
+          throw new Error('Please fill in at least one time range.')
         }
-      }
+        // Validate all ranges
+        const validRanges = []
+        for (const range of nonEmptyRanges) {
+          const startSec = toSeconds(range.start)
+          const endSec = toSeconds(range.end)
+          
+          if (isNaN(startSec) || isNaN(endSec)) {
+            throw new Error(`Invalid time format in range ${range.start} - ${range.end}. Use HH:MM:SS, MM:SS, or seconds.`)
+          }
+          if (endSec <= startSec) {
+            throw new Error(`End time must be greater than start time in range ${range.start} - ${range.end}.`)
+          }
+          if (duration) {
+            if (startSec >= duration) {
+              throw new Error(`Start time exceeds duration in range ${range.start} - ${range.end}.`)
+            }
+            if (endSec > duration + 0.01) {
+              throw new Error(`End time exceeds duration in range ${range.start} - ${range.end}.`)
+            }
+          }
+          validRanges.push({ start: startSec, end: endSec })
+        }
 
-      if (hasStart) {
-        execArgs.push('-ss', startTime.trim())
-      }
-      if (hasEnd) {
-        execArgs.push('-to', endTime.trim())
-      }
-      
-      if (isAudioOnly) {
-        // For audio formats, extract audio only
-        execArgs.push(
-          '-vn',           // No video
-          '-acodec', format.codec,
-          '-ab', '192k',   // Bitrate
-          '-ar', '44100'   // Sample rate
-        )
-      } else {
-        // For video formats, use format-specific video and audio codecs
-        execArgs.push('-c:v', format.codec)
-        if (format.audioCodec) {
-          execArgs.push('-c:a', format.audioCodec)
+        // Sort ranges by start time
+        validRanges.sort((a, b) => a.start - b.start)
+
+        // Build filter_complex for trimming and concatenating
+        const filterParts = []
+        const concatParts = []
+        
+        validRanges.forEach((range, index) => {
+          if (isAudioOnly) {
+            // atrim=start=SECONDS:end=SECONDS format
+            filterParts.push(`[0:a]atrim=start=${range.start}:end=${range.end},asetpts=PTS-STARTPTS[a${index}]`)
+            concatParts.push(`[a${index}]`)
+          } else {
+            // For video: trim=start=SECONDS:end=SECONDS format
+            filterParts.push(`[0:v]trim=start=${range.start}:end=${range.end},setpts=PTS-STARTPTS[v${index}]`)
+            filterParts.push(`[0:a]atrim=start=${range.start}:end=${range.end},asetpts=PTS-STARTPTS[a${index}]`)
+            concatParts.push(`[v${index}][a${index}]`)
+          }
+        })
+
+        const concatFilter = isAudioOnly 
+          ? `${concatParts.join('')}concat=n=${validRanges.length}:v=0:a=1[outa]`
+          : `${concatParts.join('')}concat=n=${validRanges.length}:v=1:a=1[outv][outa]`
+
+        const filterComplex = [...filterParts, concatFilter].join(';')
+
+        let execArgs = ['-i', inputFileName, '-filter_complex', filterComplex]
+        
+        if (isAudioOnly) {
+          execArgs.push('-map', '[outa]', '-acodec', format.codec, '-ab', '192k', '-ar', '44100')
         } else {
-          execArgs.push('-c:a', 'aac') // default audio codec
+          execArgs.push('-map', '[outv]', '-map', '[outa]', '-c:v', format.codec)
+          if (format.audioCodec) {
+            execArgs.push('-c:a', format.audioCodec)
+          } else {
+            execArgs.push('-c:a', 'aac')
+          }
         }
+        
+        execArgs.push(outputFileName)
+        
+        await ffmpeg.exec(execArgs)
+      } else {
+        // Original single range logic
+        let execArgs = ['-i', inputFileName]
+
+        const hasStart = startTime && startTime.trim().length > 0
+        const hasEnd = endTime && endTime.trim().length > 0
+
+        const startSec = hasStart ? toSeconds(startTime.trim()) : null
+        const endSec = hasEnd ? toSeconds(endTime.trim()) : null
+
+        if ((hasStart && isNaN(startSec)) || (hasEnd && isNaN(endSec))) {
+          throw new Error('Invalid time format. Use HH:MM:SS, MM:SS, or seconds.')
+        }
+        if (hasStart && hasEnd && endSec <= startSec) {
+          throw new Error('End time must be greater than start time.')
+        }
+        if (duration) {
+          if (hasStart && startSec >= duration) {
+            throw new Error('Start time must be within the video duration.')
+          }
+          if (hasEnd && endSec > duration + 0.01) {
+            throw new Error('End time exceeds the video duration.')
+          }
+        }
+
+        if (hasStart) {
+          execArgs.push('-ss', startTime.trim())
+        }
+        if (hasEnd) {
+          execArgs.push('-to', endTime.trim())
+        }
+        
+        if (isAudioOnly) {
+          execArgs.push('-vn', '-acodec', format.codec, '-ab', '192k', '-ar', '44100')
+        } else {
+          execArgs.push('-c:v', format.codec)
+          if (format.audioCodec) {
+            execArgs.push('-c:a', format.audioCodec)
+          } else {
+            execArgs.push('-c:a', 'aac')
+          }
+        }
+        
+        execArgs.push(outputFileName)
+        await ffmpeg.exec(execArgs)
       }
-      
-      execArgs.push(outputFileName)
-      
-      // Convert the video/audio
-      await ffmpeg.exec(execArgs)
       
       // Read the output file
       const data = await ffmpeg.readFile(outputFileName)
@@ -264,15 +339,53 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
     }
   }
 
+  const getDownloadFilename = (customName, defaultName, extension) => {
+    if (customName && customName.trim()) {
+      // Remove extension if user added it
+      const nameWithoutExt = customName.trim().replace(/\.[^/.]+$/, '')
+      return `${nameWithoutExt}.${extension}`
+    }
+    return `${defaultName}.${extension}`
+  }
+
   const handleDownload = () => {
     if (downloadUrl) {
-      const a = document.createElement('a')
-      a.href = downloadUrl
-      const fileExtension = selectedFormat
-      a.download = `converted.${fileExtension}`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      const filename = getDownloadFilename(customFilename, 'converted', selectedFormat)
+      // Check if it's a blob URL (local) or external URL
+      if (downloadUrl.startsWith('blob:')) {
+        // Blob URL - direct download
+        const a = document.createElement('a')
+        a.href = downloadUrl
+        a.download = filename
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        setTimeout(() => {
+          document.body.removeChild(a)
+        }, 100)
+      } else {
+        // External URL - fetch and download as blob
+        fetch(downloadUrl)
+          .then(response => response.blob())
+          .then(blob => {
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = filename
+            a.style.display = 'none'
+            document.body.appendChild(a)
+            a.click()
+            setTimeout(() => {
+              document.body.removeChild(a)
+              URL.revokeObjectURL(url)
+            }, 100)
+          })
+          .catch(error => {
+            console.error('Download error:', error)
+            // Fallback: open in new tab
+            window.open(downloadUrl, '_blank')
+          })
+      }
     }
   }
 
@@ -342,34 +455,107 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
 
   const handleDownloadExtracted = () => {
     if (extractedAudioUrl) {
-      const a = document.createElement('a')
-      a.href = extractedAudioUrl
-      a.download = `extracted_audio.${audioExtractFormat}`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      const filename = getDownloadFilename(customExtractedFilename, 'extracted_audio', audioExtractFormat)
+      // External URL - fetch and download as blob
+      fetch(extractedAudioUrl)
+        .then(response => response.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = filename
+          a.style.display = 'none'
+          document.body.appendChild(a)
+          a.click()
+          setTimeout(() => {
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+          }, 100)
+        })
+        .catch(error => {
+          console.error('Download error:', error)
+          // Fallback: open in new tab
+          window.open(extractedAudioUrl, '_blank')
+        })
     }
   }
 
   const handleDownloadSeparated = () => {
     if (separatedAudioUrl) {
-      const a = document.createElement('a')
-      a.href = separatedAudioUrl
-      a.download = `separated_${separationMode}.mp3`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      const filename = getDownloadFilename(customSeparatedFilename, `separated_${separationMode}`, 'mp3')
+      // External URL - fetch and download as blob
+      fetch(separatedAudioUrl)
+        .then(response => response.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = filename
+          a.style.display = 'none'
+          document.body.appendChild(a)
+          a.click()
+          setTimeout(() => {
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+          }, 100)
+        })
+        .catch(error => {
+          console.error('Download error:', error)
+          // Fallback: open in new tab
+          window.open(separatedAudioUrl, '_blank')
+        })
     }
+  }
+
+  const handleRemoveFile = () => {
+    // Clean up blob URL if it exists
+    if (videoUrl && videoUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(videoUrl)
+    }
+    // Clean up converted video URL if exists
+    if (downloadUrl && downloadUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(downloadUrl)
+    }
+    // Clean up extracted audio URL if exists
+    if (extractedAudioUrl && extractedAudioUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(extractedAudioUrl)
+    }
+    // Clean up separated audio URL if exists
+    if (separatedAudioUrl && separatedAudioUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(separatedAudioUrl)
+    }
+    // Reset custom filenames
+    setCustomFilename('')
+    setCustomExtractedFilename('')
+    setCustomSeparatedFilename('')
+    // Reset to upload screen
+    onReset()
   }
 
   return (
     <div className="converter-container">
       <div className="video-preview">
-        <h3>Original {inputIsAudio ? 'Audio' : 'Video'}</h3>
+        <div className="preview-header">
+          <h3>Original {inputIsAudio ? 'Audio' : 'Video'}</h3>
+        </div>
         {inputIsAudio ? (
-          <audio ref={mediaRef} src={videoUrl} controls className="audio-player" />
+          <div className="audio-player-wrapper">
+            <audio ref={mediaRef} src={videoUrl} controls className="audio-player" />
+            <button onClick={handleRemoveFile} className="remove-file-button" title="Remove file and upload new one">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
+              </svg>
+            </button>
+          </div>
         ) : (
-          <video ref={mediaRef} src={videoUrl} controls className="video-player" />
+          <div className="video-player-wrapper">
+            <video ref={mediaRef} src={videoUrl} controls className="video-player" />
+            <button onClick={handleRemoveFile} className="remove-file-button" title="Remove file and upload new one">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
+              </svg>
+            </button>
+          </div>
         )}
       </div>
 
@@ -386,29 +572,112 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
         </div>
 
         <div className="trim-controls">
-          <div className="trim-field">
-            <label htmlFor="start-time">Start time (HH:MM:SS or MM:SS or seconds)</label>
-            <input
-              id="start-time"
-              type="text"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              placeholder="e.g. 00:00:05"
-              className="trim-input"
-            />
+          <div className="trim-mode-selector">
+            <label>
+              <input
+                type="radio"
+                checked={!useMultipleRanges}
+                onChange={() => setUseMultipleRanges(false)}
+              />
+              Single Time Range
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={useMultipleRanges}
+                onChange={() => setUseMultipleRanges(true)}
+              />
+              Multiple Time Ranges
+            </label>
           </div>
-          <div className="trim-field">
-            <label htmlFor="end-time">End time (optional)</label>
-            <input
-              id="end-time"
-              type="text"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              placeholder="e.g. 00:00:15"
-              className="trim-input"
-            />
-          </div>
-          <div className="trim-hint">Leave blank to use full length. If only start is set, export from start to end of video. If both set, export the range.</div>
+
+          {!useMultipleRanges ? (
+            <>
+              <div className="trim-field">
+                <label htmlFor="start-time">Start time (HH:MM:SS or MM:SS or seconds)</label>
+                <input
+                  id="start-time"
+                  type="text"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  placeholder="e.g. 00:00:05"
+                  className="trim-input"
+                />
+              </div>
+              <div className="trim-field">
+                <label htmlFor="end-time">End time (optional)</label>
+                <input
+                  id="end-time"
+                  type="text"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  placeholder="e.g. 00:00:15"
+                  className="trim-input"
+                />
+              </div>
+              <div className="trim-hint">Leave blank to use full length. If only start is set, export from start to end of video. If both set, export the range.</div>
+            </>
+          ) : (
+            <div className="multiple-ranges-section">
+              <div className="ranges-list">
+                {timeRanges.map((range, index) => (
+                  <div key={index} className="time-range-item">
+                    <div className="range-inputs">
+                      <div className="range-field">
+                        <label>Start ({index + 1})</label>
+                        <input
+                          type="text"
+                          value={range.start}
+                          onChange={(e) => {
+                            const newRanges = [...timeRanges]
+                            newRanges[index].start = e.target.value
+                            setTimeRanges(newRanges)
+                          }}
+                          placeholder="e.g. 00:00:20"
+                          className="trim-input"
+                        />
+                      </div>
+                      <div className="range-field">
+                        <label>End ({index + 1})</label>
+                        <input
+                          type="text"
+                          value={range.end}
+                          onChange={(e) => {
+                            const newRanges = [...timeRanges]
+                            newRanges[index].end = e.target.value
+                            setTimeRanges(newRanges)
+                          }}
+                          placeholder="e.g. 00:00:40"
+                          className="trim-input"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTimeRanges(timeRanges.filter((_, i) => i !== index))
+                        }}
+                        className="remove-range-button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTimeRanges([...timeRanges, { start: '', end: '' }])
+                }}
+                className="add-range-button"
+              >
+                + Add Time Range
+              </button>
+              <div className="trim-hint">
+                Add multiple time ranges (e.g., 20-40, 60-80, 120-160). All selected ranges will be cut and concatenated into one audio file.
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="action-buttons">
@@ -458,6 +727,17 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
             {extractedAudioUrl && (
               <div className="extracted-audio-preview">
                 <audio src={extractedAudioUrl} controls className="audio-player" />
+                <div className="download-filename-section">
+                  <label htmlFor="extracted-filename">File Name (optional):</label>
+                  <input
+                    id="extracted-filename"
+                    type="text"
+                    value={customExtractedFilename}
+                    onChange={(e) => setCustomExtractedFilename(e.target.value)}
+                    placeholder={`extracted_audio.${audioExtractFormat}`}
+                    className="filename-input"
+                  />
+                </div>
                 <button onClick={handleDownloadExtracted} className="download-button">
                   Download Extracted Audio
                 </button>
@@ -501,6 +781,17 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
           {separatedAudioUrl && (
             <div className="separated-audio-preview">
               <audio src={separatedAudioUrl} controls className="audio-player" />
+              <div className="download-filename-section">
+                <label htmlFor="separated-filename">File Name (optional):</label>
+                <input
+                  id="separated-filename"
+                  type="text"
+                  value={customSeparatedFilename}
+                  onChange={(e) => setCustomSeparatedFilename(e.target.value)}
+                  placeholder={`separated_${separationMode}.mp3`}
+                  className="filename-input"
+                />
+              </div>
               <button onClick={handleDownloadSeparated} className="download-button">
                 Download {separationMode === 'voice' ? 'Voice' : 'Music'}
               </button>
@@ -527,6 +818,17 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
             ) : (
               <video src={convertedVideo} controls className="video-player" />
             )}
+            <div className="download-filename-section">
+              <label htmlFor="converted-filename">File Name (optional):</label>
+              <input
+                id="converted-filename"
+                type="text"
+                value={customFilename}
+                onChange={(e) => setCustomFilename(e.target.value)}
+                placeholder={`converted.${selectedFormat}`}
+                className="filename-input"
+              />
+            </div>
             <button onClick={handleDownload} className="download-button">
               Download Converted {getSelectedFormatType() === 'audio' ? 'Audio' : 'Video'}
             </button>
