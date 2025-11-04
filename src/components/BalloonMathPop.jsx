@@ -15,15 +15,37 @@ const BalloonMathPop = () => {
   const [showNextQuestionButton, setShowNextQuestionButton] = useState(false)
 
   const generateQuestion = () => {
-    const num1 = Math.floor(Math.random() * 10) + 1
-    const num2 = Math.floor(Math.random() * 10) + 1
-    const answer = num1 * num2
+    // Randomly choose between multiplication and division
+    const isDivision = Math.random() < 0.5 // 50% chance for division
+    let num1, num2, answer, operator
+    
+    if (isDivision) {
+      // For division: generate dividend ÷ divisor = quotient
+      // Ensure whole number answers by making dividend = divisor × quotient
+      num2 = Math.floor(Math.random() * 10) + 1 // divisor (1-10)
+      const quotient = Math.floor(Math.random() * 10) + 1 // quotient (1-10)
+      num1 = num2 * quotient // dividend = divisor × quotient
+      answer = quotient
+      operator = '÷'
+    } else {
+      // For multiplication
+      num1 = Math.floor(Math.random() * 10) + 1
+      num2 = Math.floor(Math.random() * 10) + 1
+      answer = num1 * num2
+      operator = '×'
+    }
 
     // Generate 3 wrong answers - ensure they are different from correct answer
     const wrongAnswers = []
     let attempts = 0
     while (wrongAnswers.length < 3 && attempts < 100) {
-      const wrong = Math.floor(Math.random() * 100) + 1
+      let wrong
+      if (isDivision) {
+        // For division, generate wrong answers around the quotient
+        wrong = Math.floor(Math.random() * 10) + 1
+      } else {
+        wrong = Math.floor(Math.random() * 100) + 1
+      }
       if (wrong !== answer && !wrongAnswers.includes(wrong)) {
         wrongAnswers.push(wrong)
       }
@@ -91,7 +113,7 @@ const BalloonMathPop = () => {
       }
     }
 
-    setQuestion({ num1, num2, operator: '×', answer })
+    setQuestion({ num1, num2, operator, answer })
     setOptions(balloonOptions)
     setShaking([])
     setSelectedBalloon(null)
@@ -102,7 +124,7 @@ const BalloonMathPop = () => {
 
   useEffect(() => {
     generateQuestion()
-  }, [])
+  }, [questionNumber])
 
   const handleBalloonClick = (balloon) => {
     if (!gameActive || isAnswered) return
@@ -153,12 +175,9 @@ const BalloonMathPop = () => {
         setGameActive(false)
         return prev
       }
-      // Generate next question
-      setTimeout(() => {
-        generateQuestion()
-      }, 100)
       return next
     })
+    // useEffect will automatically trigger generateQuestion when questionNumber changes
   }
 
   const resetGame = () => {
@@ -238,14 +257,60 @@ const BalloonMathPop = () => {
 
           {isAnswered && (
             <div className="multiplication-table-container">
-              <h3 className="table-title">{question.num1} का पहाड़ा</h3>
-              <ul className="multiplication-table">
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
-                  <li key={num} className={num === question.num2 ? 'highlight' : ''}>
-                    {question.num1} × {num} = {question.num1 * num}
-                  </li>
-                ))}
-              </ul>
+              {question.operator === '÷' ? (
+                <>
+                  <h3 className="table-title">Division Method</h3>
+                  <div className="division-method">
+                    <div className="division-steps">
+                      <div className="division-step">
+                        <div className="division-question">
+                          <span className="dividend">{question.num1}</span>
+                          <span className="operator">÷</span>
+                          <span className="divisor">{question.num2}</span>
+                          <span className="equals">=</span>
+                          <span className="quotient highlight">{question.answer}</span>
+                        </div>
+                      </div>
+                      <div className="division-explanation">
+                        <p className="explanation-text">
+                          <strong>Step 1:</strong> {question.num2} × {question.answer} = {question.num1}
+                        </p>
+                        <p className="explanation-text">
+                          <strong>Step 2:</strong> We check how many times {question.num2} fits into {question.num1}
+                        </p>
+                        <p className="explanation-text">
+                          <strong>Answer:</strong> {question.num2} fits into {question.num1} exactly <strong>{question.answer}</strong> times
+                        </p>
+                      </div>
+                      <div className="division-table">
+                        <h4 className="division-table-title">{question.num2} का Division Table</h4>
+                        <ul className="multiplication-table">
+                          {Array.from({ length: 10 }, (_, i) => {
+                            const quotient = i + 1
+                            const dividend = question.num2 * quotient
+                            return (
+                              <li key={quotient} className={quotient === question.answer ? 'highlight' : ''}>
+                                {dividend} ÷ {question.num2} = {quotient}
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="table-title">{question.num1} का पहाड़ा</h3>
+                  <ul className="multiplication-table">
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+                      <li key={num} className={num === question.num2 ? 'highlight' : ''}>
+                        {question.num1} × {num} = {question.num1 * num}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           )}
         </div>

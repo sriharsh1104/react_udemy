@@ -312,6 +312,97 @@
   box-shadow: 0 4px 12px rgba(96, 165, 250, 0.2);
 }
 
+/* Division Method Styles */
+.division-method {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.division-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.division-step {
+  margin-bottom: 12px;
+}
+
+.division-question {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 28px;
+  font-weight: 700;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.15), rgba(96, 165, 250, 0.05));
+  border: 2px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.division-question .dividend {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 32px;
+}
+
+.division-question .operator {
+  color: #60a5fa;
+  font-size: 32px;
+}
+
+.division-question .divisor {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 32px;
+}
+
+.division-question .equals {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 28px;
+}
+
+.division-question .quotient {
+  color: #22c55e;
+  font-size: 36px;
+  font-weight: 800;
+}
+
+.division-explanation {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.explanation-text {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.explanation-text strong {
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+.division-table {
+  margin-top: 8px;
+}
+
+.division-table-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 12px 0;
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.3);
+}
+
 @media (max-width: 768px) {
   .game-title {
     font-size: 24px;
@@ -396,6 +487,37 @@
   .multiplication-table li {
     font-size: 14px;
     padding: 8px 12px;
+  }
+
+  .division-question {
+    font-size: 20px;
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .division-question .dividend,
+  .division-question .divisor {
+    font-size: 24px;
+  }
+
+  .division-question .operator {
+    font-size: 24px;
+  }
+
+  .division-question .quotient {
+    font-size: 28px;
+  }
+
+  .division-question .equals {
+    font-size: 20px;
+  }
+
+  .explanation-text {
+    font-size: 12px;
+  }
+
+  .division-table-title {
+    font-size: 16px;
   }
 }
 
