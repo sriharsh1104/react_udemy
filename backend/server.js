@@ -9,6 +9,7 @@ const { exec } = require('child_process')
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const http = require('http')
 const { Server } = require('socket.io')
+const tradingConstants = require('./constants')
 
 const app = express()
 const server = http.createServer(app)
@@ -875,6 +876,425 @@ app.post('/api/chat/upload-image', chatImageUpload.single('image'), async (req, 
     res.json({ success: true, url: publicUrl, filename: req.file.filename })
   } catch (err) {
     res.status(400).json({ error: err.message || 'Upload failed' })
+  }
+})
+
+// Helper function to fetch data with fallback APIs
+async function fetchWithFallback(apis, symbol) {
+  for (const api of apis) {
+    try {
+      const result = await api.fn()
+      if (result) {
+        console.log(`✓ ${symbol} fetched from ${api.name || 'API'}`)
+        return result
+      }
+    } catch (error) {
+      console.log(`✗ ${symbol} failed from ${api.name || 'API'}: ${error.message}`)
+      continue
+    }
+  }
+  return null
+}
+
+// Trading data endpoint - Get live trading prices with automatic fallback
+app.get('/api/trading/data', async (req, res) => {
+  try {
+    const tradingData = {}
+    const timestamp = new Date().toISOString()
+    
+    // ==================== BTC ====================
+    // Fallback order: CoinGecko -> Binance -> Coinbase -> Twelve Data
+    const btcApis = [
+      {
+        name: 'CoinGecko',
+        fn: async () => {
+          const response = await axios.get(`${tradingConstants.COINGECKO_API_URL}/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true`, {
+            timeout: 5000
+          })
+          if (response.data?.bitcoin?.usd) {
+            return {
+              BTC: {
+                symbol: 'BTC',
+                name: 'Bitcoin',
+                price: response.data.bitcoin.usd,
+                currency: 'USD',
+                change: response.data.bitcoin.usd_24h_change || null,
+                lastUpdate: timestamp
+              },
+              'BTC/USD': {
+                symbol: 'BTC/USD',
+                name: 'Bitcoin vs US Dollar',
+                price: response.data.bitcoin.usd,
+                currency: 'USD',
+                change: response.data.bitcoin.usd_24h_change || null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      },
+      {
+        name: 'Binance',
+        fn: async () => {
+          // Binance public API - no key needed
+          const response = await axios.get('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT', {
+            timeout: 5000
+          })
+          if (response.data?.lastPrice) {
+            const price = parseFloat(response.data.lastPrice)
+            const change = response.data.priceChangePercent ? parseFloat(response.data.priceChangePercent) : null
+            return {
+              BTC: {
+                symbol: 'BTC',
+                name: 'Bitcoin',
+                price: price,
+                currency: 'USD',
+                change: change,
+                lastUpdate: timestamp
+              },
+              'BTC/USD': {
+                symbol: 'BTC/USD',
+                name: 'Bitcoin vs US Dollar',
+                price: price,
+                currency: 'USD',
+                change: change,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      },
+      {
+        name: 'Coinbase',
+        fn: async () => {
+          // Coinbase public API - no key needed
+          const response = await axios.get('https://api.coinbase.com/v2/exchange-rates?currency=BTC', {
+            timeout: 5000
+          })
+          if (response.data?.data?.rates?.USD) {
+            const price = parseFloat(response.data.data.rates.USD)
+            return {
+              BTC: {
+                symbol: 'BTC',
+                name: 'Bitcoin',
+                price: price,
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              },
+              'BTC/USD': {
+                symbol: 'BTC/USD',
+                name: 'Bitcoin vs US Dollar',
+                price: price,
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      }
+    ]
+    
+    // Add Twelve Data if API key is available
+    if (tradingConstants.TWELVE_DATA_API_KEY && tradingConstants.TWELVE_DATA_API_KEY !== '') {
+      btcApis.push({
+        name: 'Twelve Data',
+        fn: async () => {
+          const response = await axios.get(`${tradingConstants.TWELVE_DATA_API_URL}/price`, {
+            params: {
+              symbol: 'BTC/USD',
+              apikey: tradingConstants.TWELVE_DATA_API_KEY
+            },
+            timeout: 5000
+          })
+          if (response.data?.price) {
+            const price = parseFloat(response.data.price)
+            return {
+              BTC: {
+                symbol: 'BTC',
+                name: 'Bitcoin',
+                price: price,
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              },
+              'BTC/USD': {
+                symbol: 'BTC/USD',
+                name: 'Bitcoin vs US Dollar',
+                price: price,
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      })
+    }
+    
+    const btcResult = await fetchWithFallback(btcApis, 'BTC')
+    if (btcResult) {
+      Object.assign(tradingData, btcResult)
+    }
+    
+    // ==================== GOLD/USD ====================
+    // Fallback order: Twelve Data -> Alpha Vantage -> ExchangeRate-API
+    const goldApis = []
+    
+    if (tradingConstants.TWELVE_DATA_API_KEY && tradingConstants.TWELVE_DATA_API_KEY !== '') {
+      goldApis.push({
+        name: 'Twelve Data',
+        fn: async () => {
+          const response = await axios.get(`${tradingConstants.TWELVE_DATA_API_URL}/price`, {
+            params: {
+              symbol: 'XAU/USD',
+              apikey: tradingConstants.TWELVE_DATA_API_KEY
+            },
+            timeout: 5000
+          })
+          if (response.data?.price) {
+            return {
+              'GOLD/USD': {
+                symbol: 'GOLD/USD',
+                name: 'Gold vs US Dollar',
+                price: parseFloat(response.data.price),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      })
+    }
+    
+    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo') {
+      goldApis.push({
+        name: 'Alpha Vantage',
+        fn: async () => {
+          const response = await axios.get(`${tradingConstants.ALPHA_VANTAGE_API_URL}`, {
+            params: {
+              function: 'CURRENCY_EXCHANGE_RATE',
+              from_currency: 'XAU',
+              to_currency: 'USD',
+              apikey: tradingConstants.ALPHA_VANTAGE_API_KEY
+            },
+            timeout: 5000
+          })
+          if (response.data?.['Realtime Currency Exchange Rate']?.['5. Exchange Rate']) {
+            return {
+              'GOLD/USD': {
+                symbol: 'GOLD/USD',
+                name: 'Gold vs US Dollar',
+                price: parseFloat(response.data['Realtime Currency Exchange Rate']['5. Exchange Rate']),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      })
+    }
+    
+    // Try ExchangeRate-API as fallback (if available)
+    goldApis.push({
+      name: 'ExchangeRate-API',
+      fn: async () => {
+        // ExchangeRate-API doesn't directly support metals, but we can try
+        // This is a placeholder for potential future support
+        return null
+      }
+    })
+    
+    const goldResult = await fetchWithFallback(goldApis, 'GOLD/USD')
+    if (goldResult) {
+      Object.assign(tradingData, goldResult)
+    }
+    
+    // ==================== SILVER/USD ====================
+    // Fallback order: Twelve Data -> Alpha Vantage
+    const silverApis = []
+    
+    if (tradingConstants.TWELVE_DATA_API_KEY && tradingConstants.TWELVE_DATA_API_KEY !== '') {
+      silverApis.push({
+        name: 'Twelve Data',
+        fn: async () => {
+          const response = await axios.get(`${tradingConstants.TWELVE_DATA_API_URL}/price`, {
+            params: {
+              symbol: 'XAG/USD',
+              apikey: tradingConstants.TWELVE_DATA_API_KEY
+            },
+            timeout: 5000
+          })
+          if (response.data?.price) {
+            return {
+              'SILVER/USD': {
+                symbol: 'SILVER/USD',
+                name: 'Silver vs US Dollar',
+                price: parseFloat(response.data.price),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      })
+    }
+    
+    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo') {
+      silverApis.push({
+        name: 'Alpha Vantage',
+        fn: async () => {
+          const response = await axios.get(`${tradingConstants.ALPHA_VANTAGE_API_URL}`, {
+            params: {
+              function: 'CURRENCY_EXCHANGE_RATE',
+              from_currency: 'XAG',
+              to_currency: 'USD',
+              apikey: tradingConstants.ALPHA_VANTAGE_API_KEY
+            },
+            timeout: 5000
+          })
+          if (response.data?.['Realtime Currency Exchange Rate']?.['5. Exchange Rate']) {
+            return {
+              'SILVER/USD': {
+                symbol: 'SILVER/USD',
+                name: 'Silver vs US Dollar',
+                price: parseFloat(response.data['Realtime Currency Exchange Rate']['5. Exchange Rate']),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      })
+    }
+    
+    const silverResult = await fetchWithFallback(silverApis, 'SILVER/USD')
+    if (silverResult) {
+      Object.assign(tradingData, silverResult)
+    }
+    
+    // ==================== USOIL ====================
+    // Fallback order: Twelve Data -> Alpha Vantage
+    const usoilApis = []
+    
+    if (tradingConstants.TWELVE_DATA_API_KEY && tradingConstants.TWELVE_DATA_API_KEY !== '') {
+      usoilApis.push({
+        name: 'Twelve Data',
+        fn: async () => {
+          const response = await axios.get(`${tradingConstants.TWELVE_DATA_API_URL}/price`, {
+            params: {
+              symbol: 'CL',
+              apikey: tradingConstants.TWELVE_DATA_API_KEY
+            },
+            timeout: 5000
+          })
+          if (response.data?.price) {
+            return {
+              USOIL: {
+                symbol: 'USOIL',
+                name: 'WTI Crude Oil',
+                price: parseFloat(response.data.price),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      })
+    }
+    
+    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo') {
+      usoilApis.push({
+        name: 'Alpha Vantage',
+        fn: async () => {
+          // Alpha Vantage might not support oil directly in free tier
+          // Try commodity endpoint if available
+          return null
+        }
+      })
+    }
+    
+    const usoilResult = await fetchWithFallback(usoilApis, 'USOIL')
+    if (usoilResult) {
+      Object.assign(tradingData, usoilResult)
+    }
+    
+    // ==================== UKOIL ====================
+    // Fallback order: Twelve Data -> Alpha Vantage
+    const ukoilApis = []
+    
+    if (tradingConstants.TWELVE_DATA_API_KEY && tradingConstants.TWELVE_DATA_API_KEY !== '') {
+      ukoilApis.push({
+        name: 'Twelve Data',
+        fn: async () => {
+          const response = await axios.get(`${tradingConstants.TWELVE_DATA_API_URL}/price`, {
+            params: {
+              symbol: 'BZ',
+              apikey: tradingConstants.TWELVE_DATA_API_KEY
+            },
+            timeout: 5000
+          })
+          if (response.data?.price) {
+            return {
+              UKOIL: {
+                symbol: 'UKOIL',
+                name: 'Brent Crude Oil',
+                price: parseFloat(response.data.price),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+          return null
+        }
+      })
+    }
+    
+    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo') {
+      ukoilApis.push({
+        name: 'Alpha Vantage',
+        fn: async () => {
+          // Alpha Vantage might not support oil directly in free tier
+          return null
+        }
+      })
+    }
+    
+    const ukoilResult = await fetchWithFallback(ukoilApis, 'UKOIL')
+    if (ukoilResult) {
+      Object.assign(tradingData, ukoilResult)
+    }
+    
+    // Return whatever data we managed to fetch
+    res.json({
+      success: true,
+      data: tradingData,
+      timestamp: timestamp,
+      availablePairs: Object.keys(tradingData).length,
+      totalPairs: 6
+    })
+  } catch (error) {
+    console.error('Trading data endpoint error:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch trading data',
+      details: error.message 
+    })
   }
 })
 
