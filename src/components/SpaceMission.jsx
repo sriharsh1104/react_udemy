@@ -14,6 +14,7 @@ const SpaceMission = () => {
   const [questionList, setQuestionList] = useState([])
   const [laserBlast, setLaserBlast] = useState(null) // { asteroidId, position, topPosition }
   const [explosions, setExplosions] = useState([]) // Array of explosion effects
+  const [showMessage, setShowMessage] = useState(null) // 'won' or 'lose'
 
   // Generate 20 division questions
   const generateQuestionList = () => {
@@ -93,6 +94,7 @@ const SpaceMission = () => {
     setShowNextQuestionButton(false)
     setLaserBlast(null)
     setExplosions([])
+    setShowMessage(null)
   }
 
   // Initialize question list on mount
@@ -164,7 +166,12 @@ const SpaceMission = () => {
         setExplosions(prev => prev.filter(exp => exp.id !== explosionId))
       }, 2000)
 
-      // Show next question button after laser blast
+      // Show "You Won" message after blast
+      setTimeout(() => {
+        setShowMessage('won')
+      }, 1500)
+
+      // Show next question button after message
       setTimeout(() => {
         setShowNextQuestionButton(true)
       }, 2000)
@@ -178,6 +185,9 @@ const SpaceMission = () => {
           : ast
       ))
 
+      // Show "You Lose" message immediately
+      setShowMessage('lose')
+
       // Show correct answer after wrong attempt
       setTimeout(() => {
         setAsteroids(prev => prev.map(ast => 
@@ -189,6 +199,7 @@ const SpaceMission = () => {
   }
 
   const handleNextQuestion = () => {
+    setShowMessage(null)
     setQuestionNumber(prev => {
       const next = prev + 1
       if (next >= 20) {
@@ -206,6 +217,7 @@ const SpaceMission = () => {
     setGameActive(true)
     setGameComplete(false)
     setShowNextQuestionButton(false)
+    setShowMessage(null)
     const newList = generateQuestionList()
     setQuestionList(newList)
   }
@@ -315,6 +327,23 @@ const SpaceMission = () => {
                   </div>
                 </div>
               ))}
+
+              {/* Win/Lose Message */}
+              {showMessage && (
+                <div className={`result-message ${showMessage === 'won' ? 'won-message' : 'lose-message'}`}>
+                  {showMessage === 'won' ? (
+                    <>
+                      <div className="message-icon">🎉</div>
+                      <div className="message-text">You Won!</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="message-icon">💔</div>
+                      <div className="message-text">You Lose!</div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {showNextQuestionButton && (
