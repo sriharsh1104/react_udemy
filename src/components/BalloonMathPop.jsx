@@ -13,27 +13,56 @@ const BalloonMathPop = () => {
   const [gameActive, setGameActive] = useState(true)
   const [gameComplete, setGameComplete] = useState(false)
   const [showNextQuestionButton, setShowNextQuestionButton] = useState(false)
+  const [questionList, setQuestionList] = useState([])
+
+  // Generate 10 multiplication and 10 division questions, then shuffle
+  const generateQuestionList = () => {
+    const questions = []
+    
+    // Generate 10 multiplication questions
+    for (let i = 0; i < 10; i++) {
+      const num1 = Math.floor(Math.random() * 10) + 1
+      const num2 = Math.floor(Math.random() * 10) + 1
+      questions.push({
+        num1,
+        num2,
+        operator: '×',
+        answer: num1 * num2
+      })
+    }
+    
+    // Generate 10 division questions
+    for (let i = 0; i < 10; i++) {
+      const divisor = Math.floor(Math.random() * 10) + 1
+      const quotient = Math.floor(Math.random() * 10) + 1
+      const dividend = divisor * quotient
+      questions.push({
+        num1: dividend,
+        num2: divisor,
+        operator: '÷',
+        answer: quotient
+      })
+    }
+    
+    // Shuffle the questions array
+    const shuffled = questions.sort(() => Math.random() - 0.5)
+    return shuffled
+  }
 
   const generateQuestion = () => {
-    // Randomly choose between multiplication and division
-    const isDivision = Math.random() < 0.5 // 50% chance for division
-    let num1, num2, answer, operator
-    
-    if (isDivision) {
-      // For division: generate dividend ÷ divisor = quotient
-      // Ensure whole number answers by making dividend = divisor × quotient
-      num2 = Math.floor(Math.random() * 10) + 1 // divisor (1-10)
-      const quotient = Math.floor(Math.random() * 10) + 1 // quotient (1-10)
-      num1 = num2 * quotient // dividend = divisor × quotient
-      answer = quotient
-      operator = '÷'
-    } else {
-      // For multiplication
-      num1 = Math.floor(Math.random() * 10) + 1
-      num2 = Math.floor(Math.random() * 10) + 1
-      answer = num1 * num2
-      operator = '×'
+    // Get question from the pre-generated list
+    if (questionList.length === 0) {
+      // If list is empty, generate it
+      const newList = generateQuestionList()
+      setQuestionList(newList)
+      return
     }
+    
+    const currentQuestion = questionList[questionNumber]
+    if (!currentQuestion) return
+    
+    const { num1, num2, operator, answer } = currentQuestion
+    const isDivision = operator === '÷'
 
     // Generate 3 wrong answers - ensure they are different from correct answer
     const wrongAnswers = []
@@ -122,9 +151,18 @@ const BalloonMathPop = () => {
     setShowNextQuestionButton(false)
   }
 
+  // Initialize question list on mount
   useEffect(() => {
-    generateQuestion()
-  }, [questionNumber])
+    const newList = generateQuestionList()
+    setQuestionList(newList)
+  }, [])
+
+  // Generate question when questionNumber changes or when questionList is ready
+  useEffect(() => {
+    if (questionList.length === 20 && questionNumber < 20) {
+      generateQuestion()
+    }
+  }, [questionNumber, questionList.length])
 
   const handleBalloonClick = (balloon) => {
     if (!gameActive || isAnswered) return
@@ -186,7 +224,9 @@ const BalloonMathPop = () => {
     setGameActive(true)
     setGameComplete(false)
     setShowNextQuestionButton(false)
-    generateQuestion()
+    // Generate new question list
+    const newList = generateQuestionList()
+    setQuestionList(newList)
   }
 
   return (
