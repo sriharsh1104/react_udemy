@@ -17,8 +17,13 @@ const TradeChart = () => {
       if (result.success && result.data) {
         setTradingData(result.data)
         setLastUpdate(result.timestamp)
+        
+        // Show message if some pairs are missing
+        if (result.missingPairs && result.missingPairs.length > 0) {
+          console.log('Missing pairs:', result.missingPairs)
+        }
       } else {
-        setError('Failed to fetch trading data')
+        setError(result.message || 'Failed to fetch trading data')
       }
     } catch (err) {
       console.error('Error fetching trading data:', err)
@@ -87,9 +92,13 @@ const TradeChart = () => {
         <div className="trade-error">
           <p>⚠️ {error}</p>
           <p className="trade-error-note">
-            Note: Some APIs require API keys. Check backend/constants.js for configuration.
+            Gold, Silver, and Oil data requires API keys. Add them to <code>backend/.env</code>:
             <br />
-            BTC data works without API keys. For Gold, Silver, and Oil, you may need to configure API keys.
+            • <strong>ALPHA_VANTAGE_API_KEY</strong> - Get free key from <a href="https://www.alphavantage.co/support/#api-key" target="_blank" rel="noopener noreferrer">alphavantage.co</a>
+            <br />
+            • <strong>TWELVE_DATA_API_KEY</strong> - Get free key from <a href="https://twelvedata.com/" target="_blank" rel="noopener noreferrer">twelvedata.com</a>
+            <br />
+            BTC works without API keys ✅
           </p>
         </div>
       )}

@@ -1046,29 +1046,27 @@ app.get('/api/trading/data', async (req, res) => {
     }
     
     // ==================== GOLD/USD ====================
-    // Fallback order: Twelve Data -> Alpha Vantage -> Free Public APIs
+    // Fallback order: Free Public APIs -> Twelve Data -> Alpha Vantage
     const goldApis = []
     
-    // Free public API - MetalPriceAPI (try without key first, works for some endpoints)
+    // Free public API - Try multiple free endpoints
     goldApis.push({
-      name: 'MetalPriceAPI (Public)',
+      name: 'GoldAPI (Public)',
       fn: async () => {
         try {
-          // Try public endpoint (may have rate limits but works without key)
-          const response = await axios.get('https://api.metalpriceapi.com/v1/latest', {
-            params: {
-              base: 'XAU',
-              currencies: 'USD',
-              api_key: 'free' // Some endpoints work with 'free' keyword
+          // Try gold-api.com free endpoint (may have rate limits)
+          const response = await axios.get('https://www.goldapi.io/api/XAU/USD', {
+            headers: {
+              'x-access-token': 'goldapi-io-free' // Some endpoints accept free token
             },
             timeout: 5000
           })
-          if (response.data?.rates?.USD) {
+          if (response.data?.price) {
             return {
               'GOLD/USD': {
                 symbol: 'GOLD/USD',
                 name: 'Gold vs US Dollar',
-                price: parseFloat(response.data.rates.USD),
+                price: parseFloat(response.data.price),
                 currency: 'USD',
                 change: null,
                 lastUpdate: timestamp
@@ -1076,9 +1074,14 @@ app.get('/api/trading/data', async (req, res) => {
             }
           }
         } catch (error) {
-          // If fails, try alternative free endpoint
+          // Try alternative free endpoint
           try {
-            const response2 = await axios.get('https://api.exchangerate-api.com/v4/latest/XAU', {
+            // Try freegoldprice.org free endpoint
+            const response2 = await axios.get('https://api.freegoldprice.org/v1/latest', {
+              params: {
+                base: 'XAU',
+                currencies: 'USD'
+              },
               timeout: 5000
             })
             if (response2.data?.rates?.USD) {
@@ -1478,12 +1481,31 @@ app.get('/api/trading/data', async (req, res) => {
     }
     
     // Return whatever data we managed to fetch
+    const availablePairs = Object.keys(tradingData).length
+    const missingPairs = []
+    
+    if (!tradingData['GOLD/USD']) missingPairs.push('GOLD/USD')
+    if (!tradingData['SILVER/USD']) missingPairs.push('SILVER/USD')
+    if (!tradingData.USOIL) missingPairs.push('USOIL')
+    if (!tradingData.UKOIL) missingPairs.push('UKOIL')
+    
+    if (missingPairs.length > 0) {
+      console.log(`⚠️  Missing data for: ${missingPairs.join(', ')}`)
+      console.log(`💡 Tip: Add API keys to .env file for Gold, Silver, and Oil data:`)
+      console.log(`   - ALPHA_VANTAGE_API_KEY (from https://www.alphavantage.co/support/#api-key)`)
+      console.log(`   - TWELVE_DATA_API_KEY (from https://twelvedata.com/)`)
+    }
+    
     res.json({
       success: true,
       data: tradingData,
       timestamp: timestamp,
-      availablePairs: Object.keys(tradingData).length,
-      totalPairs: 6
+      availablePairs: availablePairs,
+      totalPairs: 6,
+      missingPairs: missingPairs,
+      message: missingPairs.length > 0 
+        ? `Note: ${missingPairs.join(', ')} data not available. Add API keys to .env file for full data.`
+        : 'All trading pairs loaded successfully'
     })
   } catch (error) {
     console.error('Trading data endpoint error:', error)
