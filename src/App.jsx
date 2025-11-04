@@ -12,6 +12,7 @@ import AIChat from './components/AIChat'
 import TradeChart from './components/TradeChart'
 import MathsGames from './components/MathsGames'
 import GlobalChat from './components/GlobalChat'
+import InstallPrompt from './components/InstallPrompt'
 import './App.css'
 
 function AppContent() {
@@ -80,6 +81,7 @@ function AppContent() {
         </div>
       </div>
       <GlobalChat />
+      <InstallPrompt />
     </div>
   )
 }
