@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import './BalloonMathPop.css'
+import { saveGameScore } from '../utils/scoreUtils'
 
-const BalloonMathPop = () => {
+const BalloonMathPop = ({ userName }) => {
   const [score, setScore] = useState(0)
   const [questionNumber, setQuestionNumber] = useState(0)
   const [question, setQuestion] = useState({ num1: 0, num2: 0, operator: '×', answer: 0 })
@@ -163,6 +164,13 @@ const BalloonMathPop = () => {
       generateQuestion()
     }
   }, [questionNumber, questionList.length])
+
+  // Save score when game completes
+  useEffect(() => {
+    if (gameComplete && userName) {
+      saveGameScore(userName, score, 'Balloon Math Pop')
+    }
+  }, [gameComplete, score, userName])
 
   const handleBalloonClick = (balloon) => {
     if (!gameActive || isAnswered) return

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import './SpaceMission.css'
+import { saveGameScore } from '../utils/scoreUtils'
 
-const SpaceMission = () => {
+const SpaceMission = ({ userName }) => {
   const [score, setScore] = useState(0)
   const [questionNumber, setQuestionNumber] = useState(0)
   const [question, setQuestion] = useState({ num1: 0, num2: 0, operator: '÷', answer: 0 })
@@ -109,6 +110,13 @@ const SpaceMission = () => {
       generateQuestion()
     }
   }, [questionNumber, questionList.length])
+
+  // Save score when game completes
+  useEffect(() => {
+    if (gameComplete && userName) {
+      saveGameScore(userName, score, 'Space Mission')
+    }
+  }, [gameComplete, score, userName])
 
   // Animate asteroids falling
   useEffect(() => {
