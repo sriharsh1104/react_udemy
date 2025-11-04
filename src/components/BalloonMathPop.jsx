@@ -48,12 +48,35 @@ const BalloonMathPop = () => {
     // Shuffle to randomize positions
     const shuffled = allOptions.sort(() => Math.random() - 0.5)
 
-    // Assign random positions to balloons - ensure correct answer is always included
+    // Assign positions to balloons to prevent overlap
+    // Balloon width is ~80px, container max-width is 800px
+    // We need to space balloons with at least 20px gap between them
+    const numBalloons = shuffled.length
+    const containerWidth = 800 // max-width from CSS
+    const balloonWidth = 80
+    const minGap = 20 // minimum gap between balloons (in pixels)
+    
+    // Calculate total width needed for all balloons
+    // Total = (numBalloons * balloonWidth) + ((numBalloons - 1) * minGap)
+    const totalWidthNeeded = (numBalloons * balloonWidth) + ((numBalloons - 1) * minGap)
+    
+    // Calculate starting position to center the balloons
+    const startPosition = Math.max(0, (containerWidth - totalWidthNeeded) / 2)
+    
+    // Generate evenly spaced positions (left edge of each balloon)
+    let positions = []
+    for (let i = 0; i < numBalloons; i++) {
+      positions.push(startPosition + i * (balloonWidth + minGap))
+    }
+    
+    // Shuffle positions to randomize balloon placement
+    const shuffledPositions = positions.sort(() => Math.random() - 0.5)
+    
     const balloonOptions = shuffled.map((value, index) => ({
       value,
       isCorrect: value === answer,
       id: index,
-      position: Math.random() * 60 + 10 // Random horizontal position (10-70%)
+      position: (shuffledPositions[index] / containerWidth) * 100 // Convert to percentage
     }))
 
     // Verify that correct answer exists in options
