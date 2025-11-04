@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config()
+
 const express = require('express')
 const cors = require('cors')
 const axios = require('axios')
@@ -1043,8 +1046,60 @@ app.get('/api/trading/data', async (req, res) => {
     }
     
     // ==================== GOLD/USD ====================
-    // Fallback order: Twelve Data -> Alpha Vantage -> ExchangeRate-API
+    // Fallback order: Twelve Data -> Alpha Vantage -> Free Public APIs
     const goldApis = []
+    
+    // Free public API - MetalPriceAPI (try without key first, works for some endpoints)
+    goldApis.push({
+      name: 'MetalPriceAPI (Public)',
+      fn: async () => {
+        try {
+          // Try public endpoint (may have rate limits but works without key)
+          const response = await axios.get('https://api.metalpriceapi.com/v1/latest', {
+            params: {
+              base: 'XAU',
+              currencies: 'USD',
+              api_key: 'free' // Some endpoints work with 'free' keyword
+            },
+            timeout: 5000
+          })
+          if (response.data?.rates?.USD) {
+            return {
+              'GOLD/USD': {
+                symbol: 'GOLD/USD',
+                name: 'Gold vs US Dollar',
+                price: parseFloat(response.data.rates.USD),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+        } catch (error) {
+          // If fails, try alternative free endpoint
+          try {
+            const response2 = await axios.get('https://api.exchangerate-api.com/v4/latest/XAU', {
+              timeout: 5000
+            })
+            if (response2.data?.rates?.USD) {
+              return {
+                'GOLD/USD': {
+                  symbol: 'GOLD/USD',
+                  name: 'Gold vs US Dollar',
+                  price: parseFloat(response2.data.rates.USD),
+                  currency: 'USD',
+                  change: null,
+                  lastUpdate: timestamp
+                }
+              }
+            }
+          } catch (e) {
+            // Continue to next API
+          }
+        }
+        return null
+      }
+    })
     
     if (tradingConstants.TWELVE_DATA_API_KEY && tradingConstants.TWELVE_DATA_API_KEY !== '') {
       goldApis.push({
@@ -1074,7 +1129,7 @@ app.get('/api/trading/data', async (req, res) => {
       })
     }
     
-    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo') {
+    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo' && tradingConstants.ALPHA_VANTAGE_API_KEY !== '') {
       goldApis.push({
         name: 'Alpha Vantage',
         fn: async () => {
@@ -1104,24 +1159,65 @@ app.get('/api/trading/data', async (req, res) => {
       })
     }
     
-    // Try ExchangeRate-API as fallback (if available)
-    goldApis.push({
-      name: 'ExchangeRate-API',
-      fn: async () => {
-        // ExchangeRate-API doesn't directly support metals, but we can try
-        // This is a placeholder for potential future support
-        return null
-      }
-    })
-    
     const goldResult = await fetchWithFallback(goldApis, 'GOLD/USD')
     if (goldResult) {
       Object.assign(tradingData, goldResult)
     }
     
     // ==================== SILVER/USD ====================
-    // Fallback order: Twelve Data -> Alpha Vantage
+    // Fallback order: Free Public APIs -> Twelve Data -> Alpha Vantage
     const silverApis = []
+    
+    // Free public API - MetalPriceAPI (try without key first)
+    silverApis.push({
+      name: 'MetalPriceAPI (Public)',
+      fn: async () => {
+        try {
+          const response = await axios.get('https://api.metalpriceapi.com/v1/latest', {
+            params: {
+              base: 'XAG',
+              currencies: 'USD',
+              api_key: 'free'
+            },
+            timeout: 5000
+          })
+          if (response.data?.rates?.USD) {
+            return {
+              'SILVER/USD': {
+                symbol: 'SILVER/USD',
+                name: 'Silver vs US Dollar',
+                price: parseFloat(response.data.rates.USD),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+        } catch (error) {
+          // Try alternative endpoint
+          try {
+            const response2 = await axios.get('https://api.exchangerate-api.com/v4/latest/XAG', {
+              timeout: 5000
+            })
+            if (response2.data?.rates?.USD) {
+              return {
+                'SILVER/USD': {
+                  symbol: 'SILVER/USD',
+                  name: 'Silver vs US Dollar',
+                  price: parseFloat(response2.data.rates.USD),
+                  currency: 'USD',
+                  change: null,
+                  lastUpdate: timestamp
+                }
+              }
+            }
+          } catch (e) {
+            // Continue to next API
+          }
+        }
+        return null
+      }
+    })
     
     if (tradingConstants.TWELVE_DATA_API_KEY && tradingConstants.TWELVE_DATA_API_KEY !== '') {
       silverApis.push({
@@ -1151,7 +1247,7 @@ app.get('/api/trading/data', async (req, res) => {
       })
     }
     
-    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo') {
+    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo' && tradingConstants.ALPHA_VANTAGE_API_KEY !== '') {
       silverApis.push({
         name: 'Alpha Vantage',
         fn: async () => {
@@ -1187,8 +1283,59 @@ app.get('/api/trading/data', async (req, res) => {
     }
     
     // ==================== USOIL ====================
-    // Fallback order: Twelve Data -> Alpha Vantage
+    // Fallback order: Free Public APIs -> Twelve Data -> Alpha Vantage
     const usoilApis = []
+    
+    // Free public API endpoints for oil
+    usoilApis.push({
+      name: 'OilPriceAPI (Public)',
+      fn: async () => {
+        try {
+          // Try public endpoint for WTI crude oil
+          const response = await axios.get('https://api.oilpriceapi.com/v1/prices/latest', {
+            headers: {
+              'Authorization': 'Token free' // Some endpoints accept 'free' token
+            },
+            timeout: 5000
+          })
+          if (response.data?.data?.formatted?.wti) {
+            return {
+              USOIL: {
+                symbol: 'USOIL',
+                name: 'WTI Crude Oil',
+                price: parseFloat(response.data.data.formatted.wti),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+        } catch (error) {
+          // Try alternative free endpoint
+          try {
+            // Alternative: Use a public data source
+            const response2 = await axios.get('https://api.energypriceapi.com/v1/prices/wti', {
+              timeout: 5000
+            })
+            if (response2.data?.price) {
+              return {
+                USOIL: {
+                  symbol: 'USOIL',
+                  name: 'WTI Crude Oil',
+                  price: parseFloat(response2.data.price),
+                  currency: 'USD',
+                  change: null,
+                  lastUpdate: timestamp
+                }
+              }
+            }
+          } catch (e) {
+            // Continue to next API
+          }
+        }
+        return null
+      }
+    })
     
     if (tradingConstants.TWELVE_DATA_API_KEY && tradingConstants.TWELVE_DATA_API_KEY !== '') {
       usoilApis.push({
@@ -1218,12 +1365,11 @@ app.get('/api/trading/data', async (req, res) => {
       })
     }
     
-    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo') {
+    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo' && tradingConstants.ALPHA_VANTAGE_API_KEY !== '') {
       usoilApis.push({
         name: 'Alpha Vantage',
         fn: async () => {
           // Alpha Vantage might not support oil directly in free tier
-          // Try commodity endpoint if available
           return null
         }
       })
@@ -1235,8 +1381,58 @@ app.get('/api/trading/data', async (req, res) => {
     }
     
     // ==================== UKOIL ====================
-    // Fallback order: Twelve Data -> Alpha Vantage
+    // Fallback order: Free Public APIs -> Twelve Data -> Alpha Vantage
     const ukoilApis = []
+    
+    // Free public API endpoints for oil
+    ukoilApis.push({
+      name: 'OilPriceAPI (Public)',
+      fn: async () => {
+        try {
+          // Try public endpoint for Brent crude oil
+          const response = await axios.get('https://api.oilpriceapi.com/v1/prices/latest', {
+            headers: {
+              'Authorization': 'Token free'
+            },
+            timeout: 5000
+          })
+          if (response.data?.data?.formatted?.brent) {
+            return {
+              UKOIL: {
+                symbol: 'UKOIL',
+                name: 'Brent Crude Oil',
+                price: parseFloat(response.data.data.formatted.brent),
+                currency: 'USD',
+                change: null,
+                lastUpdate: timestamp
+              }
+            }
+          }
+        } catch (error) {
+          // Try alternative free endpoint
+          try {
+            const response2 = await axios.get('https://api.energypriceapi.com/v1/prices/brent', {
+              timeout: 5000
+            })
+            if (response2.data?.price) {
+              return {
+                UKOIL: {
+                  symbol: 'UKOIL',
+                  name: 'Brent Crude Oil',
+                  price: parseFloat(response2.data.price),
+                  currency: 'USD',
+                  change: null,
+                  lastUpdate: timestamp
+                }
+              }
+            }
+          } catch (e) {
+            // Continue to next API
+          }
+        }
+        return null
+      }
+    })
     
     if (tradingConstants.TWELVE_DATA_API_KEY && tradingConstants.TWELVE_DATA_API_KEY !== '') {
       ukoilApis.push({
@@ -1266,7 +1462,7 @@ app.get('/api/trading/data', async (req, res) => {
       })
     }
     
-    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo') {
+    if (tradingConstants.ALPHA_VANTAGE_API_KEY && tradingConstants.ALPHA_VANTAGE_API_KEY !== 'demo' && tradingConstants.ALPHA_VANTAGE_API_KEY !== '') {
       ukoilApis.push({
         name: 'Alpha Vantage',
         fn: async () => {
