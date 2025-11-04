@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BACKEND_URL } from '../constants'
+import { AdvancedRealTimeChart } from 'react-ts-tradingview-widgets'
 import './TradeChart.css'
 
 const TradeChart = () => {
@@ -7,6 +8,20 @@ const TradeChart = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
+  const [selectedChart, setSelectedChart] = useState(null)
+
+  // TradingView symbol mapping
+  const getTradingViewSymbol = (pairKey) => {
+    const symbolMap = {
+      'BTC': 'BINANCE:BTCUSDT',
+      'BTC/USD': 'COINBASE:BTC-USD',
+      'GOLD/USD': 'OANDA:XAUUSD',
+      'SILVER/USD': 'OANDA:XAGUSD',
+      'USOIL': 'NYMEX:CL',
+      'UKOIL': 'NYMEX:BZ'
+    }
+    return symbolMap[pairKey] || 'BINANCE:BTCUSDT'
+  }
 
   const fetchTradingData = async () => {
     try {
@@ -33,12 +48,33 @@ const TradeChart = () => {
     }
   }
 
+  const closeChart = () => {
+    setSelectedChart(null)
+  }
+
   useEffect(() => {
     fetchTradingData()
     // Refresh every 30 seconds
     const interval = setInterval(fetchTradingData, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // Cleanup TradingView widgets when component unmounts or chart changes
+  useEffect(() => {
+    return () => {
+      if (!selectedChart) {
+        // Clean up old TradingView containers when modal closes
+        setTimeout(() => {
+          const containers = document.querySelectorAll('[id^="tradingview_"]')
+          containers.forEach(container => {
+            if (container && container.parentNode) {
+              container.innerHTML = ''
+            }
+          })
+        }, 500)
+      }
+    }
+  }, [selectedChart])
 
   const formatPrice = (price) => {
     if (price === null || price === undefined) return 'N/A'
@@ -67,6 +103,26 @@ const TradeChart = () => {
     { key: 'USOIL', label: 'US Oil (WTI)', icon: '🛢️' },
     { key: 'UKOIL', label: 'UK Oil (Brent)', icon: '🛢️' }
   ]
+
+  const handleCardClick = (pairKey) => {
+    setSelectedChart({
+      symbol: getTradingViewSymbol(pairKey),
+      pairKey: pairKey
+    })
+  }
+
+  const closeChart = () => {
+    setSelectedChart(null)
+    // Clear TradingView container on close
+    setTimeout(() => {
+      const containers = document.querySelectorAll('[id^="tradingview_chart_"]')
+      containers.forEach(container => {
+        if (container) {
+          container.innerHTML = ''
+        }
+      })
+    }, 100)
+  }
 
   return (
     <div className="trade-chart">
@@ -111,52 +167,86 @@ const TradeChart = () => {
         <div className="trade-grid">
           {tradingPairs.map((pair) => {
             const data = tradingData[pair.key]
-            if (!data) return null
+            const hasData = !!data
 
             return (
-              <div key={pair.key} className="trade-card">
+              <div 
+                key={pair.key} 
+                className={`trade-card ${hasData ? '' : 'no-data'}`}
+                onClick={() => handleCardClick(pair.key)}
+                style={{ cursor: 'pointer' }}
+                title={hasData ? 'Click to view chart' : 'Click to view chart (Price data not available)'}
+              >
                 <div className="trade-card-header">
                   <span className="trade-icon">{pair.icon}</span>
                   <div className="trade-card-title">
                     <h3>{pair.label}</h3>
-                    <span className="trade-symbol">{data.symbol}</span>
+                    <span className="trade-symbol">{pair.key}</span>
                   </div>
                 </div>
-                <div className="trade-card-body">
-                  <div className="trade-price">
-                    <span className="price-value">${formatPrice(data.price)}</span>
-                    <span className="price-currency">{data.currency}</span>
-                  </div>
-                  {data.change !== null && (
-                    <div 
-                      className="trade-change"
-                      style={{ color: getChangeColor(data.change) }}
-                    >
-                      {formatChange(data.change)}
+                {hasData ? (
+                  <div className="trade-card-body">
+                    <div className="trade-price">
+                      <span className="price-value">${formatPrice(data.price)}</span>
+                      <span className="price-currency">{data.currency}</span>
                     </div>
-                  )}
-                  <div className="trade-meta">
-                    <small>Updated: {new Date(data.lastUpdate).toLocaleTimeString()}</small>
+                    {data.change !== null && (
+                      <div 
+                        className="trade-change"
+                        style={{ color: getChangeColor(data.change) }}
+                      >
+                        {formatChange(data.change)}
+                      </div>
+                    )}
+                    <div className="trade-meta">
+                      <small>Updated: {new Date(data.lastUpdate).toLocaleTimeString()}</small>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="trade-card-body">
+                    <div className="trade-price">
+                      <span className="price-value" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                        Price data not available
+                      </span>
+                    </div>
+                    <div className="trade-meta">
+                      <small>Click to view chart</small>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
       )}
 
-      {!loading && tradingData && Object.keys(tradingData).length === 0 && !error && (
-        <div className="trade-empty">
-          <p>No trading data available.</p>
-          <p className="trade-empty-note">
-            To enable full trading data, configure API keys in backend/constants.js:
-            <br />
-            • Alpha Vantage API key (for Gold/Silver)
-            <br />
-            • Twelve Data API key (for Oil)
-            <br />
-            • BTC works without any API key
-          </p>
+      {/* Chart Modal */}
+      {selectedChart && (
+        <div className="chart-modal-overlay" onClick={closeChart}>
+          <div className="chart-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="chart-modal-header">
+              <h3>
+                {tradingPairs.find(p => p.key === selectedChart.pairKey)?.label || selectedChart.pairKey}
+              </h3>
+              <button className="chart-close-btn" onClick={closeChart}>✕</button>
+            </div>
+            <div className="chart-container">
+              <AdvancedRealTimeChart
+                key={`chart_${selectedChart.pairKey.replace('/', '_')}`}
+                symbol={selectedChart.symbol}
+                theme="dark"
+                autosize={true}
+                style="1"
+                locale="en"
+                toolbar_bg="#1a1a1a"
+                enable_publishing={false}
+                hide_top_toolbar={false}
+                hide_legend={false}
+                save_image={false}
+                container_id={`tradingview_${selectedChart.pairKey.replace('/', '_').replace(' ', '_')}`}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
