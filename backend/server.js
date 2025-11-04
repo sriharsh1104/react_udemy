@@ -879,6 +879,152 @@ app.post('/api/chat/upload-image', chatImageUpload.single('image'), async (req, 
   }
 })
 
+// Audio extraction directory
+const audioProcessDir = path.join(__dirname, 'audio_processing')
+if (!fs.existsSync(audioProcessDir)) {
+  fs.mkdirSync(audioProcessDir, { recursive: true })
+}
+
+// Multer config for audio/video uploads
+const audioVideoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, audioProcessDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || '.mp4'
+      cb(null, `audio_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`)
+    }
+  }),
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB max
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska',
+                     'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/mp4', 'audio/flac']
+    cb(allowed.includes(file.mimetype) ? null : new Error('Only video/audio files allowed'), allowed.includes(file.mimetype))
+  }
+})
+
+// Extract audio from video endpoint
+app.post('/api/audio/extract', audioVideoUpload.single('file'), async (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Video or audio file is required' })
+    }
+
+    const { format = 'mp3' } = req.body
+    const inputPath = req.file.path
+    const timestamp = Date.now()
+    const outputFileName = `extracted_${timestamp}.${format}`
+    const outputPath = path.join(downloadsDir, outputFileName)
+
+    // Extract audio using FFmpeg
+    const command = `ffmpeg -i "${inputPath}" -vn -acodec ${format === 'mp3' ? 'libmp3lame' : format === 'wav' ? 'pcm_s16le' : 'aac'} -ab 192k -ar 44100 "${outputPath}" -y`
+    
+    exec(command, { timeout: 300000, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      // Cleanup input file
+      try { fs.unlinkSync(inputPath) } catch {}
+      
+      if (error) {
+        console.error('Audio extraction error:', error.message)
+        console.error('stderr:', stderr)
+        return res.status(500).json({ 
+          error: 'Failed to extract audio',
+          details: stderr || error.message
+        })
+      }
+
+      res.json({ 
+        success: true, 
+        downloadUrl: `${getBackendUrl(req)}/downloads/${outputFileName}`,
+        filename: outputFileName
+      })
+    })
+  } catch (error) {
+    // Cleanup on error
+    if (req.file) {
+      try { fs.unlinkSync(req.file.path) } catch {}
+    }
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Separate voice from music endpoint
+app.post('/api/audio/separate', audioVideoUpload.single('file'), async (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Audio or video file is required' })
+    }
+
+    const { mode = 'voice' } = req.body // 'voice' or 'music'
+    const inputPath = req.file.path
+    const timestamp = Date.now()
+    const outputFileName = `${mode}_${timestamp}.mp3`
+    const outputPath = path.join(downloadsDir, outputFileName)
+
+    // First extract audio if it's a video
+    const audioExtractPath = path.join(audioProcessDir, `temp_audio_${timestamp}.wav`)
+    let extractCommand = `ffmpeg -i "${inputPath}" -vn -acodec pcm_s16le -ar 44100 -ac 2 "${audioExtractPath}" -y`
+    
+    exec(extractCommand, { timeout: 300000 }, (extractError, extractStdout, extractStderr) => {
+      if (extractError) {
+        // Cleanup
+        try { fs.unlinkSync(inputPath) } catch {}
+        try { fs.unlinkSync(audioExtractPath) } catch {}
+        console.error('Audio extraction error:', extractError.message)
+        return res.status(500).json({ 
+          error: 'Failed to extract audio from video',
+          details: extractStderr || extractError.message
+        })
+      }
+
+      // Separate voice/music using FFmpeg filters
+      // Using pan filter to attempt basic separation (centered vocals vs stereo music)
+      // Note: This is a basic approach. For better results, use Spleeter or Demucs
+      let separationCommand
+      
+      if (mode === 'voice') {
+        // Extract center channel (often contains vocals)
+        separationCommand = `ffmpeg -i "${audioExtractPath}" -af "pan=mono|c0=0.5*c0+0.5*c1" -acodec libmp3lame -ab 192k -ar 44100 "${outputPath}" -y`
+      } else {
+        // Extract side channels (often contains music/instruments)
+        separationCommand = `ffmpeg -i "${audioExtractPath}" -af "pan=mono|c0=0.5*c0+-0.5*c1" -acodec libmp3lame -ab 192k -ar 44100 "${outputPath}" -y`
+      }
+
+      exec(separationCommand, { timeout: 300000, maxBuffer: 1024 * 1024 * 10 }, (sepError, sepStdout, sepStderr) => {
+        // Cleanup temp files
+        try { fs.unlinkSync(inputPath) } catch {}
+        try { fs.unlinkSync(audioExtractPath) } catch {}
+        
+        if (sepError) {
+          console.error('Separation error:', sepError.message)
+          console.error('stderr:', sepStderr)
+          return res.status(500).json({ 
+            error: `Failed to separate ${mode}`,
+            details: sepStderr || sepError.message
+          })
+        }
+
+        res.json({ 
+          success: true, 
+          downloadUrl: `${getBackendUrl(req)}/downloads/${outputFileName}`,
+          filename: outputFileName,
+          mode: mode
+        })
+      })
+    })
+  } catch (error) {
+    // Cleanup on error
+    if (req.file) {
+      try { fs.unlinkSync(req.file.path) } catch {}
+    }
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Health check
 app.get('/api/health', (req, res) => {
   // ALWAYS set CORS headers - NO CONDITIONS

@@ -3,6 +3,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile } from '@ffmpeg/util'
 import './FormatConverter.css'
 import PremiumDropdown from './PremiumDropdown'
+import { BACKEND_URL } from '../constants'
 
 const FORMATS = [
   // Video formats
@@ -36,6 +37,12 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
   const mediaRef = useRef(null)
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
+  const [isExtractingAudio, setIsExtractingAudio] = useState(false)
+  const [isSeparating, setIsSeparating] = useState(false)
+  const [extractedAudioUrl, setExtractedAudioUrl] = useState(null)
+  const [separatedAudioUrl, setSeparatedAudioUrl] = useState(null)
+  const [separationMode, setSeparationMode] = useState('voice') // 'voice' or 'music'
+  const [audioExtractFormat, setAudioExtractFormat] = useState('mp3')
 
   const inputIsAudio = !!videoFile?.type?.startsWith('audio/')
   const availableFormats = inputIsAudio ? FORMATS.filter(f => f.type === 'audio') : FORMATS
@@ -273,6 +280,88 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
     return FORMATS.find(f => f.value === selectedFormat)?.type || 'video'
   }
 
+  // Extract audio from video using backend API
+  const extractAudioFromVideo = async () => {
+    try {
+      setIsExtractingAudio(true)
+      setExtractedAudioUrl(null)
+
+      const formData = new FormData()
+      formData.append('file', videoFile)
+      formData.append('format', audioExtractFormat)
+
+      const response = await fetch(`${BACKEND_URL}/api/audio/extract`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to extract audio')
+      }
+
+      const data = await response.json()
+      setExtractedAudioUrl(data.downloadUrl)
+    } catch (error) {
+      console.error('Audio extraction error:', error)
+      alert(`Audio extraction failed: ${error.message}`)
+    } finally {
+      setIsExtractingAudio(false)
+    }
+  }
+
+  // Separate voice from music using backend API
+  const separateVoiceMusic = async () => {
+    try {
+      setIsSeparating(true)
+      setSeparatedAudioUrl(null)
+
+      const formData = new FormData()
+      formData.append('file', videoFile)
+      formData.append('mode', separationMode)
+
+      const response = await fetch(`${BACKEND_URL}/api/audio/separate`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to separate audio')
+      }
+
+      const data = await response.json()
+      setSeparatedAudioUrl(data.downloadUrl)
+    } catch (error) {
+      console.error('Separation error:', error)
+      alert(`Audio separation failed: ${error.message}`)
+    } finally {
+      setIsSeparating(false)
+    }
+  }
+
+  const handleDownloadExtracted = () => {
+    if (extractedAudioUrl) {
+      const a = document.createElement('a')
+      a.href = extractedAudioUrl
+      a.download = `extracted_audio.${audioExtractFormat}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+  }
+
+  const handleDownloadSeparated = () => {
+    if (separatedAudioUrl) {
+      const a = document.createElement('a')
+      a.href = separatedAudioUrl
+      a.download = `separated_${separationMode}.mp3`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+  }
+
   return (
     <div className="converter-container">
       <div className="video-preview">
@@ -337,6 +426,86 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
         >
           {isConverting ? 'Processing...' : 'Quick Compress'}
         </button>
+        </div>
+
+        {/* Audio Extraction Section */}
+        {!inputIsAudio && (
+          <div className="audio-extraction-section">
+            <h3>🎵 Audio Extraction</h3>
+            <div className="audio-extract-controls">
+              <div className="format-selector">
+                <label htmlFor="audio-extract-format">Audio Format:</label>
+                <PremiumDropdown
+                  id="audio-extract-format"
+                  value={audioExtractFormat}
+                  onChange={(e) => setAudioExtractFormat(e.target.value)}
+                  options={[
+                    { value: 'mp3', label: 'MP3' },
+                    { value: 'wav', label: 'WAV' },
+                    { value: 'aac', label: 'AAC' }
+                  ]}
+                  className="format-select"
+                />
+              </div>
+              <button
+                onClick={extractAudioFromVideo}
+                disabled={isExtractingAudio}
+                className="extract-audio-button"
+              >
+                {isExtractingAudio ? 'Extracting Audio...' : 'Extract Audio from Video'}
+              </button>
+            </div>
+            {extractedAudioUrl && (
+              <div className="extracted-audio-preview">
+                <audio src={extractedAudioUrl} controls className="audio-player" />
+                <button onClick={handleDownloadExtracted} className="download-button">
+                  Download Extracted Audio
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Voice/Music Separation Section */}
+        <div className="voice-separation-section">
+          <h3>🎤 Voice/Music Separation</h3>
+          <div className="separation-controls">
+            <div className="mode-selector">
+              <label>
+                <input
+                  type="radio"
+                  value="voice"
+                  checked={separationMode === 'voice'}
+                  onChange={(e) => setSeparationMode(e.target.value)}
+                />
+                Extract Voice Only
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  value="music"
+                  checked={separationMode === 'music'}
+                  onChange={(e) => setSeparationMode(e.target.value)}
+                />
+                Extract Music Only
+              </label>
+            </div>
+            <button
+              onClick={separateVoiceMusic}
+              disabled={isSeparating}
+              className="separate-button"
+            >
+              {isSeparating ? 'Separating...' : `Extract ${separationMode === 'voice' ? 'Voice' : 'Music'}`}
+            </button>
+          </div>
+          {separatedAudioUrl && (
+            <div className="separated-audio-preview">
+              <audio src={separatedAudioUrl} controls className="audio-player" />
+              <button onClick={handleDownloadSeparated} className="download-button">
+                Download {separationMode === 'voice' ? 'Voice' : 'Music'}
+              </button>
+            </div>
+          )}
         </div>
 
         {downloadUrl && (
