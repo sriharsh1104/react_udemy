@@ -1,0 +1,18 @@
+.maths-games {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.maths-games-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+}
+
+.games-container {
+  width: 100%;
+}
+

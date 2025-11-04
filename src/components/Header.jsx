@@ -56,6 +56,12 @@ const Header = ({ activeTab, onTabChange }) => {
           >
             📈 Trade Chart
           </button>
+          <button
+            className={`tab ${activeTab === 'maths' ? 'active' : ''}`}
+            onClick={() => onTabChange('maths')}
+          >
+            🎈 Maths Games
+          </button>
         </nav>
       </div>
     </div>

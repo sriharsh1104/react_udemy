@@ -48,10 +48,6 @@ const TradeChart = () => {
     }
   }
 
-  const closeChart = () => {
-    setSelectedChart(null)
-  }
-
   useEffect(() => {
     fetchTradingData()
     // Refresh every 30 seconds

@@ -1,0 +1,230 @@
+.balloon-math-pop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  padding: 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+  border-radius: 16px;
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 30px;
+}
+
+.game-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+}
+
+.score-display {
+  font-size: 20px;
+  font-weight: 600;
+  color: #60a5fa;
+  padding: 8px 16px;
+  background: rgba(96, 165, 250, 0.15);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
+}
+
+.question-container {
+  margin-bottom: 60px;
+}
+
+.question {
+  font-size: 48px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  text-align: center;
+  padding: 20px 40px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+  border: 2px solid rgba(96, 165, 250, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.balloon-container {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  height: 400px;
+  margin-bottom: 30px;
+}
+
+.balloon {
+  position: absolute;
+  bottom: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  z-index: 1;
+}
+
+.balloon:hover {
+  transform: scale(1.1);
+}
+
+.balloon-body {
+  width: 80px;
+  height: 100px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  position: relative;
+  animation: float 3s ease-in-out infinite;
+}
+
+.balloon.correct .balloon-body {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.balloon.wrong .balloon-body {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.balloon-string {
+  width: 2px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.3);
+  margin: 0 auto;
+  position: relative;
+}
+
+.balloon-string::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-10px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(10px);
+  }
+}
+
+.balloon.shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.balloon.shake .balloon-body {
+  animation: shake 0.5s ease-in-out, float 3s ease-in-out infinite;
+}
+
+.game-controls {
+  margin-bottom: 20px;
+}
+
+.reset-btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(180deg, rgba(96, 165, 250, 0.2), rgba(96, 165, 250, 0.1));
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reset-btn:hover {
+  background: linear-gradient(180deg, rgba(96, 165, 250, 0.3), rgba(96, 165, 250, 0.2));
+  border-color: rgba(96, 165, 250, 0.6);
+  transform: translateY(-2px);
+}
+
+.game-instructions {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.game-instructions p {
+  margin: 4px 0;
+}
+
+@media (max-width: 768px) {
+  .game-title {
+    font-size: 24px;
+  }
+
+  .score-display {
+    font-size: 18px;
+    padding: 6px 12px;
+  }
+
+  .question {
+    font-size: 36px;
+    padding: 16px 24px;
+  }
+
+  .balloon-container {
+    height: 350px;
+  }
+
+  .balloon-body {
+    width: 60px;
+    height: 75px;
+    font-size: 18px;
+  }
+
+  .balloon-string {
+    height: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .question {
+    font-size: 28px;
+    padding: 12px 20px;
+  }
+
+  .balloon-container {
+    height: 300px;
+  }
+
+  .balloon-body {
+    width: 50px;
+    height: 65px;
+    font-size: 16px;
+  }
+}
+
