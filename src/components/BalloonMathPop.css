@@ -14,7 +14,7 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  max-width: 600px;
+  max-width: 1200px;
   margin-bottom: 30px;
 }
 
@@ -25,6 +25,13 @@
   margin: 0;
 }
 
+.score-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
 .score-display {
   font-size: 20px;
   font-weight: 600;
@@ -33,6 +40,16 @@
   background: rgba(96, 165, 250, 0.15);
   border: 1px solid rgba(96, 165, 250, 0.3);
   border-radius: 12px;
+}
+
+.question-counter {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
 }
 
 .question-container {
@@ -84,9 +101,12 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   position: relative;
   animation: float 3s ease-in-out infinite;
+  /* Default neutral color */
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
 }
 
-.balloon.correct .balloon-body {
+.balloon.correct-selected .balloon-body,
+.balloon.showCorrect .balloon-body {
   background: linear-gradient(135deg, #22c55e, #16a34a);
 }
 
@@ -176,14 +196,139 @@
   margin: 4px 0;
 }
 
+.game-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.game-complete h2 {
+  font-size: 32px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 20px;
+}
+
+.game-complete p {
+  font-size: 24px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin-bottom: 30px;
+}
+
+.game-content-wrapper {
+  display: flex;
+  gap: 30px;
+  width: 100%;
+  max-width: 1200px;
+  align-items: flex-start;
+}
+
+.game-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.next-question-container {
+  margin: 20px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.next-question-btn {
+  padding: 14px 28px;
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border: 2px solid rgba(34, 197, 94, 0.5);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.next-question-btn:hover {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  border-color: rgba(34, 197, 94, 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+}
+
+.multiplication-table-container {
+  min-width: 280px;
+  max-width: 320px;
+  padding: 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(6px);
+  position: sticky;
+  top: 20px;
+}
+
+.table-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 16px 0;
+  text-align: center;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(96, 165, 250, 0.3);
+}
+
+.multiplication-table {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.multiplication-table li {
+  padding: 10px 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.multiplication-table li.highlight {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.25), rgba(96, 165, 250, 0.15));
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #60a5fa;
+  font-weight: 700;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.2);
+}
+
 @media (max-width: 768px) {
   .game-title {
     font-size: 24px;
   }
 
+  .score-info {
+    gap: 6px;
+  }
+
   .score-display {
     font-size: 18px;
     padding: 6px 12px;
+  }
+
+  .question-counter {
+    font-size: 14px;
+    padding: 5px 10px;
   }
 
   .question {
@@ -203,6 +348,23 @@
 
   .balloon-string {
     height: 120px;
+  }
+
+  .game-content-wrapper {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .multiplication-table-container {
+    min-width: 100%;
+    max-width: 100%;
+    position: relative;
+    top: 0;
+  }
+
+  .next-question-btn {
+    font-size: 16px;
+    padding: 12px 24px;
   }
 }
 
@@ -225,6 +387,15 @@
     width: 50px;
     height: 65px;
     font-size: 16px;
+  }
+
+  .table-title {
+    font-size: 18px;
+  }
+
+  .multiplication-table li {
+    font-size: 14px;
+    padding: 8px 12px;
   }
 }
 

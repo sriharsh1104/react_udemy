@@ -3,30 +3,52 @@ import './BalloonMathPop.css'
 
 const BalloonMathPop = () => {
   const [score, setScore] = useState(0)
+  const [questionNumber, setQuestionNumber] = useState(0)
   const [question, setQuestion] = useState({ num1: 0, num2: 0, operator: '×', answer: 0 })
   const [options, setOptions] = useState([])
   const [shaking, setShaking] = useState([])
+  const [selectedBalloon, setSelectedBalloon] = useState(null)
+  const [isAnswered, setIsAnswered] = useState(false)
+  const [firstAttempt, setFirstAttempt] = useState(true)
   const [gameActive, setGameActive] = useState(true)
+  const [gameComplete, setGameComplete] = useState(false)
+  const [showNextQuestionButton, setShowNextQuestionButton] = useState(false)
 
   const generateQuestion = () => {
     const num1 = Math.floor(Math.random() * 10) + 1
     const num2 = Math.floor(Math.random() * 10) + 1
     const answer = num1 * num2
 
-    // Generate 3 wrong answers
+    // Generate 3 wrong answers - ensure they are different from correct answer
     const wrongAnswers = []
-    while (wrongAnswers.length < 3) {
+    let attempts = 0
+    while (wrongAnswers.length < 3 && attempts < 100) {
       const wrong = Math.floor(Math.random() * 100) + 1
       if (wrong !== answer && !wrongAnswers.includes(wrong)) {
         wrongAnswers.push(wrong)
       }
+      attempts++
     }
 
-    // Combine correct and wrong answers, then shuffle
+    // Ensure we have exactly 3 wrong answers
+    while (wrongAnswers.length < 3) {
+      // Fallback: generate sequential wrong answers if needed
+      let wrong = answer + wrongAnswers.length + 1
+      if (wrong <= 0) wrong = 1
+      if (!wrongAnswers.includes(wrong) && wrong !== answer) {
+        wrongAnswers.push(wrong)
+      } else {
+        wrongAnswers.push(answer + wrongAnswers.length + 10)
+      }
+    }
+
+    // ALWAYS include correct answer first, then add wrong answers
     const allOptions = [answer, ...wrongAnswers]
+    
+    // Shuffle to randomize positions
     const shuffled = allOptions.sort(() => Math.random() - 0.5)
 
-    // Assign random positions to balloons
+    // Assign random positions to balloons - ensure correct answer is always included
     const balloonOptions = shuffled.map((value, index) => ({
       value,
       isCorrect: value === answer,
@@ -34,9 +56,25 @@ const BalloonMathPop = () => {
       position: Math.random() * 60 + 10 // Random horizontal position (10-70%)
     }))
 
+    // Verify that correct answer exists in options
+    const hasCorrectAnswer = balloonOptions.some(opt => opt.isCorrect)
+    if (!hasCorrectAnswer) {
+      // Fallback: force include correct answer
+      balloonOptions[0] = {
+        value: answer,
+        isCorrect: true,
+        id: 0,
+        position: balloonOptions[0].position
+      }
+    }
+
     setQuestion({ num1, num2, operator: '×', answer })
     setOptions(balloonOptions)
     setShaking([])
+    setSelectedBalloon(null)
+    setIsAnswered(false)
+    setFirstAttempt(true)
+    setShowNextQuestionButton(false)
   }
 
   useEffect(() => {
@@ -44,29 +82,68 @@ const BalloonMathPop = () => {
   }, [])
 
   const handleBalloonClick = (balloon) => {
-    if (!gameActive) return
+    if (!gameActive || isAnswered) return
+
+    setIsAnswered(true)
+    setSelectedBalloon(balloon.id)
 
     if (balloon.isCorrect) {
-      setScore(prev => prev + 1)
-      // Remove the popped balloon
-      setOptions(prev => prev.filter(opt => opt.id !== balloon.id))
+      // Correct answer - only score on first attempt
+      if (firstAttempt) {
+        setScore(prev => prev + 1)
+      }
       
-      // Generate new question after a short delay
+      // Highlight correct answer
+      setOptions(prev => prev.map(opt => 
+        opt.id === balloon.id ? { ...opt, isCorrect: true, showCorrect: true } : opt
+      ))
+      
+      // Show next question button after highlighting correct answer
+      setTimeout(() => {
+        setShowNextQuestionButton(true)
+      }, 800)
+    } else {
+      // Wrong answer - shake and mark as wrong
+      setShaking(prev => [...prev, balloon.id])
+      setFirstAttempt(false)
+      
+      setOptions(prev => prev.map(opt => 
+        opt.id === balloon.id ? { ...opt, isWrong: true } : opt
+      ))
+      
+      // Show correct answer after wrong attempt
+      setTimeout(() => {
+        setOptions(prev => prev.map(opt => 
+          opt.isCorrect ? { ...opt, showCorrect: true } : opt
+        ))
+        // Show next question button after showing correct answer
+        setShowNextQuestionButton(true)
+      }, 800)
+    }
+  }
+
+  const handleNextQuestion = () => {
+    setQuestionNumber(prev => {
+      const next = prev + 1
+      if (next >= 20) {
+        setGameComplete(true)
+        setGameActive(false)
+        return prev
+      }
+      // Generate next question
       setTimeout(() => {
         generateQuestion()
-      }, 500)
-    } else {
-      // Wrong answer - shake the balloon
-      setShaking(prev => [...prev, balloon.id])
-      setTimeout(() => {
-        setShaking(prev => prev.filter(id => id !== balloon.id))
-      }, 500)
-    }
+      }, 100)
+      return next
+    })
   }
 
   const resetGame = () => {
     setScore(0)
+    setQuestionNumber(0)
     setGameActive(true)
+    setGameComplete(false)
+    setShowNextQuestionButton(false)
     generateQuestion()
   }
 
@@ -74,44 +151,82 @@ const BalloonMathPop = () => {
     <div className="balloon-math-pop">
       <div className="game-header">
         <h2 className="game-title">🎈 Balloon Math Pop</h2>
-        <div className="score-display">Score: {score}</div>
-      </div>
-
-      <div className="question-container">
-        <div className="question">
-          {question.num1} {question.operator} {question.num2} = ?
+        <div className="score-info">
+          <div className="score-display">Score: {score}</div>
+          <div className="question-counter">Question: {questionNumber + 1}/20</div>
         </div>
       </div>
 
-      <div className="balloon-container">
-        {options.map((balloon) => (
-          <div
-            key={balloon.id}
-            className={`balloon ${shaking.includes(balloon.id) ? 'shake' : ''} ${balloon.isCorrect ? 'correct' : 'wrong'}`}
-            style={{
-              left: `${balloon.position}%`,
-              animationDelay: `${balloon.id * 0.2}s`
-            }}
-            onClick={() => handleBalloonClick(balloon)}
-          >
-            <div className="balloon-body">
-              {balloon.value}
+      {gameComplete ? (
+        <div className="game-complete">
+          <h2>🎉 Game Complete!</h2>
+          <p>Final Score: {score} / 20</p>
+          <button onClick={resetGame} className="reset-btn">
+            🔄 Play Again
+          </button>
+        </div>
+      ) : (
+        <div className="game-content-wrapper">
+          <div className="game-main">
+            <div className="question-container">
+              <div className="question">
+                {question.num1} {question.operator} {question.num2} = ?
+              </div>
             </div>
-            <div className="balloon-string"></div>
+
+            <div className="balloon-container">
+              {options.map((balloon) => (
+                <div
+                  key={balloon.id}
+                  className={`balloon ${shaking.includes(balloon.id) ? 'shake' : ''} ${balloon.showCorrect ? 'showCorrect' : ''} ${balloon.isWrong ? 'wrong' : ''} ${balloon.isCorrect && selectedBalloon === balloon.id ? 'correct-selected' : ''}`}
+                  style={{
+                    left: `${balloon.position}%`,
+                    animationDelay: `${balloon.id * 0.2}s`
+                  }}
+                  onClick={() => handleBalloonClick(balloon)}
+                >
+                  <div className="balloon-body">
+                    {balloon.value}
+                  </div>
+                  <div className="balloon-string"></div>
+                </div>
+              ))}
+            </div>
+
+            {showNextQuestionButton && (
+              <div className="next-question-container">
+                <button onClick={handleNextQuestion} className="next-question-btn">
+                  ➡️ Next Question
+                </button>
+              </div>
+            )}
+
+            <div className="game-controls">
+              <button onClick={resetGame} className="reset-btn">
+                🔄 Reset Game
+              </button>
+            </div>
+
+            <div className="game-instructions">
+              <p>Click the balloon with the correct answer!</p>
+              <p>Score only increases on first attempt correct answer.</p>
+            </div>
           </div>
-        ))}
-      </div>
 
-      <div className="game-controls">
-        <button onClick={resetGame} className="reset-btn">
-          🔄 Reset Game
-        </button>
-      </div>
-
-      <div className="game-instructions">
-        <p>Click the balloon with the correct answer!</p>
-        <p>Wrong answers will shake.</p>
-      </div>
+          {isAnswered && (
+            <div className="multiplication-table-container">
+              <h3 className="table-title">{question.num1} का पहाड़ा</h3>
+              <ul className="multiplication-table">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+                  <li key={num} className={num === question.num2 ? 'highlight' : ''}>
+                    {question.num1} × {num} = {question.num1 * num}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
