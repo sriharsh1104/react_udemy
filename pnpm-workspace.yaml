@@ -1,6 +1,0 @@
-ignoredBuiltDependencies:
-  - canvas
-  - core-js
-  - esbuild
-  - keccak
-  - secp256k1
