@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import './BalloonMathPop.css'
 import { saveGameScore } from '../utils/scoreUtils'
 
@@ -15,6 +15,10 @@ const BalloonMathPop = ({ userName = null }) => {
   const [gameComplete, setGameComplete] = useState(false)
   const [showNextQuestionButton, setShowNextQuestionButton] = useState(false)
   const [questionList, setQuestionList] = useState([])
+  const [timer, setTimer] = useState(20)
+  const [timerActive, setTimerActive] = useState(false)
+  const [answerDisplayTimer, setAnswerDisplayTimer] = useState(15)
+  const [answerDisplayActive, setAnswerDisplayActive] = useState(false)
 
   // Check if userName is valid
   const isValidName = (name) => {
@@ -169,7 +173,26 @@ const BalloonMathPop = ({ userName = null }) => {
     setIsAnswered(false)
     setFirstAttempt(true)
     setShowNextQuestionButton(false)
+    setTimer(20)
+    setTimerActive(true)
   }
+
+  // Define handleNextQuestion before useEffect that uses it
+  const handleNextQuestion = useCallback(() => {
+    setTimerActive(false) // Stop timer
+    setAnswerDisplayActive(false) // Stop answer display timer
+    setShowNextQuestionButton(false)
+    setQuestionNumber(prev => {
+      const next = prev + 1
+      if (next >= 20) {
+        setGameComplete(true)
+        setGameActive(false)
+        return prev
+      }
+      return next
+    })
+    // useEffect will automatically trigger generateQuestion when questionNumber changes
+  }, [])
 
   // Generate question when questionNumber changes or when questionList is ready
   useEffect(() => {
@@ -177,6 +200,53 @@ const BalloonMathPop = ({ userName = null }) => {
       generateQuestion()
     }
   }, [questionNumber, questionList.length, gameActive])
+
+  // Timer countdown effect (20 seconds for answering)
+  useEffect(() => {
+    if (!timerActive || isAnswered || !gameActive || gameComplete) return
+
+    const interval = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          setTimerActive(false)
+          // Time's up - show answer and start answer display timer
+          setIsAnswered(true)
+          setFirstAttempt(false)
+          // Show correct answer
+          setTimeout(() => {
+            setOptions(prevOpts => prevOpts.map(opt => 
+              opt.isCorrect ? { ...opt, showCorrect: true } : opt
+            ))
+            setAnswerDisplayTimer(15)
+            setAnswerDisplayActive(true)
+          }, 500)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [timerActive, isAnswered, gameActive, gameComplete])
+
+  // Answer display timer (15 seconds) - auto move to next question
+  useEffect(() => {
+    if (!answerDisplayActive || !isAnswered || !gameActive || gameComplete) return
+
+    const interval = setInterval(() => {
+      setAnswerDisplayTimer(prev => {
+        if (prev <= 1) {
+          setAnswerDisplayActive(false)
+          // Automatically move to next question
+          handleNextQuestion()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [answerDisplayActive, isAnswered, gameActive, gameComplete, handleNextQuestion])
 
   // Save score when game completes
   useEffect(() => {
@@ -189,6 +259,7 @@ const BalloonMathPop = ({ userName = null }) => {
     if (!gameActive || isAnswered) return
 
     setIsAnswered(true)
+    setTimerActive(false) // Stop timer when answered
     setSelectedBalloon(balloon.id)
 
     if (balloon.isCorrect) {
@@ -202,9 +273,10 @@ const BalloonMathPop = ({ userName = null }) => {
         opt.id === balloon.id ? { ...opt, isCorrect: true, showCorrect: true } : opt
       ))
       
-      // Show next question button after highlighting correct answer
+      // Start answer display timer
       setTimeout(() => {
-        setShowNextQuestionButton(true)
+        setAnswerDisplayTimer(15)
+        setAnswerDisplayActive(true)
       }, 800)
     } else {
       // Wrong answer - shake and mark as wrong
@@ -220,23 +292,11 @@ const BalloonMathPop = ({ userName = null }) => {
         setOptions(prev => prev.map(opt => 
           opt.isCorrect ? { ...opt, showCorrect: true } : opt
         ))
-        // Show next question button after showing correct answer
-        setShowNextQuestionButton(true)
+        // Start answer display timer
+        setAnswerDisplayTimer(15)
+        setAnswerDisplayActive(true)
       }, 800)
     }
-  }
-
-  const handleNextQuestion = () => {
-    setQuestionNumber(prev => {
-      const next = prev + 1
-      if (next >= 20) {
-        setGameComplete(true)
-        setGameActive(false)
-        return prev
-      }
-      return next
-    })
-    // useEffect will automatically trigger generateQuestion when questionNumber changes
   }
 
   const resetGame = () => {
@@ -245,6 +305,10 @@ const BalloonMathPop = ({ userName = null }) => {
     setGameActive(true)
     setGameComplete(false)
     setShowNextQuestionButton(false)
+    setTimer(20)
+    setTimerActive(false)
+    setAnswerDisplayTimer(15)
+    setAnswerDisplayActive(false)
     // Generate new question list
     const newList = generateQuestionList()
     setQuestionList(newList)
@@ -257,6 +321,20 @@ const BalloonMathPop = ({ userName = null }) => {
         <div className="score-info">
           <div className="score-display">Score: {score}</div>
           <div className="question-counter">Question: {questionNumber + 1}/20</div>
+          {gameActive && !gameComplete && (
+            <>
+              {!isAnswered && (
+                <div className={`timer-display ${timer <= 5 ? 'timer-warning' : ''}`}>
+                  ⏱️ {timer}s
+                </div>
+              )}
+              {isAnswered && answerDisplayActive && (
+                <div className="answer-display-timer">
+                  Next: {answerDisplayTimer}s
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -304,11 +382,11 @@ const BalloonMathPop = ({ userName = null }) => {
               ))}
             </div>
 
-            {showNextQuestionButton && (
+            {isAnswered && answerDisplayActive && (
               <div className="next-question-container">
-                <button onClick={handleNextQuestion} className="next-question-btn">
-                  ➡️ Next Question
-                </button>
+                <div className="auto-next-message">
+                  Next question in {answerDisplayTimer}s...
+                </div>
               </div>
             )}
 

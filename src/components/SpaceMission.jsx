@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import './SpaceMission.css'
 import { saveGameScore } from '../utils/scoreUtils'
 
@@ -16,6 +16,10 @@ const SpaceMission = ({ userName = null }) => {
   const [laserBlast, setLaserBlast] = useState(null) // { asteroidId, position, topPosition }
   const [explosions, setExplosions] = useState([]) // Array of explosion effects
   const [showMessage, setShowMessage] = useState(null) // 'won' or 'lose'
+  const [timer, setTimer] = useState(20)
+  const [timerActive, setTimerActive] = useState(false)
+  const [answerDisplayTimer, setAnswerDisplayTimer] = useState(15)
+  const [answerDisplayActive, setAnswerDisplayActive] = useState(false)
 
   // Check if userName is valid
   const isValidName = (name) => {
@@ -115,7 +119,26 @@ const SpaceMission = ({ userName = null }) => {
     setLaserBlast(null)
     setExplosions([])
     setShowMessage(null)
+    setTimer(20)
+    setTimerActive(true)
   }
+
+  // Define handleNextQuestion before useEffect that uses it
+  const handleNextQuestion = useCallback(() => {
+    setTimerActive(false) // Stop timer
+    setAnswerDisplayActive(false) // Stop answer display timer
+    setShowMessage(null)
+    setShowNextQuestionButton(false)
+    setQuestionNumber(prev => {
+      const next = prev + 1
+      if (next >= 20) {
+        setGameComplete(true)
+        setGameActive(false)
+        return prev
+      }
+      return next
+    })
+  }, [])
 
   // Generate question when questionNumber changes
   useEffect(() => {
@@ -123,6 +146,53 @@ const SpaceMission = ({ userName = null }) => {
       generateQuestion()
     }
   }, [questionNumber, questionList.length, gameActive])
+
+  // Timer countdown effect (20 seconds for answering)
+  useEffect(() => {
+    if (!timerActive || isAnswered || !gameActive || gameComplete) return
+
+    const interval = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          setTimerActive(false)
+          // Time's up - show answer and start answer display timer
+          setIsAnswered(true)
+          setFirstAttempt(false)
+          // Show correct answer
+          setTimeout(() => {
+            setAsteroids(prevAsts => prevAsts.map(ast => 
+              ast.isCorrect ? { ...ast, showCorrect: true } : ast
+            ))
+            setAnswerDisplayTimer(15)
+            setAnswerDisplayActive(true)
+          }, 500)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [timerActive, isAnswered, gameActive, gameComplete])
+
+  // Answer display timer (15 seconds) - auto move to next question
+  useEffect(() => {
+    if (!answerDisplayActive || !isAnswered || !gameActive || gameComplete) return
+
+    const interval = setInterval(() => {
+      setAnswerDisplayTimer(prev => {
+        if (prev <= 1) {
+          setAnswerDisplayActive(false)
+          // Automatically move to next question
+          handleNextQuestion()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [answerDisplayActive, isAnswered, gameActive, gameComplete, handleNextQuestion])
 
   // Save score when game completes
   useEffect(() => {
@@ -152,6 +222,7 @@ const SpaceMission = ({ userName = null }) => {
     if (!gameActive || isAnswered || asteroid.destroyed) return
 
     setIsAnswered(true)
+    setTimerActive(false) // Stop timer when answered
 
     if (asteroid.isCorrect) {
       // Correct answer - laser blast!
@@ -192,9 +263,10 @@ const SpaceMission = ({ userName = null }) => {
         setShowMessage('won')
       }, 1500)
 
-      // Show next question button after message
+      // Start answer display timer after message
       setTimeout(() => {
-        setShowNextQuestionButton(true)
+        setAnswerDisplayTimer(15)
+        setAnswerDisplayActive(true)
       }, 2000)
     } else {
       // Wrong answer - asteroid comes closer (moves down faster)
@@ -214,22 +286,11 @@ const SpaceMission = ({ userName = null }) => {
         setAsteroids(prev => prev.map(ast => 
           ast.isCorrect ? { ...ast, showCorrect: true } : ast
         ))
-        setShowNextQuestionButton(true)
+        // Start answer display timer
+        setAnswerDisplayTimer(15)
+        setAnswerDisplayActive(true)
       }, 1000)
     }
-  }
-
-  const handleNextQuestion = () => {
-    setShowMessage(null)
-    setQuestionNumber(prev => {
-      const next = prev + 1
-      if (next >= 20) {
-        setGameComplete(true)
-        setGameActive(false)
-        return prev
-      }
-      return next
-    })
   }
 
   const resetGame = () => {
@@ -239,6 +300,10 @@ const SpaceMission = ({ userName = null }) => {
     setGameComplete(false)
     setShowNextQuestionButton(false)
     setShowMessage(null)
+    setTimer(20)
+    setTimerActive(false)
+    setAnswerDisplayTimer(15)
+    setAnswerDisplayActive(false)
     const newList = generateQuestionList()
     setQuestionList(newList)
   }
@@ -250,6 +315,20 @@ const SpaceMission = ({ userName = null }) => {
         <div className="score-info">
           <div className="score-display">Score: {score}</div>
           <div className="question-counter">Question: {questionNumber + 1}/20</div>
+          {gameActive && !gameComplete && (
+            <>
+              {!isAnswered && (
+                <div className={`timer-display ${timer <= 5 ? 'timer-warning' : ''}`}>
+                  ⏱️ {timer}s
+                </div>
+              )}
+              {isAnswered && answerDisplayActive && (
+                <div className="answer-display-timer">
+                  Next: {answerDisplayTimer}s
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -375,11 +454,11 @@ const SpaceMission = ({ userName = null }) => {
               )}
             </div>
 
-            {showNextQuestionButton && (
+            {isAnswered && answerDisplayActive && (
               <div className="next-question-container">
-                <button onClick={handleNextQuestion} className="next-question-btn">
-                  ➡️ Next Mission
-                </button>
+                <div className="auto-next-message">
+                  Next mission in {answerDisplayTimer}s...
+                </div>
               </div>
             )}
 

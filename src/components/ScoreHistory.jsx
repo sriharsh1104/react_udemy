@@ -106,14 +106,14 @@ const ScoreHistory = () => {
         className="toggle-history-btn"
         onClick={() => setShowHistory(!showHistory)}
       >
-        {showHistory ? '📊 Score History' : '📊 Score History'}
+        {showHistory ? '🏆 Leaderboard' : '🏆 Leaderboard'}
         <span className="toggle-icon">{showHistory ? '▼' : '▶'}</span>
       </button>
 
       {showHistory && (
         <div className="score-history-content">
           <div className="history-header">
-            <h3>🏆 Score History</h3>
+            <h3>🏆 Leaderboard</h3>
             {scores.length > 0 && (
               <button onClick={clearHistory} className="clear-btn">
                 🗑️ Clear

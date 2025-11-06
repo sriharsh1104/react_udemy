@@ -89,7 +89,10 @@ function AppContent() {
         
         <div className="tab-content">
           <Routes>
-            <Route path="/maths-games" element={<MathsGames />} />
+            <Route 
+              path="/maths-games" 
+              element={<MathsGames onExitGameMode={() => handleGameModeToggle(false)} />} 
+            />
             <Route path="/video" element={<VideoConverter />} />
             <Route path="/image" element={<ImageConverter />} />
             <Route path="/pdf" element={<PDFEditor />} />

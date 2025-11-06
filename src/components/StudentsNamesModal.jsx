@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './StudentsNamesModal.css'
 
-const StudentsNamesModal = ({ onNamesSubmit }) => {
+const StudentsNamesModal = ({ onNamesSubmit, onClose }) => {
   const [names, setNames] = useState({
     student1: '',
     student2: '',
@@ -24,6 +24,26 @@ const StudentsNamesModal = ({ onNamesSubmit }) => {
       }
     }
   }, [])
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && onClose) {
+        onClose()
+      }
+    }
+    
+    window.addEventListener('keydown', handleEsc)
+    return () => {
+      window.removeEventListener('keydown', handleEsc)
+    }
+  }, [onClose])
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose()
+    }
+  }
 
   const handleNameChange = (studentId, value) => {
     setNames(prev => ({
@@ -99,8 +119,15 @@ const StudentsNamesModal = ({ onNamesSubmit }) => {
   }
 
   return (
-    <div className="students-names-modal-overlay">
-      <div className="students-names-modal">
+    <div className="students-names-modal-overlay" onClick={handleClose}>
+      <div className="students-names-modal" onClick={(e) => e.stopPropagation()}>
+        <button 
+          className="modal-close-btn"
+          onClick={handleClose}
+          aria-label="Close modal"
+        >
+          ✕
+        </button>
         <div className="modal-header">
           <h2>🎮 Welcome to Maths Games!</h2>
           <p>कृपया 4 छात्रों के नाम दर्ज करें</p>

@@ -3,9 +3,10 @@ import BalloonMathPop from './BalloonMathPop'
 import SpaceMission from './SpaceMission'
 import ScoreHistory from './ScoreHistory'
 import StudentsNamesModal from './StudentsNamesModal'
+import { BACKEND_URL } from '../constants'
 import './MathsGames.css'
 
-const MathsGames = () => {
+const MathsGames = ({ onExitGameMode }) => {
   const [activeTab, setActiveTab] = useState('balloon')
   const [showModal, setShowModal] = useState(false)
   const [studentNames, setStudentNames] = useState({
@@ -63,11 +64,67 @@ const MathsGames = () => {
            isValidName(studentNames.student4)
   }
 
+  const handleModalClose = () => {
+    setShowModal(false)
+    // If game mode exit handler is provided, call it to turn off game mode
+    if (onExitGameMode) {
+      onExitGameMode()
+    }
+  }
+
+  const handleResetAll = async () => {
+    const confirmMessage = 'क्या आप सभी games reset करना चाहते हैं?\n\nयह करने से:\n• सभी student names हट जाएंगे\n• सभी scores हट जाएंगे\n• आपको नए names enter करने होंगे'
+    
+    if (window.confirm(confirmMessage)) {
+      try {
+        // Clear scores from API
+        const response = await fetch(`${BACKEND_URL}/api/maths-games/scores`, {
+          method: 'DELETE'
+        })
+        if (response.ok) {
+          console.log('Scores cleared from API')
+        }
+      } catch (error) {
+        console.warn('Failed to clear from API:', error)
+      }
+      
+      // Clear localStorage
+      localStorage.removeItem('maths_games_students_names')
+      localStorage.removeItem('maths_games_scores')
+      
+      // Reset state
+      setStudentNames({
+        student1: '',
+        student2: '',
+        student3: '',
+        student4: ''
+      })
+      
+      // Show modal for new names
+      setShowModal(true)
+      
+      // Trigger score update event to refresh leaderboard
+      window.dispatchEvent(new CustomEvent('scoreUpdated'))
+    }
+  }
+
   return (
     <div className="maths-games">
-      {showModal && <StudentsNamesModal onNamesSubmit={handleNamesSubmit} />}
+      {showModal && (
+        <StudentsNamesModal 
+          onNamesSubmit={handleNamesSubmit} 
+          onClose={handleModalClose}
+        />
+      )}
       
-      <h1 className="maths-games-title">🎮 Maths Games</h1>
+      <div className="maths-games-header">
+        <h1 className="maths-games-title">🎮 Maths Games</h1>
+        {allNamesValid() && (
+          <button onClick={handleResetAll} className="reset-all-btn" title="Reset all games and enter new names">
+            🔄 Reset All
+          </button>
+        )}
+      </div>
       
       <ScoreHistory />
       
