@@ -77,10 +77,10 @@ const Header = ({ activeTab, onTabChange, gameMode, onGameModeToggle }) => {
             </>
           )}
           <button
-            className={`tab ${activeTab === 'maths' ? 'active' : ''}`}
-            onClick={() => onTabChange('maths')}
+            className={`tab ${activeTab === 'games' ? 'active' : ''}`}
+            onClick={() => onTabChange('games')}
           >
-            🎈 Maths Games
+            🎮 Games
           </button>
         </nav>
       </div>

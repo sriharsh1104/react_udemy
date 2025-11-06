@@ -10,7 +10,7 @@ import OTTLinks from './components/OTTLinks'
 import Esports from './components/Esports'
 import AIChat from './components/AIChat'
 import TradeChart from './components/TradeChart'
-import MathsGames from './components/MathsGames'
+import Games from './components/Games'
 import GlobalChat from './components/GlobalChat'
 import InstallPrompt from './components/InstallPrompt'
 import './App.css'
@@ -27,7 +27,7 @@ function AppContent() {
   
   // Determine active tab from location
   const getActiveTab = () => {
-    if (location.pathname === '/maths-games') return 'maths'
+    if (location.pathname === '/games') return 'games'
     if (location.pathname === '/video' || location.pathname === '/') return 'video'
     if (location.pathname === '/image') return 'image'
     if (location.pathname === '/pdf') return 'pdf'
@@ -55,7 +55,7 @@ function AppContent() {
       ai: '/ai',
       trade: '/trade',
       contract: '/contract',
-      maths: '/maths-games'
+      games: '/games'
     }
     navigate(routes[tab] || '/')
   }
@@ -66,15 +66,24 @@ function AppContent() {
     localStorage.setItem('gameMode', enabled.toString())
     
     if (enabled) {
-      // Navigate to Maths Games when Game Mode is enabled
-      navigate('/maths-games')
-      setActiveTab('maths')
+      // Navigate to Games when Game Mode is enabled
+      navigate('/games')
+      setActiveTab('games')
     }
   }
 
   // Update active tab when location changes
   useEffect(() => {
     setActiveTab(getActiveTab())
+  }, [location.pathname])
+
+  // Update document title based on route
+  useEffect(() => {
+    if (location.pathname === '/games') {
+      document.title = 'Games'
+    } else {
+      document.title = 'All In One ToolBox'
+    }
   }, [location.pathname])
 
   return (
@@ -90,8 +99,8 @@ function AppContent() {
         <div className="tab-content">
           <Routes>
             <Route 
-              path="/maths-games" 
-              element={<MathsGames onExitGameMode={() => handleGameModeToggle(false)} />} 
+              path="/games" 
+              element={<Games onExitGameMode={() => handleGameModeToggle(false)} />} 
             />
             <Route path="/video" element={<VideoConverter />} />
             <Route path="/image" element={<ImageConverter />} />

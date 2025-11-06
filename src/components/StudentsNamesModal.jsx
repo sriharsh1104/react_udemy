@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './StudentsNamesModal.css'
 
-const StudentsNamesModal = ({ onNamesSubmit, onClose }) => {
+const StudentsNamesModal = ({ onNamesSubmit, onClose, storageKey = 'maths_games_students_names', gameTitle = 'Maths Games' }) => {
   const [names, setNames] = useState({
     student1: '',
     student2: '',
@@ -12,7 +12,7 @@ const StudentsNamesModal = ({ onNamesSubmit, onClose }) => {
 
   // Load saved names if they exist
   useEffect(() => {
-    const savedNames = localStorage.getItem('maths_games_students_names')
+    const savedNames = localStorage.getItem(storageKey)
     if (savedNames) {
       try {
         const parsed = JSON.parse(savedNames)
@@ -23,7 +23,7 @@ const StudentsNamesModal = ({ onNamesSubmit, onClose }) => {
         console.error('Error loading saved names:', e)
       }
     }
-  }, [])
+  }, [storageKey])
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -112,7 +112,7 @@ const StudentsNamesModal = ({ onNamesSubmit, onClose }) => {
     }
 
     // Save to localStorage
-    localStorage.setItem('maths_games_students_names', JSON.stringify(trimmedNames))
+    localStorage.setItem(storageKey, JSON.stringify(trimmedNames))
     
     // Call parent callback
     onNamesSubmit(trimmedNames)
@@ -129,7 +129,7 @@ const StudentsNamesModal = ({ onNamesSubmit, onClose }) => {
           ✕
         </button>
         <div className="modal-header">
-          <h2>🎮 Welcome to Maths Games!</h2>
+          <h2>🎮 Welcome to {gameTitle}!</h2>
           <p>कृपया 4 छात्रों के नाम दर्ज करें</p>
           <p className="subtitle">सभी नाम mandatory हैं</p>
         </div>
