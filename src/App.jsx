@@ -115,7 +115,7 @@ function AppContent() {
           </Routes>
         </div>
       </div>
-      <GlobalChat />
+      {!gameMode && <GlobalChat />}
       <InstallPrompt />
     </div>
   )
