@@ -714,6 +714,83 @@ app.post('/api/download', async (req, res) => {
   }
 })
 
+// Text-to-Speech endpoint using free Google TTS API
+app.post('/api/tts/speak', async (req, res) => {
+  try {
+    const { text, lang = 'en', slow = false } = req.body
+    
+    if (!text || text.trim() === '') {
+      return res.status(400).json({ error: 'Text is required' })
+    }
+
+    // Google Translate TTS API (free, no API key needed)
+    // Limit text to reasonable length (5000 chars max)
+    const textToSpeak = text.trim().substring(0, 5000)
+    
+    // Map language codes
+    const langMap = {
+      'hi': 'hi',      // Hindi
+      'en': 'en',      // English
+      'en-US': 'en-US',
+      'en-IN': 'en-IN', // English India
+      'es': 'es',      // Spanish
+      'fr': 'fr',      // French
+      'de': 'de',      // German
+      'ja': 'ja',      // Japanese
+      'zh': 'zh',      // Chinese
+      'ar': 'ar',      // Arabic
+      'pt': 'pt',      // Portuguese
+      'ru': 'ru'       // Russian
+    }
+    
+    const ttsLang = langMap[lang] || 'en'
+    
+    // Google Translate TTS URL
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${ttsLang}&client=tw-ob&text=${encodeURIComponent(textToSpeak)}`
+    
+    // Fetch audio from Google TTS
+    const response = await axios.get(ttsUrl, {
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    })
+    
+    // Return audio data
+    res.setHeader('Content-Type', 'audio/mpeg')
+    res.setHeader('Content-Disposition', 'inline; filename="speech.mp3"')
+    res.send(Buffer.from(response.data))
+    
+  } catch (error) {
+    console.error('TTS error:', error)
+    res.status(500).json({ 
+      error: error.message || 'Failed to convert text to speech',
+      details: 'TTS service temporarily unavailable'
+    })
+  }
+})
+
+// Get available TTS languages
+app.get('/api/tts/languages', (req, res) => {
+  res.json({
+    success: true,
+    languages: [
+      { code: 'en', name: 'English' },
+      { code: 'en-US', name: 'English (US)' },
+      { code: 'en-IN', name: 'English (India)' },
+      { code: 'hi', name: 'Hindi' },
+      { code: 'es', name: 'Spanish' },
+      { code: 'fr', name: 'French' },
+      { code: 'de', name: 'German' },
+      { code: 'ja', name: 'Japanese' },
+      { code: 'zh', name: 'Chinese' },
+      { code: 'ar', name: 'Arabic' },
+      { code: 'pt', name: 'Portuguese' },
+      { code: 'ru', name: 'Russian' }
+    ]
+  })
+})
+
 // PDF edit endpoint: accepts a PDF file and an array of edits and returns a flattened PDF
 // Request: multipart/form-data with fields:
 // - file: PDF file
