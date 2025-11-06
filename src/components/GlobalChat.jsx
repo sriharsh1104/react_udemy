@@ -22,17 +22,18 @@ const GlobalChat = () => {
   const appendMessage = (newMsg) => {
     setMessages(prev => {
       const next = [...prev, newMsg]
-      // Only count user messages toward the 100 limit
-      // System messages (welcome/left) are excluded from the count
+      // Separate user messages and system messages (join/left)
+      // Only user messages count toward the 100 limit
       const userMessages = next.filter(msg => msg.type === 'user')
       const systemMessages = next.filter(msg => msg.type === 'system')
       
-      // Keep only last 100 user messages
+      // Keep only last 100 user messages (system messages don't count)
       const limitedUserMessages = userMessages.length > 100 
         ? userMessages.slice(userMessages.length - 100)
         : userMessages
       
-      // Combine system messages with limited user messages, sorted by timestamp
+      // Combine limited user messages with all system messages, sorted by timestamp
+      // This ensures join/left messages are always shown but don't count toward 100
       const combined = [...limitedUserMessages, ...systemMessages]
         .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
       
@@ -87,7 +88,8 @@ const GlobalChat = () => {
       setUserName(data.userName)
       setConnectedUsers(data.connectedUsers?.length || 0)
       
-      // Load message history if available
+      // Load message history if available (backend already maintains last 100 user messages)
+      // These messages are already limited to 100 on the backend
       if (data.messageHistory && data.messageHistory.length > 0) {
         const historyMessages = data.messageHistory.map(msg => ({
           type: 'user',
@@ -98,9 +100,11 @@ const GlobalChat = () => {
           timestamp: msg.timestamp,
           isOwn: msg.userId === socketRef.current?.id
         }))
+        // Set messages directly - backend already ensures exactly 100 user messages
         setMessages(historyMessages)
       }
       
+      // Add welcome message (system message, doesn't count toward 100)
       appendMessage({
         type: 'system',
         message: `Welcome ${data.userName}! You joined the chat.`,

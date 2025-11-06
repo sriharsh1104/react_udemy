@@ -251,7 +251,7 @@ const BalloonMathPop = ({ userName = null }) => {
   // Save score when game completes
   useEffect(() => {
     if (gameComplete && userName) {
-      saveGameScore(userName, score, 'Balloon Math Pop')
+      saveGameScore(userName, score, 'Balloon Math Pop', 'maths-games')
     }
   }, [gameComplete, score, userName])
 

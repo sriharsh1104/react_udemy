@@ -1,18 +1,20 @@
 import { BACKEND_URL } from '../constants'
 
 // Utility function to save game scores to API and localStorage
-export const saveGameScore = async (playerName, score, gameName) => {
+export const saveGameScore = async (playerName, score, gameName, category = 'maths-games') => {
   if (!playerName) return // Don't save if no name
   
   const scoreEntry = {
     playerName,
     score,
     gameName,
+    category,
     date: new Date().toISOString()
   }
 
-  // Save to localStorage as backup
-  const savedScores = localStorage.getItem('maths_games_scores')
+  // Save to localStorage as backup (separate storage per category)
+  const storageKey = `${category}_scores`
+  const savedScores = localStorage.getItem(storageKey)
   let scores = []
   
   if (savedScores) {
@@ -31,11 +33,11 @@ export const saveGameScore = async (playerName, score, gameName) => {
     scores = scores.slice(-100)
   }
 
-  localStorage.setItem('maths_games_scores', JSON.stringify(scores))
+  localStorage.setItem(storageKey, JSON.stringify(scores))
   
   // Save to API
   try {
-    const response = await fetch(`${BACKEND_URL}/api/maths-games/scores`, {
+    const response = await fetch(`${BACKEND_URL}/api/${category}/scores`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -59,6 +61,6 @@ export const saveGameScore = async (playerName, score, gameName) => {
   }
   
   // Trigger custom event to refresh score history
-  window.dispatchEvent(new CustomEvent('scoreUpdated'))
+  window.dispatchEvent(new CustomEvent('scoreUpdated', { detail: { category } }))
 }
 

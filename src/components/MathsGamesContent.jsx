@@ -191,7 +191,7 @@ const MathsGamesContent = ({ onExitGameMode }) => {
         ) : null}
       </div>
       
-      <ScoreHistory />
+      <ScoreHistory category="maths-games" />
       
       <div className="tabs-container">
         <button

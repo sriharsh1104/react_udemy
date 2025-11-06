@@ -1743,11 +1743,14 @@ app.post('/api/audio/separate', audioVideoUpload.single('file'), async (req, res
 const scoresFilePath = path.join(__dirname, 'maths_scores.json')
 const MAX_SCORES = 500 // Keep last 500 scores
 
+// English Games Score API Endpoints
+const englishScoresFilePath = path.join(__dirname, 'english_scores.json')
+
 // Helper function to read scores from file
-function readScores() {
+function readScores(filePath) {
   try {
-    if (fs.existsSync(scoresFilePath)) {
-      const data = fs.readFileSync(scoresFilePath, 'utf8')
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf8')
       return JSON.parse(data)
     }
   } catch (error) {
@@ -1757,14 +1760,14 @@ function readScores() {
 }
 
 // Helper function to write scores to file
-function writeScores(scores) {
+function writeScores(scores, filePath) {
   try {
     // Keep only last MAX_SCORES entries
     const trimmedScores = scores.length > MAX_SCORES 
       ? scores.slice(-MAX_SCORES) 
       : scores
     
-    fs.writeFileSync(scoresFilePath, JSON.stringify(trimmedScores, null, 2))
+    fs.writeFileSync(filePath, JSON.stringify(trimmedScores, null, 2))
     return trimmedScores
   } catch (error) {
     console.error('Error writing scores file:', error)
@@ -1795,13 +1798,13 @@ app.post('/api/maths-games/scores', (req, res) => {
     }
     
     // Read existing scores
-    const scores = readScores()
+    const scores = readScores(scoresFilePath)
     
     // Add new score
     scores.push(scoreEntry)
     
     // Write back to file
-    const updatedScores = writeScores(scores)
+    const updatedScores = writeScores(scores, scoresFilePath)
     
     res.json({ 
       success: true, 
@@ -1822,7 +1825,7 @@ app.get('/api/maths-games/scores', (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', 'false')
   
   try {
-    const scores = readScores()
+    const scores = readScores(scoresFilePath)
     
     // Sort by score (descending) then by date (descending)
     const sortedScores = scores.sort((a, b) => {
@@ -1848,7 +1851,96 @@ app.delete('/api/maths-games/scores', (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', 'false')
   
   try {
-    writeScores([])
+    writeScores([], scoresFilePath)
+    res.json({ 
+      success: true, 
+      message: 'All scores cleared successfully' 
+    })
+  } catch (error) {
+    console.error('Error clearing scores:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// English Games Score API Endpoints
+
+// POST /api/english-games/scores - Save a score
+app.post('/api/english-games/scores', (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+  
+  try {
+    const { playerName, score, gameName } = req.body
+    
+    if (!playerName || score === undefined || !gameName) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: playerName, score, gameName' 
+      })
+    }
+    
+    const scoreEntry = {
+      playerName: String(playerName).trim(),
+      score: parseInt(score),
+      gameName: String(gameName).trim(),
+      date: new Date().toISOString()
+    }
+    
+    // Read existing scores
+    const scores = readScores(englishScoresFilePath)
+    
+    // Add new score
+    scores.push(scoreEntry)
+    
+    // Write back to file
+    const updatedScores = writeScores(scores, englishScoresFilePath)
+    
+    res.json({ 
+      success: true, 
+      message: 'Score saved successfully',
+      scoreEntry,
+      totalScores: updatedScores.length
+    })
+  } catch (error) {
+    console.error('Error saving score:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// GET /api/english-games/scores - Get all scores
+app.get('/api/english-games/scores', (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+  
+  try {
+    const scores = readScores(englishScoresFilePath)
+    
+    // Sort by score (descending) then by date (descending)
+    const sortedScores = scores.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return new Date(b.date) - new Date(a.date)
+    })
+    
+    res.json({ 
+      success: true,
+      scores: sortedScores,
+      count: sortedScores.length
+    })
+  } catch (error) {
+    console.error('Error retrieving scores:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// DELETE /api/english-games/scores - Clear all scores
+app.delete('/api/english-games/scores', (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+  
+  try {
+    writeScores([], englishScoresFilePath)
     res.json({ 
       success: true, 
       message: 'All scores cleared successfully' 
@@ -2004,8 +2096,10 @@ io.on('connection', (socket) => {
         timestamp: new Date().toISOString()
       }
       
-      // Store message in history (keep only last MAX_CHAT_MESSAGES)
+      // Store message in history (keep only last MAX_CHAT_MESSAGES user messages)
+      // Note: join/left messages are NOT stored here, only user messages
       chatMessages.push(messageData)
+      // Ensure we maintain exactly MAX_CHAT_MESSAGES (100) user messages
       if (chatMessages.length > MAX_CHAT_MESSAGES) {
         chatMessages.shift() // Remove oldest message
       }

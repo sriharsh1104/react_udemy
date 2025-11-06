@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import './ScoreHistory.css'
 import { BACKEND_URL } from '../constants'
 
-const ScoreHistory = () => {
+const ScoreHistory = ({ category = 'maths-games' }) => {
   const [scores, setScores] = useState([])
   const [showHistory, setShowHistory] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -12,8 +12,11 @@ const ScoreHistory = () => {
     loadScores()
     
     // Listen for score updates
-    const handleScoreUpdate = () => {
-      loadScores()
+    const handleScoreUpdate = (event) => {
+      // Only reload if it's for this category or no category specified
+      if (!event.detail || event.detail.category === category) {
+        loadScores()
+      }
     }
     
     window.addEventListener('scoreUpdated', handleScoreUpdate)
@@ -21,7 +24,7 @@ const ScoreHistory = () => {
     return () => {
       window.removeEventListener('scoreUpdated', handleScoreUpdate)
     }
-  }, [])
+  }, [category])
 
   const loadScores = async () => {
     setLoading(true)
@@ -29,11 +32,12 @@ const ScoreHistory = () => {
     
     try {
       // Try to fetch from API first
-      const response = await fetch(`${BACKEND_URL}/api/maths-games/scores`)
+      const response = await fetch(`${BACKEND_URL}/api/${category}/scores`)
       
       if (response.ok) {
         const data = await response.json()
         if (data.success && data.scores) {
+          // Filter scores by game name if needed (for game-specific leaderboards)
           setScores(data.scores)
           setLoading(false)
           return
@@ -46,17 +50,18 @@ const ScoreHistory = () => {
       console.warn('Failed to fetch from API, using localStorage:', error)
       
       // Fallback to localStorage
-    const savedScores = localStorage.getItem('maths_games_scores')
-    if (savedScores) {
-      try {
-        const parsed = JSON.parse(savedScores)
-        // Sort by score (descending) then by date (descending)
-        const sorted = parsed.sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score
-          return new Date(b.date) - new Date(a.date)
-        })
-        setScores(sorted)
-      } catch (e) {
+      const storageKey = `${category}_scores`
+      const savedScores = localStorage.getItem(storageKey)
+      if (savedScores) {
+        try {
+          const parsed = JSON.parse(savedScores)
+          // Sort by score (descending) then by date (descending)
+          const sorted = parsed.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score
+            return new Date(b.date) - new Date(a.date)
+          })
+          setScores(sorted)
+        } catch (e) {
           console.error('Error loading scores from localStorage:', e)
           setScores([])
         }
@@ -83,7 +88,7 @@ const ScoreHistory = () => {
     if (window.confirm('क्या आप सभी score history हटाना चाहते हैं?')) {
       try {
         // Try to clear from API
-        const response = await fetch(`${BACKEND_URL}/api/maths-games/scores`, {
+        const response = await fetch(`${BACKEND_URL}/api/${category}/scores`, {
           method: 'DELETE'
         })
         
@@ -95,9 +100,14 @@ const ScoreHistory = () => {
       }
       
       // Clear localStorage
-      localStorage.removeItem('maths_games_scores')
+      const storageKey = `${category}_scores`
+      localStorage.removeItem(storageKey)
       setScores([])
     }
+  }
+
+  const getCategoryTitle = () => {
+    return category === 'maths-games' ? 'Maths Games' : 'English Games'
   }
 
   return (
@@ -106,14 +116,14 @@ const ScoreHistory = () => {
         className="toggle-history-btn"
         onClick={() => setShowHistory(!showHistory)}
       >
-        {showHistory ? '🏆 Leaderboard' : '🏆 Leaderboard'}
+        🏆 {getCategoryTitle()} Leaderboard
         <span className="toggle-icon">{showHistory ? '▼' : '▶'}</span>
       </button>
 
       {showHistory && (
         <div className="score-history-content">
           <div className="history-header">
-            <h3>🏆 Leaderboard</h3>
+            <h3>🏆 {getCategoryTitle()} Leaderboard</h3>
             {scores.length > 0 && (
               <button onClick={clearHistory} className="clear-btn">
                 🗑️ Clear
@@ -143,7 +153,7 @@ const ScoreHistory = () => {
                   <div className="score-details">
                     <div className="score-name">{entry.playerName}</div>
                     <div className="score-info">
-                      <span className="score-value">Score: {entry.score}/20</span>
+                      <span className="score-value">Score: {entry.score}</span>
                       <span className="score-game">Game: {entry.gameName}</span>
                     </div>
                     <div className="score-date">{formatDate(entry.date)}</div>

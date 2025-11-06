@@ -217,7 +217,7 @@ const EnglishGamesContent = ({ onExitGameMode }) => {
         ) : null}
       </div>
       
-      <ScoreHistory />
+      <ScoreHistory category="english-games" />
       
       <div className="tabs-container">
         <button

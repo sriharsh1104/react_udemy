@@ -132,7 +132,7 @@ const SpellingBee = ({ userName = null }) => {
     } else {
       setGameComplete(true)
       if (userName) {
-        saveGameScore(userName, score, 'spelling-bee')
+        saveGameScore(userName, score, 'spelling-bee', 'english-games')
       }
     }
   }

@@ -148,7 +148,7 @@ const WordBuilder = ({ userName = null }) => {
     } else {
       setGameComplete(true)
       if (userName) {
-        saveGameScore(userName, score, 'word-builder')
+        saveGameScore(userName, score, 'word-builder', 'english-games')
       }
     }
   }

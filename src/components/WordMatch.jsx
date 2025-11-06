@@ -154,7 +154,7 @@ const WordMatch = ({ userName = null }) => {
     } else {
       setGameComplete(true)
       if (userName) {
-        saveGameScore(userName, score, 'word-match')
+        saveGameScore(userName, score, 'word-match', 'english-games')
       }
     }
   }
