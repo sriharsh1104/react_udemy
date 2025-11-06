@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Dimensi
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import Sidebar from '@/components/sidebar';
-import GKGamesMenu from '@/components/GKGamesMenu';
 import Scoreboard from '@/components/Scoreboard';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -350,7 +349,6 @@ export default function GKGames() {
         <View style={styles.layout}>
           <Sidebar />
           <View style={styles.mainContent}>
-            <GKGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
             <ScrollView 
           style={styles.content}
           contentContainerStyle={styles.startScreenContent}
@@ -442,8 +440,8 @@ export default function GKGames() {
           </View>
         </View>
       </ThemedView>
-    );
-  }
+      );
+    }
 
   if (questions.length === 0) {
     return (
@@ -451,7 +449,6 @@ export default function GKGames() {
         <View style={styles.layout}>
           <Sidebar />
           <View style={styles.mainContent}>
-            <GKGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: isDark ? '#ffffff' : '#1a1a2e' }]}>
             Loading questions... 🌍
@@ -471,8 +468,7 @@ export default function GKGames() {
       <View style={styles.layout}>
         <Sidebar />
         <View style={styles.mainContent}>
-          <GKGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
-          <ScrollView 
+      <ScrollView 
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>

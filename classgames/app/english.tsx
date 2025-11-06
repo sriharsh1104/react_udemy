@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Dimensi
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import Sidebar from '@/components/sidebar';
-import EnglishGamesMenu from '@/components/EnglishGamesMenu';
 import Scoreboard from '@/components/Scoreboard';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -136,7 +135,6 @@ export default function EnglishGames() {
         <View style={styles.layout}>
           <Sidebar />
           <View style={styles.mainContent}>
-            <EnglishGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
             <ScrollView 
           style={styles.content}
           contentContainerStyle={styles.startScreenContent}
@@ -233,8 +231,7 @@ export default function EnglishGames() {
       <View style={styles.layout}>
         <Sidebar />
         <View style={styles.mainContent}>
-          <EnglishGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
-          <ScrollView 
+      <ScrollView 
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>

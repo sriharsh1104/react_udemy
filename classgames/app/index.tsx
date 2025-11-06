@@ -57,7 +57,7 @@ export default function AllGames() {
       <View style={styles.layout}>
         <Sidebar />
         <View style={styles.mainContent}>
-          <ScrollView 
+      <ScrollView 
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>

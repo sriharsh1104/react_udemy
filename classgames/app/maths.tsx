@@ -1,16 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
 import Sidebar from '@/components/sidebar';
-import MathsGamesMenu from '@/components/MathsGamesMenu';
 import QuizGame from '@/components/games/QuizGame';
 import BalloonGame from '@/components/games/BalloonGame';
 import RocketGame from '@/components/games/RocketGame';
-
-type GameType = 'quiz' | 'balloon' | 'rocket';
+import { useGameMode, GameType } from '@/contexts/GameModeContext';
 
 export default function MathsGames() {
+  const { gameMode, setGameMode } = useGameMode();
   const [activeGame, setActiveGame] = useState<GameType>('quiz');
+
+  // Initialize game mode when component mounts
+  useEffect(() => {
+    if (gameMode === 'quiz' || gameMode === 'balloon' || gameMode === 'rocket') {
+      setActiveGame(gameMode);
+    } else {
+      // Set default to quiz if gameMode is not a maths game type
+      setGameMode('quiz');
+      setActiveGame('quiz');
+    }
+  }, []);
+
+  // Sync local state with global game mode changes
+  useEffect(() => {
+    if (gameMode === 'quiz' || gameMode === 'balloon' || gameMode === 'rocket') {
+      setActiveGame(gameMode);
+    }
+  }, [gameMode]);
 
   const renderGame = () => {
     switch (activeGame) {
@@ -30,7 +47,6 @@ export default function MathsGames() {
       <View style={styles.layout}>
         <Sidebar />
         <View style={styles.mainContent}>
-          <MathsGamesMenu activeGame={activeGame} onGameChange={setActiveGame} />
           <View style={styles.gameContent}>
             {renderGame()}
           </View>
