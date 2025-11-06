@@ -19,6 +19,12 @@ function AppContent() {
   const location = useLocation()
   const navigate = useNavigate()
   
+  // Game Mode state - load from localStorage
+  const [gameMode, setGameMode] = useState(() => {
+    const saved = localStorage.getItem('gameMode')
+    return saved === 'true'
+  })
+  
   // Determine active tab from location
   const getActiveTab = () => {
     if (location.pathname === '/maths-games') return 'maths'
@@ -54,6 +60,18 @@ function AppContent() {
     navigate(routes[tab] || '/')
   }
 
+  // Handle Game Mode toggle
+  const handleGameModeToggle = (enabled) => {
+    setGameMode(enabled)
+    localStorage.setItem('gameMode', enabled.toString())
+    
+    if (enabled) {
+      // Navigate to Maths Games when Game Mode is enabled
+      navigate('/maths-games')
+      setActiveTab('maths')
+    }
+  }
+
   // Update active tab when location changes
   useEffect(() => {
     setActiveTab(getActiveTab())
@@ -62,7 +80,12 @@ function AppContent() {
   return (
     <div className="app">
       <div className="container">
-        <Header activeTab={activeTab} onTabChange={handleTabChange} />
+        <Header 
+          activeTab={activeTab} 
+          onTabChange={handleTabChange}
+          gameMode={gameMode}
+          onGameModeToggle={handleGameModeToggle}
+        />
         
         <div className="tab-content">
           <Routes>

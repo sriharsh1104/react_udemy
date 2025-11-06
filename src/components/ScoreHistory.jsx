@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import './ScoreHistory.css'
+import { BACKEND_URL } from '../constants'
 
 const ScoreHistory = () => {
   const [scores, setScores] = useState([])
   const [showHistory, setShowHistory] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     loadScores()
@@ -20,20 +23,48 @@ const ScoreHistory = () => {
     }
   }, [])
 
-  const loadScores = () => {
-    const savedScores = localStorage.getItem('maths_games_scores')
-    if (savedScores) {
-      try {
-        const parsed = JSON.parse(savedScores)
-        // Sort by score (descending) then by date (descending)
-        const sorted = parsed.sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score
-          return new Date(b.date) - new Date(a.date)
-        })
-        setScores(sorted)
-      } catch (e) {
-        console.error('Error loading scores:', e)
+  const loadScores = async () => {
+    setLoading(true)
+    setError(null)
+    
+    try {
+      // Try to fetch from API first
+      const response = await fetch(`${BACKEND_URL}/api/maths-games/scores`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.scores) {
+          setScores(data.scores)
+          setLoading(false)
+          return
+        }
       }
+      
+      // Fallback to localStorage if API fails
+      throw new Error('API unavailable, using localStorage')
+    } catch (error) {
+      console.warn('Failed to fetch from API, using localStorage:', error)
+      
+      // Fallback to localStorage
+      const savedScores = localStorage.getItem('maths_games_scores')
+      if (savedScores) {
+        try {
+          const parsed = JSON.parse(savedScores)
+          // Sort by score (descending) then by date (descending)
+          const sorted = parsed.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score
+            return new Date(b.date) - new Date(a.date)
+          })
+          setScores(sorted)
+        } catch (e) {
+          console.error('Error loading scores from localStorage:', e)
+          setScores([])
+        }
+      } else {
+        setScores([])
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -48,8 +79,22 @@ const ScoreHistory = () => {
     })
   }
 
-  const clearHistory = () => {
+  const clearHistory = async () => {
     if (window.confirm('क्या आप सभी score history हटाना चाहते हैं?')) {
+      try {
+        // Try to clear from API
+        const response = await fetch(`${BACKEND_URL}/api/maths-games/scores`, {
+          method: 'DELETE'
+        })
+        
+        if (response.ok) {
+          console.log('Scores cleared from API')
+        }
+      } catch (error) {
+        console.warn('Failed to clear from API:', error)
+      }
+      
+      // Clear localStorage
       localStorage.removeItem('maths_games_scores')
       setScores([])
     }
@@ -76,7 +121,11 @@ const ScoreHistory = () => {
             )}
           </div>
 
-          {scores.length === 0 ? (
+          {loading ? (
+            <div className="no-scores">
+              <p>Loading scores...</p>
+            </div>
+          ) : scores.length === 0 ? (
             <div className="no-scores">
               <p>अभी तक कोई score नहीं है</p>
               <p className="hint">खेलें और अपना score देखें!</p>
@@ -84,7 +133,7 @@ const ScoreHistory = () => {
           ) : (
             <div className="scores-list">
               {scores.map((entry, index) => (
-                <div key={index} className="score-entry">
+                <div key={`${entry.date}-${index}`} className="score-entry">
                   <div className="score-rank">
                     {index === 0 && <span className="rank-icon">🥇</span>}
                     {index === 1 && <span className="rank-icon">🥈</span>}

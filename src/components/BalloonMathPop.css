@@ -2,11 +2,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  min-height: 70vh;
-  padding: 20px;
+  justify-content: flex-start;
+  min-height: auto;
+  padding: 15px;
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
   border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.balloon-games-grid .balloon-math-pop {
+  min-height: 600px;
 }
 
 .game-header {
@@ -15,7 +20,11 @@
   align-items: center;
   width: 100%;
   max-width: 1200px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+}
+
+.balloon-games-grid .game-header {
+  margin-bottom: 15px;
 }
 
 .game-title {
@@ -23,6 +32,10 @@
   font-weight: 700;
   color: rgba(255, 255, 255, 0.95);
   margin: 0;
+}
+
+.balloon-games-grid .game-title {
+  font-size: 20px;
 }
 
 .score-info {
@@ -56,6 +69,10 @@
   margin-bottom: 60px;
 }
 
+.balloon-games-grid .question-container {
+  margin-bottom: 30px;
+}
+
 .question {
   font-size: 48px;
   font-weight: 700;
@@ -68,12 +85,22 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
+.balloon-games-grid .question {
+  font-size: 32px;
+  padding: 15px 25px;
+}
+
 .balloon-container {
   position: relative;
   width: 100%;
   max-width: 800px;
   height: 400px;
   margin-bottom: 30px;
+}
+
+.balloon-games-grid .balloon-container {
+  height: 250px;
+  margin-bottom: 15px;
 }
 
 .balloon {
@@ -194,6 +221,44 @@
 
 .game-instructions p {
   margin: 4px 0;
+}
+
+.game-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 40px;
+}
+
+.warning-content {
+  text-align: center;
+  padding: 40px;
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  border-radius: 16px;
+  max-width: 500px;
+}
+
+.warning-content h3 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ef4444;
+  margin-bottom: 20px;
+}
+
+.warning-content p {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 12px;
+}
+
+.warning-subtext {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 10px;
 }
 
 .game-complete {

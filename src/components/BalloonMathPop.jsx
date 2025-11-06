@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import './BalloonMathPop.css'
 import { saveGameScore } from '../utils/scoreUtils'
 
-const BalloonMathPop = ({ userName }) => {
+const BalloonMathPop = ({ userName = null }) => {
   const [score, setScore] = useState(0)
   const [questionNumber, setQuestionNumber] = useState(0)
   const [question, setQuestion] = useState({ num1: 0, num2: 0, operator: '×', answer: 0 })
@@ -11,10 +11,29 @@ const BalloonMathPop = ({ userName }) => {
   const [selectedBalloon, setSelectedBalloon] = useState(null)
   const [isAnswered, setIsAnswered] = useState(false)
   const [firstAttempt, setFirstAttempt] = useState(true)
-  const [gameActive, setGameActive] = useState(true)
+  const [gameActive, setGameActive] = useState(false) // Start as false, need name to start
   const [gameComplete, setGameComplete] = useState(false)
   const [showNextQuestionButton, setShowNextQuestionButton] = useState(false)
   const [questionList, setQuestionList] = useState([])
+
+  // Check if userName is valid
+  const isValidName = (name) => {
+    return name && name.trim() !== '' && !name.startsWith('Student ')
+  }
+
+  // Initialize game when valid name is provided
+  useEffect(() => {
+    if (isValidName(userName)) {
+      setGameActive(true)
+      // Generate question list if not already generated
+      if (questionList.length === 0) {
+        const newList = generateQuestionList()
+        setQuestionList(newList)
+      }
+    } else {
+      setGameActive(false)
+    }
+  }, [userName])
 
   // Generate 10 multiplication and 10 division questions, then shuffle
   const generateQuestionList = () => {
@@ -152,18 +171,12 @@ const BalloonMathPop = ({ userName }) => {
     setShowNextQuestionButton(false)
   }
 
-  // Initialize question list on mount
-  useEffect(() => {
-    const newList = generateQuestionList()
-    setQuestionList(newList)
-  }, [])
-
   // Generate question when questionNumber changes or when questionList is ready
   useEffect(() => {
-    if (questionList.length === 20 && questionNumber < 20) {
+    if (gameActive && questionList.length === 20 && questionNumber < 20) {
       generateQuestion()
     }
-  }, [questionNumber, questionList.length])
+  }, [questionNumber, questionList.length, gameActive])
 
   // Save score when game completes
   useEffect(() => {
@@ -247,7 +260,15 @@ const BalloonMathPop = ({ userName }) => {
         </div>
       </div>
 
-      {gameComplete ? (
+      {!isValidName(userName) ? (
+        <div className="game-warning">
+          <div className="warning-content">
+            <h3>⚠️ Name Required</h3>
+            <p>कृपया अपना नाम दर्ज करें to start the game</p>
+            <p className="warning-subtext">Name is required to save your score on the scoreboard</p>
+          </div>
+        </div>
+      ) : gameComplete ? (
         <div className="game-complete">
           <h2>🎉 Game Complete!</h2>
           <p>Final Score: {score} / 20</p>

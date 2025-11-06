@@ -13,6 +13,14 @@
   position: relative;
 }
 
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 20px;
+}
+
 .header-title {
   font-size: 2rem;
   font-weight: 800;
@@ -21,8 +29,78 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 20px;
+  margin: 0;
   text-align: center;
+  flex: 1;
+}
+
+.game-mode-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 50px;
+  height: 26px;
+}
+
+.toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: 0.3s;
+  border-radius: 26px;
+  border: 1px solid var(--border);
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-input:checked + .toggle-slider {
+  background: linear-gradient(135deg, var(--brand-600), var(--accent-500));
+  border-color: var(--brand-500);
+}
+
+.toggle-input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+}
+
+.toggle-input:focus + .toggle-slider {
+  box-shadow: 0 0 0 3px rgba(108, 124, 255, 0.2);
 }
 
 .tabs {
@@ -30,6 +108,11 @@
   gap: 10px;
   justify-content: center;
   flex-wrap: wrap;
+  transition: all 0.3s ease;
+}
+
+.tabs.game-mode-active {
+  justify-content: center;
 }
 
 .tab {
@@ -61,6 +144,12 @@
     padding: 20px;
   }
   
+  .header-top {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+  }
+  
   .header-title {
     font-size: 1.5rem;
   }
@@ -71,5 +160,10 @@
   
   .tab {
     width: 100%;
+  }
+  
+  .game-mode-toggle {
+    width: 100%;
+    justify-content: center;
   }
 }

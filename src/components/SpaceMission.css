@@ -633,6 +633,45 @@
   margin: 4px 0;
 }
 
+.game-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 40px;
+  z-index: 10;
+}
+
+.warning-content {
+  text-align: center;
+  padding: 40px;
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  border-radius: 16px;
+  max-width: 500px;
+}
+
+.warning-content h3 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ef4444;
+  margin-bottom: 20px;
+}
+
+.warning-content p {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 12px;
+}
+
+.warning-subtext {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 10px;
+}
+
 .game-complete {
   display: flex;
   flex-direction: column;

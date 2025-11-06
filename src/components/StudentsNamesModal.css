@@ -1,0 +1,193 @@
+.students-names-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.students-names-modal {
+  background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+  border: 2px solid rgba(96, 165, 250, 0.3);
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.students-names-modal .modal-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.students-names-modal .modal-header h2 {
+  font-size: 32px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 10px 0;
+  text-shadow: 0 2px 10px rgba(96, 165, 250, 0.5);
+}
+
+.students-names-modal .modal-header p {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 5px 0;
+}
+
+.students-names-modal .subtitle {
+  font-size: 14px;
+  color: rgba(239, 68, 68, 0.9);
+  font-weight: 600;
+}
+
+.students-names-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.students-names-form .input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.students-names-form .input-group label {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.students-names-form .input-group .required {
+  color: #ef4444;
+  font-size: 18px;
+}
+
+.students-names-form .input-group input {
+  padding: 14px 18px;
+  font-size: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.95);
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.students-names-form .input-group input:focus {
+  border-color: rgba(96, 165, 250, 0.6);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.3);
+}
+
+.students-names-form .input-group input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.students-names-form .input-group input.error {
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.students-names-form .error-message {
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: -5px;
+}
+
+.students-names-form .form-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.students-names-form .submit-btn {
+  padding: 16px 40px;
+  font-size: 20px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  border: 2px solid rgba(96, 165, 250, 0.5);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.3);
+}
+
+.students-names-form .submit-btn:hover {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-color: rgba(96, 165, 250, 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(96, 165, 250, 0.4);
+}
+
+.students-names-form .submit-btn:active {
+  transform: translateY(0);
+}
+
+.students-names-form .submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 480px) {
+  .students-names-modal {
+    padding: 30px 20px;
+    max-width: 95%;
+  }
+
+  .students-names-modal .modal-header h2 {
+    font-size: 24px;
+  }
+
+  .students-names-modal .modal-header p {
+    font-size: 16px;
+  }
+
+  .students-names-form .input-group input {
+    font-size: 16px;
+    padding: 12px 16px;
+  }
+
+  .students-names-form .submit-btn {
+    font-size: 16px;
+    padding: 14px 28px;
+  }
+}
+

@@ -1739,6 +1739,126 @@ app.post('/api/audio/separate', audioVideoUpload.single('file'), async (req, res
   }
 })
 
+// Maths Games Score API Endpoints
+const scoresFilePath = path.join(__dirname, 'maths_scores.json')
+const MAX_SCORES = 500 // Keep last 500 scores
+
+// Helper function to read scores from file
+function readScores() {
+  try {
+    if (fs.existsSync(scoresFilePath)) {
+      const data = fs.readFileSync(scoresFilePath, 'utf8')
+      return JSON.parse(data)
+    }
+  } catch (error) {
+    console.error('Error reading scores file:', error)
+  }
+  return []
+}
+
+// Helper function to write scores to file
+function writeScores(scores) {
+  try {
+    // Keep only last MAX_SCORES entries
+    const trimmedScores = scores.length > MAX_SCORES 
+      ? scores.slice(-MAX_SCORES) 
+      : scores
+    
+    fs.writeFileSync(scoresFilePath, JSON.stringify(trimmedScores, null, 2))
+    return trimmedScores
+  } catch (error) {
+    console.error('Error writing scores file:', error)
+    throw error
+  }
+}
+
+// POST /api/maths-games/scores - Save a score
+app.post('/api/maths-games/scores', (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+  
+  try {
+    const { playerName, score, gameName } = req.body
+    
+    if (!playerName || score === undefined || !gameName) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: playerName, score, gameName' 
+      })
+    }
+    
+    const scoreEntry = {
+      playerName: String(playerName).trim(),
+      score: parseInt(score),
+      gameName: String(gameName).trim(),
+      date: new Date().toISOString()
+    }
+    
+    // Read existing scores
+    const scores = readScores()
+    
+    // Add new score
+    scores.push(scoreEntry)
+    
+    // Write back to file
+    const updatedScores = writeScores(scores)
+    
+    res.json({ 
+      success: true, 
+      message: 'Score saved successfully',
+      scoreEntry,
+      totalScores: updatedScores.length
+    })
+  } catch (error) {
+    console.error('Error saving score:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// GET /api/maths-games/scores - Get all scores
+app.get('/api/maths-games/scores', (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+  
+  try {
+    const scores = readScores()
+    
+    // Sort by score (descending) then by date (descending)
+    const sortedScores = scores.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return new Date(b.date) - new Date(a.date)
+    })
+    
+    res.json({ 
+      success: true,
+      scores: sortedScores,
+      count: sortedScores.length
+    })
+  } catch (error) {
+    console.error('Error retrieving scores:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// DELETE /api/maths-games/scores - Clear all scores
+app.delete('/api/maths-games/scores', (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+  
+  try {
+    writeScores([])
+    res.json({ 
+      success: true, 
+      message: 'All scores cleared successfully' 
+    })
+  } catch (error) {
+    console.error('Error clearing scores:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Health check
 app.get('/api/health', (req, res) => {
   // ALWAYS set CORS headers - NO CONDITIONS
