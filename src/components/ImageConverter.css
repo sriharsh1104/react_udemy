@@ -121,11 +121,43 @@
   position: relative;
   cursor: default;
   touch-action: none; /* Prevent default touch behaviors like scrolling */
+  -webkit-user-select: none; /* Prevent text selection on iOS */
+  user-select: none; /* Prevent text selection */
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
 }
 
 .preview-container.crop-mode {
   cursor: move;
   touch-action: none; /* Ensure touch events work for cropping */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+
+.preview-container.crop-mode::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px dashed #667eea;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 1;
+  animation: crop-pulse 2s ease-in-out infinite;
+}
+
+@keyframes crop-pulse {
+  0%, 100% {
+    opacity: 0.5;
+    border-color: #667eea;
+  }
+  50% {
+    opacity: 1;
+    border-color: #60a5fa;
+  }
 }
 
 .crop-box {
@@ -136,6 +168,8 @@
               0 4px 20px rgba(102, 126, 234, 0.4);
   cursor: move;
   z-index: 10;
+  pointer-events: none; /* Allow touches to pass through to container */
+  touch-action: none;
 }
 
 .crop-corner {
@@ -145,6 +179,8 @@
   border: 3px solid #667eea;
   background: white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: none; /* Touches handled by container */
+  touch-action: none;
 }
 
 .crop-corner-tl {
@@ -175,6 +211,8 @@
   position: absolute;
   background: rgba(102, 126, 234, 0.3);
   z-index: 11;
+  pointer-events: none; /* Touches handled by container */
+  touch-action: none;
 }
 
 .crop-edge-t {
@@ -238,6 +276,10 @@
   border-radius: 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   background: #f0f0f0;
+  -webkit-user-select: none; /* Prevent text selection on iOS */
+  user-select: none; /* Prevent text selection */
+  -webkit-touch-callout: none; /* Disable iOS callout menu */
+  touch-action: none; /* Prevent default touch behaviors */
 }
 
 .controls-section {

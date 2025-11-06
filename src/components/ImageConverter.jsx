@@ -322,7 +322,10 @@ const ImageConverter = () => {
   }
 
   const handleTouchStart = (e) => {
-    handleStart(e)
+    // Ensure we have a touch event
+    if (e.touches && e.touches.length > 0) {
+      handleStart(e)
+    }
   }
 
   const handleMove = (e) => {
@@ -463,7 +466,10 @@ const ImageConverter = () => {
   }
 
   const handleTouchMove = (e) => {
-    handleMove(e)
+    // Ensure we have a touch event
+    if (e.touches && e.touches.length > 0) {
+      handleMove(e)
+    }
   }
 
   const handleEnd = () => {
@@ -788,6 +794,7 @@ const ImageConverter = () => {
                     alt="Preview"
                     className="preview-image"
                     draggable={false}
+                    style={{ pointerEvents: isCropMode ? 'none' : 'auto' }}
                     onLoad={() => {
                       if (imageRef.current && !isCropMode) {
                         const rect = imageRef.current.getBoundingClientRect()
@@ -795,14 +802,14 @@ const ImageConverter = () => {
                       }
                     }}
                   />
-                  {isCropMode && cropData.width > 0 && cropData.height > 0 && (
+                  {isCropMode && (cropData.width > 0 || cropData.height > 0 || isDragging) && (
                     <div 
                       className="crop-box"
                       style={{
                         left: `${cropData.x}px`,
                         top: `${cropData.y}px`,
-                        width: `${cropData.width}px`,
-                        height: `${cropData.height}px`
+                        width: `${Math.max(1, cropData.width)}px`,
+                        height: `${Math.max(1, cropData.height)}px`
                       }}
                     >
                       <div className="crop-corner crop-corner-tl"></div>
@@ -820,8 +827,10 @@ const ImageConverter = () => {
                   <p className="crop-info">
                     {cropData.width > 0 && cropData.height > 0 ? (
                       <>Selected: {Math.round(cropData.width)} × {Math.round(cropData.height)} pixels</>
+                    ) : isDragging ? (
+                      <>Dragging... Release to finish selection</>
                     ) : (
-                      <>Click and drag to select crop area</>
+                      <>👆 Touch and drag on the image to select crop area</>
                     )}
                   </p>
                 )}
