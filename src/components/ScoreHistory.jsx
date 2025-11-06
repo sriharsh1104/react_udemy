@@ -46,17 +46,17 @@ const ScoreHistory = () => {
       console.warn('Failed to fetch from API, using localStorage:', error)
       
       // Fallback to localStorage
-      const savedScores = localStorage.getItem('maths_games_scores')
-      if (savedScores) {
-        try {
-          const parsed = JSON.parse(savedScores)
-          // Sort by score (descending) then by date (descending)
-          const sorted = parsed.sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score
-            return new Date(b.date) - new Date(a.date)
-          })
-          setScores(sorted)
-        } catch (e) {
+    const savedScores = localStorage.getItem('maths_games_scores')
+    if (savedScores) {
+      try {
+        const parsed = JSON.parse(savedScores)
+        // Sort by score (descending) then by date (descending)
+        const sorted = parsed.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score
+          return new Date(b.date) - new Date(a.date)
+        })
+        setScores(sorted)
+      } catch (e) {
           console.error('Error loading scores from localStorage:', e)
           setScores([])
         }

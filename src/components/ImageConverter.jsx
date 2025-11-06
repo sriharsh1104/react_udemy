@@ -261,11 +261,22 @@ const ImageConverter = () => {
     return null
   }
 
-  const handleMouseDown = (e) => {
+  // Helper function to get coordinates from mouse or touch event
+  const getEventCoordinates = (e) => {
+    if (e.touches && e.touches.length > 0) {
+      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY }
+    }
+    return { clientX: e.clientX, clientY: e.clientY }
+  }
+
+  const handleStart = (e) => {
     if (!isCropMode || !imageRef.current) return
+    e.preventDefault() // Prevent scrolling on mobile
+    
     const rect = imageRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const coords = getEventCoordinates(e)
+    const x = coords.clientX - rect.left
+    const y = coords.clientY - rect.top
 
     // If crop box doesn't exist or is empty, start creating new selection
     if (cropData.width === 0 || cropData.height === 0) {
@@ -306,15 +317,25 @@ const ImageConverter = () => {
     }
   }
 
-  const handleMouseMove = (e) => {
+  const handleMouseDown = (e) => {
+    handleStart(e)
+  }
+
+  const handleTouchStart = (e) => {
+    handleStart(e)
+  }
+
+  const handleMove = (e) => {
     if (!isCropMode || !imageRef.current) return
+    e.preventDefault() // Prevent scrolling on mobile
     
     const rect = imageRef.current.getBoundingClientRect()
-    const currentX = e.clientX - rect.left
-    const currentY = e.clientY - rect.top
+    const coords = getEventCoordinates(e)
+    const currentX = coords.clientX - rect.left
+    const currentY = coords.clientY - rect.top
 
-    // Update cursor based on hover position
-    if (!isDragging && cropData.width > 0 && cropData.height > 0) {
+    // Update cursor based on hover position (only for mouse, not touch)
+    if (!isDragging && cropData.width > 0 && cropData.height > 0 && !e.touches) {
       const handle = getResizeHandle(currentX, currentY, cropData)
       if (handle) {
         const cursorMap = {
@@ -437,13 +458,29 @@ const ImageConverter = () => {
     })
   }
 
-  const handleMouseUp = () => {
+  const handleMouseMove = (e) => {
+    handleMove(e)
+  }
+
+  const handleTouchMove = (e) => {
+    handleMove(e)
+  }
+
+  const handleEnd = () => {
     setIsDragging(false)
     setResizeHandle(null)
     setIsCreatingSelection(false)
-    if (imageRef.current) {
+    if (imageRef.current && imageRef.current.parentElement) {
       imageRef.current.parentElement.style.cursor = 'default'
     }
+  }
+
+  const handleMouseUp = () => {
+    handleEnd()
+  }
+
+  const handleTouchEnd = () => {
+    handleEnd()
   }
 
   const handleCancelCrop = () => {
@@ -740,6 +777,10 @@ const ImageConverter = () => {
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchEnd}
                 >
                   <img
                     ref={imageRef}

@@ -120,10 +120,12 @@
 .preview-container {
   position: relative;
   cursor: default;
+  touch-action: none; /* Prevent default touch behaviors like scrolling */
 }
 
 .preview-container.crop-mode {
   cursor: move;
+  touch-action: none; /* Ensure touch events work for cropping */
 }
 
 .crop-box {

@@ -29,7 +29,7 @@ const MathsGames = () => {
           setShowModal(true)
         }
       } catch (e) {
-        setShowModal(true)
+      setShowModal(true)
       }
     } else {
       setShowModal(true)
@@ -97,7 +97,7 @@ const MathsGames = () => {
           </div>
         </div>
       ) : (
-        <div className="games-container">
+      <div className="games-container">
           {activeTab === 'balloon' && (
             <div className="balloon-games-grid">
               <div className="game-instance">
@@ -142,7 +142,7 @@ const MathsGames = () => {
               <SpaceMission userName={studentNames.student1} />
             </div>
           )}
-        </div>
+      </div>
       )}
     </div>
   )
