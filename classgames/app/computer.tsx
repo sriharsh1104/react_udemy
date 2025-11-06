@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Dimensions } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import Header from '@/components/header';
+import Sidebar from '@/components/sidebar';
+import ComputerGamesMenu from '@/components/ComputerGamesMenu';
 import Scoreboard from '@/components/Scoreboard';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+
+type GameMode = 'quiz' | 'typing-master' | 'code-challenge' | 'hardware-quiz' | 'internet-explorer';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -605,6 +608,7 @@ const allQuestions = [
 export default function ComputerGames() {
   const { theme, isDark } = useTheme();
   const colors = Colors[theme];
+  const [activeMode, setActiveMode] = useState<GameMode>('quiz');
   const [gameStarted, setGameStarted] = useState(false);
   const [score, setScore] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -684,8 +688,11 @@ export default function ComputerGames() {
   if (!gameStarted) {
     return (
       <ThemedView style={styles.container}>
-        <Header />
-        <ScrollView 
+        <View style={styles.layout}>
+          <Sidebar />
+          <View style={styles.mainContent}>
+            <ComputerGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
+            <ScrollView 
           style={styles.content}
           contentContainerStyle={styles.startScreenContent}
           showsVerticalScrollIndicator={false}>
@@ -773,6 +780,8 @@ export default function ComputerGames() {
             </View>
           </View>
         </ScrollView>
+          </View>
+        </View>
       </ThemedView>
     );
   }
@@ -780,11 +789,16 @@ export default function ComputerGames() {
   if (questions.length === 0) {
     return (
       <ThemedView style={styles.container}>
-        <Header />
+        <View style={styles.layout}>
+          <Sidebar />
+          <View style={styles.mainContent}>
+            <ComputerGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: isDark ? '#ffffff' : '#1a1a2e' }]}>
             Loading questions... 💻
           </Text>
+        </View>
+          </View>
         </View>
       </ThemedView>
     );
@@ -795,8 +809,11 @@ export default function ComputerGames() {
 
   return (
     <ThemedView style={styles.container}>
-      <Header />
-      <ScrollView 
+      <View style={styles.layout}>
+        <Sidebar />
+        <View style={styles.mainContent}>
+          <ComputerGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
+          <ScrollView 
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
@@ -1030,6 +1047,8 @@ export default function ComputerGames() {
           </View>
         </View>
       </ScrollView>
+        </View>
+      </View>
 
       <Scoreboard
         visible={showScoreboard}
@@ -1045,6 +1064,13 @@ export default function ComputerGames() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  layout: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  mainContent: {
     flex: 1,
   },
   content: {

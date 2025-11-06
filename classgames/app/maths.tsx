@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
-import Header from '@/components/header';
+import Sidebar from '@/components/sidebar';
 import MathsGamesMenu from '@/components/MathsGamesMenu';
 import QuizGame from '@/components/games/QuizGame';
 import BalloonGame from '@/components/games/BalloonGame';
@@ -27,10 +27,14 @@ export default function MathsGames() {
 
   return (
     <ThemedView style={styles.container}>
-      <Header />
-      <MathsGamesMenu activeGame={activeGame} onGameChange={setActiveGame} />
-      <View style={styles.gameContent}>
-        {renderGame()}
+      <View style={styles.layout}>
+        <Sidebar />
+        <View style={styles.mainContent}>
+          <MathsGamesMenu activeGame={activeGame} onGameChange={setActiveGame} />
+          <View style={styles.gameContent}>
+            {renderGame()}
+          </View>
+        </View>
       </View>
     </ThemedView>
   );
@@ -38,6 +42,13 @@ export default function MathsGames() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  layout: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  mainContent: {
     flex: 1,
   },
   gameContent: {

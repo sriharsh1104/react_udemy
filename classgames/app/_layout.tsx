@@ -20,6 +20,7 @@ function RootLayoutNav() {
         <Stack.Screen name="maths" options={{ headerShown: false }} />
         <Stack.Screen name="english" options={{ headerShown: false }} />
         <Stack.Screen name="gk" options={{ headerShown: false }} />
+        <Stack.Screen name="computer" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />

@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Dimensions } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import Header from '@/components/header';
+import Sidebar from '@/components/sidebar';
+import EnglishGamesMenu from '@/components/EnglishGamesMenu';
 import Scoreboard from '@/components/Scoreboard';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+
+type GameMode = 'quiz' | 'word-match' | 'spelling-bee' | 'grammar-challenge' | 'vocabulary-builder';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -21,6 +24,7 @@ interface QuestionResult {
 export default function EnglishGames() {
   const { theme, isDark } = useTheme();
   const colors = Colors[theme];
+  const [activeMode, setActiveMode] = useState<GameMode>('quiz');
   const [gameStarted, setGameStarted] = useState(false);
   const [score, setScore] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -114,10 +118,10 @@ export default function EnglishGames() {
 
   const handlePlayAgain = () => {
     setGameStarted(false);
-    setCurrentQuestion(0);
-    setScore(0);
-    setUserAnswer('');
-    setShowResult(false);
+              setCurrentQuestion(0);
+              setScore(0);
+              setUserAnswer('');
+              setShowResult(false);
     setQuestionResults([]);
     setShowScoreboard(false);
   };
@@ -129,8 +133,11 @@ export default function EnglishGames() {
   if (!gameStarted) {
     return (
       <ThemedView style={styles.container}>
-        <Header />
-        <ScrollView 
+        <View style={styles.layout}>
+          <Sidebar />
+          <View style={styles.mainContent}>
+            <EnglishGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
+            <ScrollView 
           style={styles.content}
           contentContainerStyle={styles.startScreenContent}
           showsVerticalScrollIndicator={false}>
@@ -212,6 +219,8 @@ export default function EnglishGames() {
             </View>
           </View>
         </ScrollView>
+          </View>
+        </View>
       </ThemedView>
     );
   }
@@ -221,8 +230,11 @@ export default function EnglishGames() {
 
   return (
     <ThemedView style={styles.container}>
-      <Header />
-      <ScrollView 
+      <View style={styles.layout}>
+        <Sidebar />
+        <View style={styles.mainContent}>
+          <EnglishGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
+          <ScrollView 
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
@@ -456,6 +468,8 @@ export default function EnglishGames() {
           </View>
         </View>
       </ScrollView>
+        </View>
+      </View>
 
       <Scoreboard
         visible={showScoreboard}
@@ -471,6 +485,13 @@ export default function EnglishGames() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  layout: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  mainContent: {
     flex: 1,
   },
   content: {

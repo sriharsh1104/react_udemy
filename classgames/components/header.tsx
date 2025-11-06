@@ -52,7 +52,7 @@ export default function Header() {
               styles.title,
               { color: isDark ? '#ffffff' : '#1a1a2e' }
             ]}>
-              🎓 Learning Games
+              🎓 Priyanka Games
             </Text>
             <TouchableOpacity
               style={[

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Dimensions } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import Header from '@/components/header';
+import Sidebar from '@/components/sidebar';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -54,8 +54,10 @@ export default function AllGames() {
 
   return (
     <ThemedView style={styles.container}>
-      <Header />
-      <ScrollView 
+      <View style={styles.layout}>
+        <Sidebar />
+        <View style={styles.mainContent}>
+          <ScrollView 
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
@@ -183,12 +185,21 @@ export default function AllGames() {
           </View>
         </View>
       </ScrollView>
+        </View>
+      </View>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  layout: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  mainContent: {
     flex: 1,
   },
   content: {

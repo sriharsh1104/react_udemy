@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Dimensions } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import Header from '@/components/header';
+import Sidebar from '@/components/sidebar';
+import GKGamesMenu from '@/components/GKGamesMenu';
 import Scoreboard from '@/components/Scoreboard';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
+
+type GameMode = 'quiz' | 'world-trivia' | 'science-quiz' | 'history-challenge' | 'nature-explorer';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -29,46 +32,46 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 };
 
 const allQuestions = [
-  {
-    question: 'What is the capital city of India?',
-    options: ['Mumbai', 'Delhi', 'Kolkata', 'Chennai'],
-    correct: 'Delhi',
-  },
-  {
-    question: 'How many days are there in a week?',
-    options: ['5', '6', '7', '8'],
-    correct: '7',
-  },
-  {
-    question: 'Which planet is known as the Red Planet?',
-    options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
-    correct: 'Mars',
-  },
-  {
-    question: 'What do bees make?',
-    options: ['Milk', 'Honey', 'Butter', 'Cheese'],
-    correct: 'Honey',
-  },
-  {
-    question: 'Which is the largest ocean in the world?',
-    options: ['Atlantic Ocean', 'Indian Ocean', 'Arctic Ocean', 'Pacific Ocean'],
-    correct: 'Pacific Ocean',
-  },
-  {
-    question: 'How many continents are there in the world?',
-    options: ['5', '6', '7', '8'],
-    correct: '7',
-  },
-  {
-    question: 'Which animal is known as the King of the Jungle?',
-    options: ['Tiger', 'Lion', 'Elephant', 'Bear'],
-    correct: 'Lion',
-  },
-  {
-    question: 'What is the color of the sun?',
-    options: ['Yellow', 'Red', 'White', 'Orange'],
-    correct: 'White',
-  },
+    {
+      question: 'What is the capital city of India?',
+      options: ['Mumbai', 'Delhi', 'Kolkata', 'Chennai'],
+      correct: 'Delhi',
+    },
+    {
+      question: 'How many days are there in a week?',
+      options: ['5', '6', '7', '8'],
+      correct: '7',
+    },
+    {
+      question: 'Which planet is known as the Red Planet?',
+      options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
+      correct: 'Mars',
+    },
+    {
+      question: 'What do bees make?',
+      options: ['Milk', 'Honey', 'Butter', 'Cheese'],
+      correct: 'Honey',
+    },
+    {
+      question: 'Which is the largest ocean in the world?',
+      options: ['Atlantic Ocean', 'Indian Ocean', 'Arctic Ocean', 'Pacific Ocean'],
+      correct: 'Pacific Ocean',
+    },
+    {
+      question: 'How many continents are there in the world?',
+      options: ['5', '6', '7', '8'],
+      correct: '7',
+    },
+    {
+      question: 'Which animal is known as the King of the Jungle?',
+      options: ['Tiger', 'Lion', 'Elephant', 'Bear'],
+      correct: 'Lion',
+    },
+    {
+      question: 'What is the color of the sun?',
+      options: ['Yellow', 'Red', 'White', 'Orange'],
+      correct: 'White',
+    },
   {
     question: 'Which is the largest planet in our solar system?',
     options: ['Earth', 'Jupiter', 'Saturn', 'Neptune'],
@@ -264,6 +267,7 @@ const allQuestions = [
 export default function GKGames() {
   const { theme, isDark } = useTheme();
   const colors = Colors[theme];
+  const [activeMode, setActiveMode] = useState<GameMode>('quiz');
   const [gameStarted, setGameStarted] = useState(false);
   const [score, setScore] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -328,10 +332,10 @@ export default function GKGames() {
 
   const handlePlayAgain = () => {
     setGameStarted(false);
-    setCurrentQuestion(0);
-    setScore(0);
-    setSelectedAnswer(null);
-    setShowResult(false);
+              setCurrentQuestion(0);
+              setScore(0);
+              setSelectedAnswer(null);
+              setShowResult(false);
     setQuestionResults([]);
     setShowScoreboard(false);
   };
@@ -343,8 +347,11 @@ export default function GKGames() {
   if (!gameStarted) {
     return (
       <ThemedView style={styles.container}>
-        <Header />
-        <ScrollView 
+        <View style={styles.layout}>
+          <Sidebar />
+          <View style={styles.mainContent}>
+            <GKGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
+            <ScrollView 
           style={styles.content}
           contentContainerStyle={styles.startScreenContent}
           showsVerticalScrollIndicator={false}>
@@ -432,6 +439,8 @@ export default function GKGames() {
             </View>
           </View>
         </ScrollView>
+          </View>
+        </View>
       </ThemedView>
     );
   }
@@ -439,11 +448,16 @@ export default function GKGames() {
   if (questions.length === 0) {
     return (
       <ThemedView style={styles.container}>
-        <Header />
+        <View style={styles.layout}>
+          <Sidebar />
+          <View style={styles.mainContent}>
+            <GKGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: isDark ? '#ffffff' : '#1a1a2e' }]}>
             Loading questions... 🌍
           </Text>
+        </View>
+          </View>
         </View>
       </ThemedView>
     );
@@ -454,8 +468,11 @@ export default function GKGames() {
 
   return (
     <ThemedView style={styles.container}>
-      <Header />
-      <ScrollView 
+      <View style={styles.layout}>
+        <Sidebar />
+        <View style={styles.mainContent}>
+          <GKGamesMenu activeMode={activeMode} onModeChange={setActiveMode} />
+          <ScrollView 
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
@@ -689,6 +706,8 @@ export default function GKGames() {
           </View>
         </View>
       </ScrollView>
+        </View>
+      </View>
 
       <Scoreboard
         visible={showScoreboard}
@@ -704,6 +723,13 @@ export default function GKGames() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  layout: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  mainContent: {
     flex: 1,
   },
   content: {
