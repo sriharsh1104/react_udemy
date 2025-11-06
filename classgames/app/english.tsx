@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Dimensions } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import Header from '@/components/header';
+import Scoreboard from '@/components/Scoreboard';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
 const isMobile = width < 768;
+
+interface QuestionResult {
+  question: string;
+  userAnswer: string;
+  correctAnswer: string;
+  isCorrect: boolean;
+}
 
 export default function EnglishGames() {
   const { theme, isDark } = useTheme();
@@ -18,6 +26,8 @@ export default function EnglishGames() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [showResult, setShowResult] = useState(false);
+  const [questionResults, setQuestionResults] = useState<QuestionResult[]>([]);
+  const [showScoreboard, setShowScoreboard] = useState(false);
 
   const questions = [
     {
@@ -53,11 +63,23 @@ export default function EnglishGames() {
   ];
 
   const handleAnswer = (answer: string) => {
+    const currentQ = questions[currentQuestion];
+    const isCorrect = answer.toLowerCase() === currentQ.correct.toLowerCase();
+    
     setUserAnswer(answer);
     setShowResult(true);
-    if (answer.toLowerCase() === questions[currentQuestion].correct.toLowerCase()) {
+    
+    if (isCorrect) {
       setScore(score + 1);
     }
+
+    const result: QuestionResult = {
+      question: currentQ.question,
+      userAnswer: answer,
+      correctAnswer: currentQ.correct,
+      isCorrect,
+    };
+    setQuestionResults(prev => [...prev, result]);
   };
 
   const handleStartGame = () => {
@@ -70,24 +92,38 @@ export default function EnglishGames() {
       setUserAnswer('');
       setShowResult(false);
     } else {
-      const finalScore = score + (userAnswer.toLowerCase() === questions[currentQuestion].correct.toLowerCase() ? 1 : 0);
-      Alert.alert(
-        '🎉 Game Over!',
-        `Your score: ${finalScore}/${questions.length}\n${finalScore === questions.length ? 'Perfect Score! 🌟' : finalScore >= questions.length * 0.7 ? 'Great Job! 👏' : 'Keep Practicing! 💪'}`,
-        [
-          {
-            text: 'Play Again',
-            onPress: () => {
-              setGameStarted(false);
-              setCurrentQuestion(0);
-              setScore(0);
-              setUserAnswer('');
-              setShowResult(false);
-            },
-          },
-        ]
-      );
+      // Add final question result if not already added
+      const currentQ = questions[currentQuestion];
+      const finalIsCorrect = userAnswer.toLowerCase() === currentQ.correct.toLowerCase();
+      const finalScore = score + (finalIsCorrect ? 1 : 0);
+      
+      // Check if last question result is already added
+      if (questionResults.length < questions.length) {
+        const result: QuestionResult = {
+          question: currentQ.question,
+          userAnswer: userAnswer || '',
+          correctAnswer: currentQ.correct,
+          isCorrect: finalIsCorrect,
+        };
+        setQuestionResults(prev => [...prev, result]);
+      }
+      
+      setShowScoreboard(true);
     }
+  };
+
+  const handlePlayAgain = () => {
+    setGameStarted(false);
+    setCurrentQuestion(0);
+    setScore(0);
+    setUserAnswer('');
+    setShowResult(false);
+    setQuestionResults([]);
+    setShowScoreboard(false);
+  };
+
+  const handleCloseScoreboard = () => {
+    setShowScoreboard(false);
   };
 
   if (!gameStarted) {
@@ -420,6 +456,15 @@ export default function EnglishGames() {
           </View>
         </View>
       </ScrollView>
+
+      <Scoreboard
+        visible={showScoreboard}
+        totalQuestions={questions.length}
+        correctAnswers={questionResults.filter(r => r.isCorrect).length}
+        onClose={handleCloseScoreboard}
+        onPlayAgain={handlePlayAgain}
+        questions={questionResults}
+      />
     </ThemedView>
   );
 }

@@ -19,6 +19,7 @@ export default function Header() {
     { label: 'Maths', path: '/maths', icon: '🔢' },
     { label: 'English', path: '/english', icon: '📚' },
     { label: 'GK', path: '/gk', icon: '🌍' },
+    { label: 'Computer', path: '/computer', icon: '💻' },
   ];
 
   const isActive = (path: string) => {
@@ -32,7 +33,7 @@ export default function Header() {
     if (path === '/') {
       router.push('/');
     } else {
-      router.push(path as '/maths' | '/english' | '/gk');
+      router.push(path as '/maths' | '/english' | '/gk' | '/computer');
     }
   };
 
@@ -70,7 +71,7 @@ export default function Header() {
             styles.subtitle,
             { color: isDark ? '#a0a0b8' : '#6b7280' }
           ]}>
-            Fun Learning for Class 5 & Below
+            {/* Fun Learning for Class 5 & Below */}
           </Text>
         </View>
         

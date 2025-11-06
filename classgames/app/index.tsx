@@ -42,6 +42,14 @@ export default function AllGames() {
       gradient: ['#4facfe', '#00f2fe'],
       color: '#4facfe',
     },
+    {
+      title: 'Computer Games',
+      description: 'Test your computer and technology knowledge with fun quizzes',
+      icon: '💻',
+      route: '/computer',
+      gradient: ['#10b981', '#059669'],
+      color: '#10b981',
+    },
   ];
 
   return (
@@ -79,7 +87,7 @@ export default function AllGames() {
                     width: isTablet ? cardWidth : '100%',
                   }
                 ]}
-                onPress={() => router.push(category.route as '/maths' | '/english' | '/gk')}
+                onPress={() => router.push(category.route as '/maths' | '/english' | '/gk' | '/computer')}
                 activeOpacity={0.9}>
                 <View style={[
                   styles.iconContainer,

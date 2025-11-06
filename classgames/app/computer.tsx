@@ -29,239 +29,580 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 };
 
 const allQuestions = [
+  // Basic Computer Parts
   {
-    question: 'What is the capital city of India?',
-    options: ['Mumbai', 'Delhi', 'Kolkata', 'Chennai'],
-    correct: 'Delhi',
+    question: 'What do we use to type on a computer?',
+    options: ['Mouse', 'Keyboard', 'Monitor', 'Speaker'],
+    correct: 'Keyboard',
   },
   {
-    question: 'How many days are there in a week?',
-    options: ['5', '6', '7', '8'],
-    correct: '7',
+    question: 'What shows pictures and words on a computer?',
+    options: ['Keyboard', 'Mouse', 'Monitor', 'Printer'],
+    correct: 'Monitor',
   },
   {
-    question: 'Which planet is known as the Red Planet?',
-    options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
-    correct: 'Mars',
+    question: 'What do we use to click on things on a computer?',
+    options: ['Keyboard', 'Mouse', 'Monitor', 'Printer'],
+    correct: 'Mouse',
   },
   {
-    question: 'What do bees make?',
-    options: ['Milk', 'Honey', 'Butter', 'Cheese'],
-    correct: 'Honey',
+    question: 'What prints papers from a computer?',
+    options: ['Keyboard', 'Mouse', 'Monitor', 'Printer'],
+    correct: 'Printer',
   },
   {
-    question: 'Which is the largest ocean in the world?',
-    options: ['Atlantic Ocean', 'Indian Ocean', 'Arctic Ocean', 'Pacific Ocean'],
-    correct: 'Pacific Ocean',
+    question: 'What makes sound from a computer?',
+    options: ['Keyboard', 'Mouse', 'Speaker', 'Monitor'],
+    correct: 'Speaker',
   },
   {
-    question: 'How many continents are there in the world?',
-    options: ['5', '6', '7', '8'],
-    correct: '7',
+    question: 'What is the brain of a computer called?',
+    options: ['CPU', 'Mouse', 'Keyboard', 'Monitor'],
+    correct: 'CPU',
   },
   {
-    question: 'Which animal is known as the King of the Jungle?',
-    options: ['Tiger', 'Lion', 'Elephant', 'Bear'],
-    correct: 'Lion',
+    question: 'What do we use to save our work on a computer?',
+    options: ['Hard Disk', 'Mouse', 'Keyboard', 'Monitor'],
+    correct: 'Hard Disk',
   },
   {
-    question: 'What is the color of the sun?',
-    options: ['Yellow', 'Red', 'White', 'Orange'],
-    correct: 'White',
+    question: 'What do we plug into a computer to save files?',
+    options: ['USB Drive', 'Mouse', 'Keyboard', 'Monitor'],
+    correct: 'USB Drive',
   },
   {
-    question: 'Which is the largest planet in our solar system?',
-    options: ['Earth', 'Jupiter', 'Saturn', 'Neptune'],
-    correct: 'Jupiter',
+    question: 'What connects a computer to the internet?',
+    options: ['Mouse', 'Keyboard', 'Modem', 'Printer'],
+    correct: 'Modem',
   },
   {
-    question: 'How many bones are there in an adult human body?',
-    options: ['196', '206', '216', '226'],
-    correct: '206',
+    question: 'What is the main part of a computer called?',
+    options: ['CPU', 'Monitor', 'Keyboard', 'Mouse'],
+    correct: 'CPU',
+  },
+  
+  // Basic Computer Uses
+  {
+    question: 'What can we do on a computer?',
+    options: ['Play games', 'Write stories', 'Watch videos', 'All of these'],
+    correct: 'All of these',
   },
   {
-    question: 'What is the smallest country in the world?',
-    options: ['Monaco', 'Vatican City', 'San Marino', 'Liechtenstein'],
-    correct: 'Vatican City',
+    question: 'What do we use to write a letter on a computer?',
+    options: ['Paint', 'Word', 'Calculator', 'Games'],
+    correct: 'Word',
   },
   {
-    question: 'Which gas do plants absorb from the atmosphere?',
-    options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'],
-    correct: 'Carbon Dioxide',
+    question: 'What do we use to draw pictures on a computer?',
+    options: ['Word', 'Paint', 'Calculator', 'Music'],
+    correct: 'Paint',
   },
   {
-    question: 'What is the longest river in the world?',
-    options: ['Amazon', 'Nile', 'Yangtze', 'Mississippi'],
-    correct: 'Nile',
+    question: 'What do we use to do math on a computer?',
+    options: ['Paint', 'Word', 'Calculator', 'Games'],
+    correct: 'Calculator',
   },
   {
-    question: 'Which is the tallest mountain in the world?',
-    options: ['K2', 'Mount Everest', 'Kangchenjunga', 'Lhotse'],
-    correct: 'Mount Everest',
+    question: 'What do we use to watch videos on a computer?',
+    options: ['Paint', 'Word', 'Video Player', 'Calculator'],
+    correct: 'Video Player',
   },
   {
-    question: 'How many hours are there in a day?',
-    options: ['20', '22', '24', '26'],
-    correct: '24',
+    question: 'What do we use to listen to music on a computer?',
+    options: ['Paint', 'Word', 'Music Player', 'Calculator'],
+    correct: 'Music Player',
   },
   {
-    question: 'Which is the largest desert in the world?',
-    options: ['Gobi Desert', 'Sahara Desert', 'Arabian Desert', 'Kalahari Desert'],
-    correct: 'Sahara Desert',
+    question: 'What do we use to make presentations?',
+    options: ['Word', 'PowerPoint', 'Paint', 'Calculator'],
+    correct: 'PowerPoint',
   },
   {
-    question: 'What is the chemical symbol for water?',
-    options: ['H2O', 'CO2', 'O2', 'NaCl'],
-    correct: 'H2O',
+    question: 'What do we use to make tables and charts?',
+    options: ['Word', 'Excel', 'Paint', 'Games'],
+    correct: 'Excel',
   },
   {
-    question: 'Which bird is known for its ability to mimic human speech?',
-    options: ['Crow', 'Parrot', 'Owl', 'Eagle'],
-    correct: 'Parrot',
+    question: 'What do we use to browse websites?',
+    options: ['Paint', 'Word', 'Browser', 'Calculator'],
+    correct: 'Browser',
   },
   {
-    question: 'How many sides does a triangle have?',
-    options: ['2', '3', '4', '5'],
-    correct: '3',
+    question: 'What do we use to send emails?',
+    options: ['Paint', 'Email', 'Games', 'Calculator'],
+    correct: 'Email',
+  },
+  
+  // Internet Basics
+  {
+    question: 'What is the internet?',
+    options: ['A computer', 'A network of computers', 'A game', 'A printer'],
+    correct: 'A network of computers',
   },
   {
-    question: 'Which is the fastest land animal?',
-    options: ['Lion', 'Cheetah', 'Tiger', 'Leopard'],
-    correct: 'Cheetah',
+    question: 'What do we use to search for information?',
+    options: ['Paint', 'Google', 'Calculator', 'Word'],
+    correct: 'Google',
   },
   {
-    question: 'What is the capital city of France?',
-    options: ['London', 'Berlin', 'Paris', 'Madrid'],
-    correct: 'Paris',
+    question: 'What is a website?',
+    options: ['A computer', 'A page on the internet', 'A game', 'A printer'],
+    correct: 'A page on the internet',
   },
   {
-    question: 'Which fruit is known as the "King of Fruits"?',
-    options: ['Apple', 'Mango', 'Banana', 'Orange'],
-    correct: 'Mango',
+    question: 'What do we use to watch videos online?',
+    options: ['Paint', 'YouTube', 'Calculator', 'Word'],
+    correct: 'YouTube',
   },
   {
-    question: 'How many legs does a spider have?',
-    options: ['6', '8', '10', '12'],
-    correct: '8',
+    question: 'What is email used for?',
+    options: ['Playing games', 'Sending messages', 'Drawing pictures', 'Doing math'],
+    correct: 'Sending messages',
   },
   {
-    question: 'Which is the smallest planet in our solar system?',
-    options: ['Mercury', 'Venus', 'Mars', 'Pluto'],
-    correct: 'Mercury',
+    question: 'What is Wi-Fi?',
+    options: ['A computer', 'Wireless internet', 'A game', 'A printer'],
+    correct: 'Wireless internet',
   },
   {
-    question: 'What is the largest mammal in the world?',
-    options: ['Elephant', 'Blue Whale', 'Giraffe', 'Hippopotamus'],
-    correct: 'Blue Whale',
+    question: 'What do we use to chat with friends online?',
+    options: ['Paint', 'Chat apps', 'Calculator', 'Word'],
+    correct: 'Chat apps',
   },
   {
-    question: 'Which is the national animal of India?',
-    options: ['Lion', 'Tiger', 'Elephant', 'Peacock'],
-    correct: 'Tiger',
+    question: 'What is a password used for?',
+    options: ['Playing games', 'Protecting our account', 'Drawing pictures', 'Doing math'],
+    correct: 'Protecting our account',
   },
   {
-    question: 'How many minutes are there in an hour?',
-    options: ['50', '60', '70', '80'],
-    correct: '60',
+    question: 'What should we never share online?',
+    options: ['Our password', 'Our name', 'Our favorite color', 'Our favorite game'],
+    correct: 'Our password',
   },
   {
-    question: 'Which is the largest continent?',
-    options: ['Africa', 'Asia', 'North America', 'Europe'],
-    correct: 'Asia',
+    question: 'What is safe to share online?',
+    options: ['Our password', 'Our address', 'Our favorite game', 'Our phone number'],
+    correct: 'Our favorite game',
+  },
+  
+  // File Types
+  {
+    question: 'What type of file is a picture?',
+    options: ['.txt', '.jpg', '.exe', '.pdf'],
+    correct: '.jpg',
   },
   {
-    question: 'What do we call a baby cat?',
-    options: ['Puppy', 'Kitten', 'Cub', 'Calf'],
-    correct: 'Kitten',
+    question: 'What type of file is a document?',
+    options: ['.jpg', '.doc', '.mp3', '.mp4'],
+    correct: '.doc',
   },
   {
-    question: 'Which is the hardest natural substance on Earth?',
-    options: ['Gold', 'Iron', 'Diamond', 'Platinum'],
-    correct: 'Diamond',
+    question: 'What type of file is a song?',
+    options: ['.jpg', '.doc', '.mp3', '.txt'],
+    correct: '.mp3',
   },
   {
-    question: 'How many wheels does a bicycle have?',
-    options: ['1', '2', '3', '4'],
-    correct: '2',
+    question: 'What type of file is a video?',
+    options: ['.jpg', '.doc', '.mp3', '.mp4'],
+    correct: '.mp4',
   },
   {
-    question: 'Which is the largest country in the world by area?',
-    options: ['China', 'Canada', 'Russia', 'United States'],
-    correct: 'Russia',
+    question: 'What type of file is a text document?',
+    options: ['.jpg', '.txt', '.mp3', '.mp4'],
+    correct: '.txt',
   },
   {
-    question: 'What is the capital city of Japan?',
-    options: ['Seoul', 'Beijing', 'Tokyo', 'Bangkok'],
-    correct: 'Tokyo',
+    question: 'What type of file is a PDF document?',
+    options: ['.jpg', '.doc', '.pdf', '.mp3'],
+    correct: '.pdf',
   },
   {
-    question: 'Which season comes after winter?',
-    options: ['Summer', 'Spring', 'Autumn', 'Monsoon'],
-    correct: 'Spring',
+    question: 'What do we use to open a picture file?',
+    options: ['Word', 'Paint', 'Calculator', 'Games'],
+    correct: 'Paint',
   },
   {
-    question: 'How many eyes does a human have?',
-    options: ['1', '2', '3', '4'],
-    correct: '2',
+    question: 'What do we use to open a document file?',
+    options: ['Paint', 'Word', 'Calculator', 'Games'],
+    correct: 'Word',
   },
   {
-    question: 'Which is the national bird of India?',
-    options: ['Eagle', 'Peacock', 'Parrot', 'Sparrow'],
-    correct: 'Peacock',
+    question: 'What do we use to play a video file?',
+    options: ['Paint', 'Word', 'Video Player', 'Calculator'],
+    correct: 'Video Player',
   },
   {
-    question: 'What is the main source of energy for Earth?',
-    options: ['Moon', 'Stars', 'Sun', 'Wind'],
-    correct: 'Sun',
+    question: 'What do we use to play a music file?',
+    options: ['Paint', 'Word', 'Music Player', 'Calculator'],
+    correct: 'Music Player',
+  },
+  
+  // Computer Safety
+  {
+    question: 'What should we do if we see something bad online?',
+    options: ['Tell an adult', 'Keep watching', 'Share it', 'Ignore it'],
+    correct: 'Tell an adult',
   },
   {
-    question: 'Which is the largest fish in the ocean?',
-    options: ['Shark', 'Whale Shark', 'Blue Whale', 'Dolphin'],
-    correct: 'Whale Shark',
+    question: 'What should we do before closing a computer?',
+    options: ['Save our work', 'Delete everything', 'Turn off immediately', 'Do nothing'],
+    correct: 'Save our work',
   },
   {
-    question: 'How many months are there in a year?',
-    options: ['10', '11', '12', '13'],
-    correct: '12',
+    question: 'What should we do if a stranger wants to chat online?',
+    options: ['Chat with them', 'Tell an adult', 'Share our address', 'Meet them'],
+    correct: 'Tell an adult',
   },
   {
-    question: 'Which is the smallest state in India?',
-    options: ['Goa', 'Sikkim', 'Manipur', 'Tripura'],
-    correct: 'Goa',
+    question: 'How long should we use a computer?',
+    options: ['All day', 'A few hours', 'Never take breaks', 'Without rest'],
+    correct: 'A few hours',
   },
   {
-    question: 'What is the capital city of Australia?',
-    options: ['Sydney', 'Melbourne', 'Canberra', 'Brisbane'],
-    correct: 'Canberra',
+    question: 'What should we do to protect our eyes?',
+    options: ['Sit very close', 'Take breaks', 'Never blink', 'Use in dark'],
+    correct: 'Take breaks',
   },
   {
-    question: 'Which animal is known as the "Ship of the Desert"?',
-    options: ['Horse', 'Camel', 'Elephant', 'Donkey'],
-    correct: 'Camel',
+    question: 'What should we do if the computer freezes?',
+    options: ['Hit it', 'Tell an adult', 'Keep clicking', 'Shake it'],
+    correct: 'Tell an adult',
   },
   {
-    question: 'How many planets are there in our solar system?',
-    options: ['7', '8', '9', '10'],
-    correct: '8',
+    question: 'What should we do with our password?',
+    options: ['Share with friends', 'Write it down', 'Keep it secret', 'Tell everyone'],
+    correct: 'Keep it secret',
   },
   {
-    question: 'Which is the longest day of the year?',
-    options: ['Summer Solstice', 'Winter Solstice', 'Spring Equinox', 'Autumn Equinox'],
-    correct: 'Summer Solstice',
+    question: 'What should we do before downloading something?',
+    options: ['Download immediately', 'Ask an adult', 'Download everything', 'Never ask'],
+    correct: 'Ask an adult',
   },
   {
-    question: 'What is the capital city of Brazil?',
-    options: ['Rio de Janeiro', 'São Paulo', 'Brasília', 'Buenos Aires'],
-    correct: 'Brasília',
+    question: 'What is a virus on a computer?',
+    options: ['A game', 'Bad software', 'A picture', 'A song'],
+    correct: 'Bad software',
   },
   {
-    question: 'Which is the largest organ in the human body?',
-    options: ['Liver', 'Lungs', 'Skin', 'Heart'],
-    correct: 'Skin',
+    question: 'What protects our computer from viruses?',
+    options: ['Games', 'Antivirus', 'Paint', 'Word'],
+    correct: 'Antivirus',
+  },
+  
+  // Basic Computer Terms
+  {
+    question: 'What is a folder used for?',
+    options: ['Playing games', 'Storing files', 'Drawing pictures', 'Doing math'],
+    correct: 'Storing files',
+  },
+  {
+    question: 'What is a file?',
+    options: ['A computer', 'Saved information', 'A game', 'A printer'],
+    correct: 'Saved information',
+  },
+  {
+    question: 'What is a desktop?',
+    options: ['A table', 'The main screen', 'A game', 'A printer'],
+    correct: 'The main screen',
+  },
+  {
+    question: 'What is an icon?',
+    options: ['A computer', 'A small picture for a program', 'A game', 'A printer'],
+    correct: 'A small picture for a program',
+  },
+  {
+    question: 'What is a window on a computer?',
+    options: ['Glass window', 'A program screen', 'A game', 'A printer'],
+    correct: 'A program screen',
+  },
+  {
+    question: 'What is a menu?',
+    options: ['Food list', 'List of options', 'A game', 'A printer'],
+    correct: 'List of options',
+  },
+  {
+    question: 'What is a button on a computer?',
+    options: ['A real button', 'Something to click', 'A game', 'A printer'],
+    correct: 'Something to click',
+  },
+  {
+    question: 'What is copy?',
+    options: ['A game', 'Making a copy', 'Deleting', 'Moving'],
+    correct: 'Making a copy',
+  },
+  {
+    question: 'What is paste?',
+    options: ['A game', 'Putting copied text', 'Deleting', 'Moving'],
+    correct: 'Putting copied text',
+  },
+  {
+    question: 'What is delete?',
+    options: ['A game', 'Removing something', 'Copying', 'Moving'],
+    correct: 'Removing something',
+  },
+  
+  // Computer Games & Fun
+  {
+    question: 'What can we play on a computer?',
+    options: ['Games', 'Food', 'Toys', 'Books'],
+    correct: 'Games',
+  },
+  {
+    question: 'What is a game on a computer?',
+    options: ['A book', 'Fun activity', 'A printer', 'A keyboard'],
+    correct: 'Fun activity',
+  },
+  {
+    question: 'What do we use to control games?',
+    options: ['Keyboard and Mouse', 'Food', 'Books', 'Toys'],
+    correct: 'Keyboard and Mouse',
+  },
+  {
+    question: 'What is animation?',
+    options: ['A book', 'Moving pictures', 'A printer', 'A keyboard'],
+    correct: 'Moving pictures',
+  },
+  {
+    question: 'What is a cartoon on a computer?',
+    options: ['A book', 'Animated video', 'A printer', 'A keyboard'],
+    correct: 'Animated video',
+  },
+  {
+    question: 'What can we create with a computer?',
+    options: ['Food', 'Stories and pictures', 'Toys', 'Books'],
+    correct: 'Stories and pictures',
+  },
+  {
+    question: 'What is coding?',
+    options: ['A game', 'Writing instructions for computer', 'A printer', 'A keyboard'],
+    correct: 'Writing instructions for computer',
+  },
+  {
+    question: 'What can we learn on a computer?',
+    options: ['Many things', 'Nothing', 'Only games', 'Only videos'],
+    correct: 'Many things',
+  },
+  {
+    question: 'What is an app?',
+    options: ['A computer', 'A program', 'A printer', 'A keyboard'],
+    correct: 'A program',
+  },
+  {
+    question: 'What is a tablet?',
+    options: ['A medicine', 'A small computer', 'A printer', 'A keyboard'],
+    correct: 'A small computer',
+  },
+  
+  // Basic Computer Skills
+  {
+    question: 'What do we press to make letters BIG?',
+    options: ['Shift key', 'Enter key', 'Space key', 'Delete key'],
+    correct: 'Shift key',
+  },
+  {
+    question: 'What do we press to go to a new line?',
+    options: ['Shift key', 'Enter key', 'Space key', 'Delete key'],
+    correct: 'Enter key',
+  },
+  {
+    question: 'What do we press to make a space?',
+    options: ['Shift key', 'Enter key', 'Space key', 'Delete key'],
+    correct: 'Space key',
+  },
+  {
+    question: 'What do we press to delete?',
+    options: ['Shift key', 'Enter key', 'Space key', 'Delete key'],
+    correct: 'Delete key',
+  },
+  {
+    question: 'What do we click to close a window?',
+    options: ['X button', 'Minimize button', 'Maximize button', 'Menu button'],
+    correct: 'X button',
+  },
+  {
+    question: 'What do we click to make a window smaller?',
+    options: ['X button', 'Minimize button', 'Maximize button', 'Menu button'],
+    correct: 'Minimize button',
+  },
+  {
+    question: 'What do we click to make a window bigger?',
+    options: ['X button', 'Minimize button', 'Maximize button', 'Menu button'],
+    correct: 'Maximize button',
+  },
+  {
+    question: 'What is double-click?',
+    options: ['Click once', 'Click twice quickly', 'Click slowly', 'Never click'],
+    correct: 'Click twice quickly',
+  },
+  {
+    question: 'What is right-click?',
+    options: ['Click left button', 'Click right button', 'Click both', 'Never click'],
+    correct: 'Click right button',
+  },
+  {
+    question: 'What is drag and drop?',
+    options: ['A game', 'Moving something', 'Deleting', 'Copying'],
+    correct: 'Moving something',
+  },
+  
+  // Computer Parts - Simple
+  {
+    question: 'What is a laptop?',
+    options: ['A big computer', 'A portable computer', 'A printer', 'A keyboard'],
+    correct: 'A portable computer',
+  },
+  {
+    question: 'What is a desktop computer?',
+    options: ['A small computer', 'A computer that stays on a desk', 'A printer', 'A keyboard'],
+    correct: 'A computer that stays on a desk',
+  },
+  {
+    question: 'What is a tablet?',
+    options: ['A big computer', 'A touchscreen computer', 'A printer', 'A keyboard'],
+    correct: 'A touchscreen computer',
+  },
+  {
+    question: 'What is a smartphone?',
+    options: ['A big computer', 'A phone with computer features', 'A printer', 'A keyboard'],
+    correct: 'A phone with computer features',
+  },
+  {
+    question: 'What is a camera on a computer?',
+    options: ['A printer', 'Takes pictures', 'A keyboard', 'A mouse'],
+    correct: 'Takes pictures',
+  },
+  {
+    question: 'What is a microphone?',
+    options: ['A printer', 'Records sound', 'A keyboard', 'A mouse'],
+    correct: 'Records sound',
+  },
+  {
+    question: 'What is a scanner?',
+    options: ['A printer', 'Copies pictures to computer', 'A keyboard', 'A mouse'],
+    correct: 'Copies pictures to computer',
+  },
+  {
+    question: 'What is a webcam?',
+    options: ['A printer', 'Camera for video calls', 'A keyboard', 'A mouse'],
+    correct: 'Camera for video calls',
+  },
+  {
+    question: 'What is a headphone?',
+    options: ['A printer', 'For listening to sound', 'A keyboard', 'A mouse'],
+    correct: 'For listening to sound',
+  },
+  {
+    question: 'What is a charger?',
+    options: ['A printer', 'Powers the computer', 'A keyboard', 'A mouse'],
+    correct: 'Powers the computer',
+  },
+  
+  // Simple Computer Concepts
+  {
+    question: 'What is a program?',
+    options: ['A computer', 'Instructions for computer', 'A printer', 'A keyboard'],
+    correct: 'Instructions for computer',
+  },
+  {
+    question: 'What is software?',
+    options: ['A computer', 'Programs on a computer', 'A printer', 'A keyboard'],
+    correct: 'Programs on a computer',
+  },
+  {
+    question: 'What is hardware?',
+    options: ['A program', 'Physical parts of computer', 'A printer', 'A keyboard'],
+    correct: 'Physical parts of computer',
+  },
+  {
+    question: 'What is save?',
+    options: ['Deleting', 'Keeping our work', 'Moving', 'Copying'],
+    correct: 'Keeping our work',
+  },
+  {
+    question: 'What is open?',
+    options: ['Closing', 'Starting a file', 'Deleting', 'Moving'],
+    correct: 'Starting a file',
+  },
+  {
+    question: 'What is close?',
+    options: ['Opening', 'Ending a program', 'Deleting', 'Moving'],
+    correct: 'Ending a program',
+  },
+  {
+    question: 'What is undo?',
+    options: ['Doing again', 'Taking back an action', 'Deleting', 'Moving'],
+    correct: 'Taking back an action',
+  },
+  {
+    question: 'What is redo?',
+    options: ['Undoing', 'Doing again', 'Deleting', 'Moving'],
+    correct: 'Doing again',
+  },
+  {
+    question: 'What is cut?',
+    options: ['Copying', 'Moving something', 'Deleting', 'Opening'],
+    correct: 'Moving something',
+  },
+  {
+    question: 'What is select?',
+    options: ['Deleting', 'Choosing something', 'Moving', 'Copying'],
+    correct: 'Choosing something',
+  },
+  
+  // More Simple Questions
+  {
+    question: 'What is a cursor?',
+    options: ['A printer', 'Moving arrow on screen', 'A keyboard', 'A mouse'],
+    correct: 'Moving arrow on screen',
+  },
+  {
+    question: 'What is a scroll?',
+    options: ['A game', 'Moving up and down', 'Deleting', 'Copying'],
+    correct: 'Moving up and down',
+  },
+  {
+    question: 'What is zoom?',
+    options: ['A game', 'Making bigger or smaller', 'Deleting', 'Copying'],
+    correct: 'Making bigger or smaller',
+  },
+  {
+    question: 'What is a link?',
+    options: ['A game', 'Clickable text', 'A printer', 'A keyboard'],
+    correct: 'Clickable text',
+  },
+  {
+    question: 'What is download?',
+    options: ['Deleting', 'Getting from internet', 'Moving', 'Copying'],
+    correct: 'Getting from internet',
+  },
+  {
+    question: 'What is upload?',
+    options: ['Deleting', 'Sending to internet', 'Moving', 'Copying'],
+    correct: 'Sending to internet',
+  },
+  {
+    question: 'What is a bookmark?',
+    options: ['A game', 'Saving a website', 'A printer', 'A keyboard'],
+    correct: 'Saving a website',
+  },
+  {
+    question: 'What is a tab?',
+    options: ['A game', 'Different pages in browser', 'A printer', 'A keyboard'],
+    correct: 'Different pages in browser',
+  },
+  {
+    question: 'What is refresh?',
+    options: ['Deleting', 'Reloading a page', 'Moving', 'Copying'],
+    correct: 'Reloading a page',
+  },
+  {
+    question: 'What is a search?',
+    options: ['A game', 'Finding something', 'A printer', 'A keyboard'],
+    correct: 'Finding something',
   },
 ];
 
-export default function GKGames() {
+export default function ComputerGames() {
   const { theme, isDark } = useTheme();
   const colors = Colors[theme];
   const [gameStarted, setGameStarted] = useState(false);
@@ -357,13 +698,13 @@ export default function GKGames() {
               }
             ]}>
               <Text style={[styles.startScreenIcon, { color: isDark ? '#ffffff' : '#1a1a2e' }]}>
-                🌍
+                💻
               </Text>
               <Text style={[styles.startScreenTitle, { color: isDark ? '#ffffff' : '#1a1a2e' }]}>
-                GK Games
+                Computer Games
               </Text>
               <Text style={[styles.startScreenDescription, { color: isDark ? '#a0a0b8' : '#6b7280' }]}>
-                Test your general knowledge with random questions!
+                Test your computer knowledge with random questions!
               </Text>
               
               <View style={styles.gameRules}>
@@ -372,9 +713,9 @@ export default function GKGames() {
                 </Text>
                 <View style={styles.rulesList}>
                   <View style={styles.ruleItem}>
-                    <Text style={styles.ruleIcon}>🌍</Text>
+                    <Text style={styles.ruleIcon}>💻</Text>
                     <Text style={[styles.ruleText, { color: isDark ? '#cbd5e1' : '#4b5563' }]}>
-                      Answer questions about the world around you
+                      Answer questions about computers and technology
                     </Text>
                   </View>
                   <View style={styles.ruleItem}>
@@ -408,10 +749,10 @@ export default function GKGames() {
                 style={[
                   styles.startButton,
                   {
-                    backgroundColor: '#4facfe',
+                    backgroundColor: '#10b981',
                     ...Platform.select({
                       ios: {
-                        shadowColor: '#4facfe',
+                        shadowColor: '#10b981',
                         shadowOffset: { width: 0, height: 4 },
                         shadowOpacity: 0.3,
                         shadowRadius: 8,
@@ -420,7 +761,7 @@ export default function GKGames() {
                         elevation: 6,
                       },
                       web: {
-                        boxShadow: '0 4px 14px 0 rgba(79, 172, 254, 0.4)',
+                        boxShadow: '0 4px 14px 0 rgba(16, 185, 129, 0.4)',
                       },
                     }),
                   }
@@ -442,7 +783,7 @@ export default function GKGames() {
         <Header />
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: isDark ? '#ffffff' : '#1a1a2e' }]}>
-            Loading questions... 🌍
+            Loading questions... 💻
           </Text>
         </View>
       </ThemedView>
@@ -465,13 +806,13 @@ export default function GKGames() {
               styles.gameTitle,
               { color: isDark ? '#ffffff' : '#1a1a2e' }
             ]}>
-              🌍 GK Games
+              💻 Computer Games
             </Text>
             <Text style={[
               styles.gameSubtitle,
               { color: isDark ? '#a0a0b8' : '#6b7280' }
             ]}>
-              Test your general knowledge!
+              Test your computer knowledge!
             </Text>
           </View>
 
@@ -480,17 +821,17 @@ export default function GKGames() {
               styles.statCard,
               {
                 backgroundColor: isDark 
-                  ? 'rgba(79, 172, 254, 0.15)' 
-                  : 'rgba(79, 172, 254, 0.08)',
+                  ? 'rgba(16, 185, 129, 0.15)' 
+                  : 'rgba(16, 185, 129, 0.08)',
                 borderColor: isDark 
-                  ? 'rgba(79, 172, 254, 0.3)' 
-                  : 'rgba(79, 172, 254, 0.2)',
+                  ? 'rgba(16, 185, 129, 0.3)' 
+                  : 'rgba(16, 185, 129, 0.2)',
               }
             ]}>
               <Text style={styles.statLabel}>Score</Text>
               <Text style={[
                 styles.statValue,
-                { color: isDark ? '#4facfe' : '#4facfe' }
+                { color: isDark ? '#10b981' : '#10b981' }
               ]}>
                 {score}/{questions.length}
               </Text>
@@ -523,7 +864,7 @@ export default function GKGames() {
             ]}>
               <View style={[
                 styles.progressBarFill,
-                { width: `${progress}%`, backgroundColor: '#4facfe' }
+                { width: `${progress}%`, backgroundColor: '#10b981' }
               ]} />
             </View>
           </View>
@@ -538,7 +879,7 @@ export default function GKGames() {
             <View style={styles.questionHeader}>
               <Text style={[
                 styles.questionNumberBadge,
-                { backgroundColor: 'rgba(79, 172, 254, 0.1)', color: '#4facfe' }
+                { backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }
               ]}>
                 Q{currentQuestion + 1}
               </Text>
@@ -580,8 +921,8 @@ export default function GKGames() {
                 } else {
                   if (isSelected) {
                     buttonStyle.push({
-                      backgroundColor: '#4facfe',
-                      borderColor: '#4facfe',
+                      backgroundColor: '#10b981',
+                      borderColor: '#10b981',
                     });
                     textStyle = { color: '#ffffff' };
                   } else {
@@ -611,7 +952,7 @@ export default function GKGames() {
                         }
                       ]}>
                         {isSelected && !showResult && (
-                          <Text style={{ color: '#4facfe', fontSize: 16, fontWeight: 'bold' }}>✓</Text>
+                          <Text style={{ color: '#10b981', fontSize: 16, fontWeight: 'bold' }}>✓</Text>
                         )}
                         {showResult && isCorrect && (
                           <Text style={{ color: '#10b981', fontSize: 16, fontWeight: 'bold' }}>✓</Text>
@@ -661,10 +1002,10 @@ export default function GKGames() {
                   style={[
                     styles.nextButton,
                     {
-                      backgroundColor: '#4facfe',
+                      backgroundColor: '#10b981',
                       ...Platform.select({
                         ios: {
-                          shadowColor: '#4facfe',
+                          shadowColor: '#10b981',
                           shadowOffset: { width: 0, height: 4 },
                           shadowOpacity: 0.3,
                           shadowRadius: 8,
@@ -673,7 +1014,7 @@ export default function GKGames() {
                           elevation: 6,
                         },
                         web: {
-                          boxShadow: '0 4px 14px 0 rgba(79, 172, 254, 0.4)',
+                          boxShadow: '0 4px 14px 0 rgba(16, 185, 129, 0.4)',
                         },
                       }),
                     }
@@ -966,3 +1307,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 });
+
