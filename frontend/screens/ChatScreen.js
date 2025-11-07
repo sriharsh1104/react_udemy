@@ -41,16 +41,28 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, naviga
   const { socket, isConnected } = useSocket();
   const { messages, typingUser, sendMessage, sendTyping } = useChat(userEmail, contactEmail);
 
-  // Load contacts on mount
+  // Load contacts on mount and periodically refresh
   useEffect(() => {
     loadContacts();
+    
+    // Refresh contacts every 5 seconds to update online status and unread count
+    const interval = setInterval(() => {
+      loadContacts();
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-  // Load contact name when contactEmail changes
+  // Load contact name when contactEmail changes and mark messages as read
   useEffect(() => {
     if (contactEmail) {
       const name = getUsernameFromEmail(contactEmail);
       setContactName(name);
+      // Mark messages as read when chat is opened
+      contactsService.markMessagesAsRead(contactEmail).then(() => {
+        // Reload contacts to update unread count
+        loadContacts();
+      });
     }
   }, [contactEmail]);
 
@@ -196,6 +208,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, naviga
         onProfilePress={onProfilePress}
         onLogoutPress={onLogoutPress}
         onSidebarPress={() => setShowSidebar(true)}
+        onBackPress={() => setContactEmail(null)}
+        showBackButton={true}
       />
       
       <Sidebar

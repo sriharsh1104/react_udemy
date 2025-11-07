@@ -78,6 +78,45 @@ class ChatService {
     }
     return [];
   }
+
+  // Get unread message count for a user from a specific contact
+  async getUnreadCount(userEmail, contactEmail) {
+    try {
+      const roomId = this.getRoomId(userEmail, contactEmail);
+      const count = await Message.countDocuments({
+        roomId,
+        receiverEmail: userEmail,
+        senderEmail: contactEmail,
+        read: false,
+      });
+      return count;
+    } catch (error) {
+      console.error('Error getting unread count:', error);
+      return 0;
+    }
+  }
+
+  // Mark messages as read
+  async markMessagesAsRead(userEmail, contactEmail) {
+    try {
+      const roomId = this.getRoomId(userEmail, contactEmail);
+      await Message.updateMany(
+        {
+          roomId,
+          receiverEmail: userEmail,
+          senderEmail: contactEmail,
+          read: false,
+        },
+        {
+          $set: { read: true },
+        }
+      );
+      return true;
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+      return false;
+    }
+  }
 }
 
 module.exports = new ChatService();

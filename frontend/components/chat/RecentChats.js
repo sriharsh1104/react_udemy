@@ -18,6 +18,8 @@ const RecentChats = ({ contacts, onSelectContact, onNewChat, onSaveContact, onIn
 
   const renderContactItem = ({ item }) => {
     const name = item.name || getUsernameFromEmail(item.email);
+    const isOnline = item.isOnline || false;
+    const unreadCount = item.unreadCount || 0;
     
     return (
       <TouchableOpacity
@@ -39,8 +41,17 @@ const RecentChats = ({ contacts, onSelectContact, onNewChat, onSaveContact, onIn
         </View>
         {item.exists ? (
           <View style={styles.statusContainer}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.statusText}>Online</Text>
+            <View style={[styles.statusDot, isOnline ? styles.onlineDot : styles.offlineDot]} />
+            <Text style={[styles.statusText, isOnline ? styles.onlineText : styles.offlineText]}>
+              {isOnline ? 'Online' : 'Offline'}
+            </Text>
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.actionButtons}>
@@ -168,17 +179,42 @@ const styles = StyleSheet.create({
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: SPACING.xs,
   },
-  onlineDot: {
+  statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  onlineDot: {
     backgroundColor: COLORS.online,
-    marginRight: SPACING.xs,
+  },
+  offlineDot: {
+    backgroundColor: COLORS.textSecondary,
   },
   statusText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  onlineText: {
     color: COLORS.online,
+  },
+  offlineText: {
+    color: COLORS.textSecondary,
+  },
+  unreadBadge: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    marginLeft: SPACING.xs,
+  },
+  unreadBadgeText: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
   actionButtons: {
     flexDirection: 'row',
