@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, StatusBar, TouchableOpacity, Modal } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 
-const ProfileDropdown = ({ onProfilePress, onLogoutPress, onClose }) => {
+const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClose }) => {
   return (
     <Modal
       transparent={true}
@@ -30,7 +30,7 @@ const ProfileDropdown = ({ onProfilePress, onLogoutPress, onClose }) => {
             style={styles.dropdownItem}
             onPress={() => {
               onClose();
-              // Settings - can be implemented later
+              onSettingsPress();
             }}
           >
             <Text style={styles.dropdownItemText}>⚙️ Settings</Text>
@@ -53,7 +53,7 @@ const ProfileDropdown = ({ onProfilePress, onLogoutPress, onClose }) => {
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
@@ -104,6 +104,7 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onLogoutPress, 
       {showDropdown && (
         <ProfileDropdown
           onProfilePress={onProfilePress}
+          onSettingsPress={onSettingsPress}
           onLogoutPress={onLogoutPress}
           onClose={() => setShowDropdown(false)}
         />

@@ -12,13 +12,20 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
+import { TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
+import { useTheme } from '../contexts/ThemeContext';
+import Button from '../components/common/Button';
 import authService from '../services/authService';
 
 const LoginScreen = ({ onLogin }) => {
+  const { colors, isDark } = useTheme();
   const [identifier, setIdentifier] = useState(''); // email or phone
+  const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState('identifier'); // 'identifier' or 'otp'
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [step, setStep] = useState('identifier'); // 'identifier', 'otp', 'password', 'forget-password', 'reset-password'
+  const [loginMethod, setLoginMethod] = useState('otp'); // 'otp' or 'password'
   const [loading, setLoading] = useState(false);
   const [loginType, setLoginType] = useState('email'); // 'email' or 'phone'
 
@@ -99,33 +106,125 @@ const LoginScreen = ({ onLogin }) => {
   const handleBackToIdentifier = () => {
     setStep('identifier');
     setOtp('');
+    setPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
+  const handleLoginWithPassword = async () => {
+    const trimmedId = identifier.trim();
+    
+    if (!trimmedId || !password.trim()) {
+      Alert.alert('Required', 'Please enter your email/phone and password');
+      return;
+    }
+
+    const isEmailInput = isEmail(trimmedId);
+    setLoginType(isEmailInput ? 'email' : 'phone');
+    setLoading(true);
+    
+    const result = isEmailInput 
+      ? await authService.loginWithPassword(trimmedId, null, password)
+      : await authService.loginWithPassword(null, trimmedId, password);
+
+    if (result.success) {
+      // Store auth token
+      await AsyncStorage.setItem('authToken', result.token);
+      await AsyncStorage.setItem('userEmail', result.email);
+      
+      // Pass profile with isProfileComplete flag
+      const profileWithComplete = result.profile 
+        ? { ...result.profile, isProfileComplete: result.isProfileComplete }
+        : null;
+      
+      // Directly login to chat section
+      onLogin(result.email, result.token, profileWithComplete, result.isProfileComplete);
+    } else {
+      setLoading(false);
+    }
+  };
+
+  const handleForgetPassword = async () => {
+    const trimmedId = identifier.trim();
+    
+    if (!trimmedId) {
+      Alert.alert('Required', 'Please enter your email or phone number');
+      return;
+    }
+
+    const isEmailInput = isEmail(trimmedId);
+    setLoginType(isEmailInput ? 'email' : 'phone');
+    setLoading(true);
+    
+    const result = isEmailInput 
+      ? await authService.forgetPassword(trimmedId, null)
+      : await authService.forgetPassword(null, trimmedId);
+
+    if (result.success) {
+      setStep('reset-password');
+    }
+    setLoading(false);
+  };
+
+  const handleResetPassword = async () => {
+    if (!otp.trim() || otp.length !== 6) {
+      Alert.alert('Invalid OTP', 'Please enter a 6-digit OTP');
+      return;
+    }
+
+    if (!newPassword.trim() || newPassword.length < 6) {
+      Alert.alert('Invalid Password', 'Password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Password Mismatch', 'New password and confirm password do not match');
+      return;
+    }
+
+    setLoading(true);
+    const trimmedId = identifier.trim();
+    const result = loginType === 'email'
+      ? await authService.resetPassword(trimmedId, null, otp.trim(), newPassword)
+      : await authService.resetPassword(null, trimmedId, otp.trim(), newPassword);
+
+    if (result.success) {
+      // After password reset, go back to login
+      setStep('identifier');
+      setOtp('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPassword('');
+      Alert.alert('Success', 'Password reset successfully. Please login with your new password.');
+    }
+    setLoading(false);
   };
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <View style={styles.icon}>
+          <View style={[styles.icon, { backgroundColor: colors.primary, shadowColor: colors.shadow }]}>
             <Text style={styles.iconText}>📧</Text>
           </View>
         </View>
 
         {step === 'identifier' ? (
           <>
-            <Text style={styles.title}>Welcome to Chat</Text>
-            <Text style={styles.subtitle}>Enter your email or phone number</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Welcome to Chat</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enter your email or phone number</Text>
 
             <View style={styles.inputContainer}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
                 placeholder="email@example.com or +1234567890"
-                placeholderTextColor={COLORS.inputPlaceholder}
+                placeholderTextColor={colors.inputPlaceholder}
                 value={identifier}
                 onChangeText={setIdentifier}
-                onSubmitEditing={handleSendOTP}
+                onSubmitEditing={loginMethod === 'otp' ? handleSendOTP : handleLoginWithPassword}
                 keyboardType={isEmail(identifier) ? 'email-address' : 'phone-pad'}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -134,32 +233,75 @@ const LoginScreen = ({ onLogin }) => {
               />
             </View>
 
-            <TouchableOpacity
-              style={[styles.button, (!identifier.trim() || loading) && styles.buttonDisabled]}
-              onPress={handleSendOTP}
-              disabled={!identifier.trim() || loading}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.buttonText}>Send OTP</Text>
-              )}
-            </TouchableOpacity>
+            {loginMethod === 'password' && (
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                  placeholder="Password"
+                  placeholderTextColor={colors.inputPlaceholder}
+                  value={password}
+                  onChangeText={setPassword}
+                  onSubmitEditing={handleLoginWithPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="send"
+                  editable={!loading}
+                />
+              </View>
+            )}
+
+            <Button
+              title={loginMethod === 'otp' ? 'Send OTP' : 'Login'}
+              onPress={loginMethod === 'otp' ? handleSendOTP : handleLoginWithPassword}
+              variant="primary"
+              size="large"
+              loading={loading}
+              disabled={!identifier.trim() || (loginMethod === 'password' && !password.trim()) || loading}
+              fullWidth
+            />
+
+            <View style={styles.methodToggle}>
+              <TouchableOpacity
+                onPress={() => {
+                  setLoginMethod(loginMethod === 'otp' ? 'password' : 'otp');
+                  setPassword('');
+                }}
+                style={styles.methodToggleButton}
+              >
+                <Text style={[styles.methodToggleText, { color: colors.textSecondary }]}>
+                  {loginMethod === 'otp' ? 'Login with Password' : 'Login with OTP'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {loginMethod === 'password' && (
+              <TouchableOpacity
+                onPress={() => {
+                  setStep('forget-password');
+                  setPassword('');
+                }}
+                style={styles.forgetPasswordButton}
+              >
+                <Text style={[styles.forgetPasswordText, { color: colors.primary }]}>
+                  Forgot Password?
+                </Text>
+              </TouchableOpacity>
+            )}
           </>
-        ) : (
+        ) : step === 'otp' ? (
           <>
-            <Text style={styles.title}>Enter OTP</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: colors.text }]}>Enter OTP</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               We sent a 6-digit code to{'\n'}
-              <Text style={styles.emailText}>{identifier}</Text>
+              <Text style={[styles.emailText, { color: colors.primary }]}>{identifier}</Text>
             </Text>
 
             <View style={styles.inputContainer}>
               <TextInput
-                style={[styles.input, styles.otpInput]}
+                style={[styles.input, styles.otpInput, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
                 placeholder="000000"
-                placeholderTextColor={COLORS.inputPlaceholder}
+                placeholderTextColor={colors.inputPlaceholder}
                 value={otp}
                 onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, '').slice(0, 6))}
                 onSubmitEditing={handleVerifyOTP}
@@ -171,23 +313,20 @@ const LoginScreen = ({ onLogin }) => {
               />
             </View>
 
-            <TouchableOpacity
-              style={[styles.button, (!otp.trim() || loading) && styles.buttonDisabled]}
+            <Button
+              title="Verify OTP"
               onPress={handleVerifyOTP}
+              variant="primary"
+              size="large"
+              loading={loading}
               disabled={!otp.trim() || loading}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.buttonText}>Verify OTP</Text>
-              )}
-            </TouchableOpacity>
+              fullWidth
+            />
 
             <View style={styles.resendContainer}>
-              <Text style={styles.resendText}>Didn't receive OTP? </Text>
+              <Text style={[styles.resendText, { color: colors.textSecondary }]}>Didn't receive OTP? </Text>
               <TouchableOpacity onPress={handleResendOTP} disabled={loading}>
-                <Text style={styles.resendLink}>Resend</Text>
+                <Text style={[styles.resendLink, { color: colors.primary }]}>Resend</Text>
               </TouchableOpacity>
             </View>
 
@@ -196,10 +335,130 @@ const LoginScreen = ({ onLogin }) => {
               onPress={handleBackToIdentifier}
               disabled={loading}
             >
-              <Text style={styles.backButtonText}>← Change {loginType === 'email' ? 'Email' : 'Phone'}</Text>
+              <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Change {loginType === 'email' ? 'Email' : 'Phone'}</Text>
             </TouchableOpacity>
           </>
-        )}
+        ) : step === 'forget-password' ? (
+          <>
+            <Text style={[styles.title, { color: colors.text }]}>Forgot Password</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Enter your email or phone number to receive OTP
+            </Text>
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                placeholder="email@example.com or +1234567890"
+                placeholderTextColor={colors.inputPlaceholder}
+                value={identifier}
+                onChangeText={setIdentifier}
+                onSubmitEditing={handleForgetPassword}
+                keyboardType={isEmail(identifier) ? 'email-address' : 'phone-pad'}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="send"
+                editable={!loading}
+              />
+            </View>
+
+            <Button
+              title="Send OTP"
+              onPress={handleForgetPassword}
+              variant="primary"
+              size="large"
+              loading={loading}
+              disabled={!identifier.trim() || loading}
+              fullWidth
+            />
+
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                setStep('identifier');
+                setPassword('');
+              }}
+              disabled={loading}
+            >
+              <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Back to Login</Text>
+            </TouchableOpacity>
+          </>
+        ) : step === 'reset-password' ? (
+          <>
+            <Text style={[styles.title, { color: colors.text }]}>Reset Password</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Enter OTP sent to{'\n'}
+              <Text style={[styles.emailText, { color: colors.primary }]}>{identifier}</Text>
+            </Text>
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[styles.input, styles.otpInput, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                placeholder="000000"
+                placeholderTextColor={colors.inputPlaceholder}
+                value={otp}
+                onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, '').slice(0, 6))}
+                keyboardType="number-pad"
+                maxLength={6}
+                returnKeyType="next"
+                editable={!loading}
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                placeholder="New Password"
+                placeholderTextColor={colors.inputPlaceholder}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                placeholder="Confirm Password"
+                placeholderTextColor={colors.inputPlaceholder}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                onSubmitEditing={handleResetPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                editable={!loading}
+              />
+            </View>
+
+            <Button
+              title="Reset Password"
+              onPress={handleResetPassword}
+              variant="primary"
+              size="large"
+              loading={loading}
+              disabled={!otp.trim() || !newPassword.trim() || !confirmPassword.trim() || loading}
+              fullWidth
+            />
+
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                setStep('forget-password');
+                setOtp('');
+                setNewPassword('');
+                setConfirmPassword('');
+              }}
+              disabled={loading}
+            >
+              <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Back</Text>
+            </TouchableOpacity>
+          </>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
   );
@@ -208,7 +467,6 @@ const LoginScreen = ({ onLogin }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
     justifyContent: 'center',
   },
   content: {
@@ -222,12 +480,10 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -243,18 +499,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: TYPOGRAPHY.fontSize.xxxl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text,
     marginBottom: SPACING.sm,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.textSecondary,
     marginBottom: SPACING.xl,
     textAlign: 'center',
   },
   emailText: {
-    color: COLORS.primary,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   inputContainer: {
@@ -264,45 +517,15 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     height: 56,
-    backgroundColor: COLORS.receivedMessage,
     borderRadius: BORDER_RADIUS.lg,
     paddingHorizontal: SPACING.md,
     fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text,
     borderWidth: 1,
-    borderColor: COLORS.divider,
   },
   otpInput: {
     textAlign: 'center',
     letterSpacing: 8,
     fontSize: TYPOGRAPHY.fontSize.xxl,
-  },
-  button: {
-    width: '100%',
-    height: 56,
-    backgroundColor: COLORS.primary,
-    borderRadius: BORDER_RADIUS.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.white,
   },
   resendContainer: {
     flexDirection: 'row',
@@ -311,11 +534,9 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
   },
   resendLink: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.primary,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   backButton: {
@@ -324,7 +545,26 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
+  },
+  methodToggle: {
+    marginTop: SPACING.md,
+    alignItems: 'center',
+  },
+  methodToggleButton: {
+    padding: SPACING.sm,
+  },
+  methodToggleText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  forgetPasswordButton: {
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
+    alignItems: 'center',
+  },
+  forgetPasswordText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
 });
 

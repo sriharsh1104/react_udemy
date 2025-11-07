@@ -21,7 +21,7 @@ import RecentChats from '../components/chat/RecentChats';
 import contactsService from '../services/contactsService';
 import { Alert } from 'react-native';
 
-const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, navigation }) => {
+const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLogoutPress, navigation }) => {
   // Extract username from email (part before @)
   const getUsernameFromEmail = (email) => {
     if (!email) return '';
@@ -164,6 +164,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, naviga
           username={getUsernameFromEmail(userEmail)} 
           isOnline={isConnected} 
           onProfilePress={onProfilePress}
+          onSettingsPress={onSettingsPress}
           onLogoutPress={onLogoutPress}
           onSidebarPress={() => setShowSidebar(true)}
         />
@@ -206,6 +207,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, naviga
         username={contactName || contactEmail} 
         isOnline={isConnected} 
         onProfilePress={onProfilePress}
+        onSettingsPress={onSettingsPress}
         onLogoutPress={onLogoutPress}
         onSidebarPress={() => setShowSidebar(true)}
         onBackPress={() => setContactEmail(null)}

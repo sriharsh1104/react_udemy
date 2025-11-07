@@ -140,3 +140,8 @@ export const ANIMATION = {
   normal: 300,
   slow: 500,
 };
+
+// Platform Configuration
+export const PLATFORM_CONFIG = {
+  INVITE_LINK: 'https://chatapp.com/invite', // Static platform invite link
+};

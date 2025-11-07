@@ -79,7 +79,7 @@ class UserProfileService {
         throw new Error('Database connection not available');
       }
       
-      const profile = await User.findOne({ email });
+      const profile = await User.findOne({ email }).select('-password'); // Exclude password
       return profile ? profile.toObject() : null;
     } catch (error) {
       console.error('Error getting profile:', error);
@@ -150,11 +150,31 @@ class UserProfileService {
   // Get all profiles (for debugging)
   async getAllProfiles() {
     try {
-      const profiles = await User.find({});
+      const profiles = await User.find({}).select('-password'); // Exclude password
       return profiles.map(p => p.toObject());
     } catch (error) {
       console.error('Error getting all profiles:', error);
       return [];
+    }
+  }
+
+  // Update password
+  async updatePassword(email, hashedPassword) {
+    try {
+      const user = await User.findOneAndUpdate(
+        { email },
+        { password: hashedPassword, updatedAt: new Date() },
+        { new: true }
+      );
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      return user.toObject();
+    } catch (error) {
+      console.error('Error updating password:', error);
+      throw error;
     }
   }
 }

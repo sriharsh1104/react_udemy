@@ -5,17 +5,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import ChatScreen from './screens/ChatScreen';
 import LoginScreen from './screens/LoginScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import SettingsScreen from './screens/SettingsScreen';
 import LogoutModal from './components/common/LogoutModal';
 import profileService from './services/profileService';
 import authService from './services/authService';
-import { COLORS } from './constants';
 
 const Stack = createNativeStackNavigator();
 
-export default function App() {
+const AppContent = () => {
+  const { colors, isDark } = useTheme();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userEmail, setUserEmail] = useState(null);
@@ -148,8 +150,8 @@ export default function App() {
     <View style={styles.container}>
       <StatusBar style="light" />
     </View>
-    );
-  }
+  );
+}
 
   return (
     <NavigationContainer ref={navigationRef}>
@@ -158,7 +160,7 @@ export default function App() {
           initialRouteName="Login"
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: COLORS.background },
+            contentStyle: { backgroundColor: colors.background },
           }}
         >
           <Stack.Screen name="Login">
@@ -171,6 +173,7 @@ export default function App() {
                 userEmail={userEmail}
                 onLogout={handleLogout}
                 onProfilePress={() => props.navigation.navigate('Profile')}
+                onSettingsPress={() => props.navigation.navigate('Settings')}
                 onLogoutPress={handleLogoutPress}
               />
             )}
@@ -192,6 +195,14 @@ export default function App() {
               />
             )}
           </Stack.Screen>
+          <Stack.Screen name="Settings">
+            {(props) => (
+              <SettingsScreen
+                {...props}
+                onBack={() => props.navigation.goBack()}
+              />
+            )}
+          </Stack.Screen>
         </Stack.Navigator>
         
         <LogoutModal
@@ -200,16 +211,23 @@ export default function App() {
           onCancel={() => setShowLogoutModal(false)}
         />
         
-        <StatusBar style="light" />
+        <StatusBar style={isDark ? "light" : "dark"} />
         <Toast />
       </View>
     </NavigationContainer>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 });
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}

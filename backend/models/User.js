@@ -19,6 +19,10 @@ const UserSchema = new mongoose.Schema({
   phoneNumbers: [{
     type: String,
   }],
+  password: {
+    type: String,
+    default: null, // null means password not set
+  },
   createdAt: {
     type: Date,
     default: Date.now,
