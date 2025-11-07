@@ -1,15 +1,25 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ChatScreen from './screens/ChatScreen';
 import LoginScreen from './screens/LoginScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import LogoutModal from './components/common/LogoutModal';
+import profileService from './services/profileService';
 import { COLORS } from './constants';
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userEmail, setUserEmail] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const navigationRef = useRef(null);
 
   useEffect(() => {
     checkAuthStatus();
@@ -23,6 +33,21 @@ export default function App() {
       if (token && email) {
         setUserEmail(email);
         setIsLoggedIn(true);
+        // Check profile completeness
+        const profileResult = await profileService.getProfile();
+        if (profileResult.success) {
+          setProfile(profileResult.profile);
+          // Navigate based on profile completeness
+          setTimeout(() => {
+            if (navigationRef.current) {
+              if (!profileResult.profile || !profileResult.profile.isProfileComplete) {
+                navigationRef.current.navigate('Profile');
+              } else {
+                navigationRef.current.navigate('Chat');
+              }
+            }
+          }, 100);
+        }
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
@@ -31,9 +56,21 @@ export default function App() {
     }
   };
 
-  const handleLogin = async (email, token) => {
+  const handleLogin = async (email, token, loginProfile) => {
     setUserEmail(email);
     setIsLoggedIn(true);
+    setProfile(loginProfile || null);
+    
+    // Navigate based on profile completeness
+    setTimeout(() => {
+      if (navigationRef.current) {
+        if (!loginProfile || !loginProfile.isProfileComplete) {
+          navigationRef.current.navigate('Profile');
+        } else {
+          navigationRef.current.navigate('Chat');
+        }
+      }
+    }, 100);
   };
 
   const handleLogout = async () => {
@@ -42,8 +79,33 @@ export default function App() {
       await AsyncStorage.removeItem('userEmail');
       setIsLoggedIn(false);
       setUserEmail(null);
+      setProfile(null);
+      setShowLogoutModal(false);
+      // Navigate to login
+      if (navigationRef.current) {
+        navigationRef.current.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+      }
     } catch (error) {
       console.error('Error logging out:', error);
+    }
+  };
+
+  const handleLogoutPress = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleProfileBack = async () => {
+    // Refresh profile after save
+    const profileResult = await profileService.getProfile();
+    if (profileResult.success) {
+      setProfile(profileResult.profile);
+      // Navigate to chat if profile is complete
+      if (profileResult.profile?.isProfileComplete && navigationRef.current) {
+        navigationRef.current.navigate('Chat');
+      }
     }
   };
 
@@ -56,14 +118,57 @@ export default function App() {
   }
 
   return (
-    <View style={styles.container}>
-      {isLoggedIn ? (
-        <ChatScreen userEmail={userEmail} onLogout={handleLogout} />
-      ) : (
-        <LoginScreen onLogin={handleLogin} />
-      )}
-      <StatusBar style="light" />
-    </View>
+    <NavigationContainer ref={navigationRef}>
+      <View style={styles.container}>
+        <Stack.Navigator
+          initialRouteName="Login"
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: COLORS.background },
+          }}
+        >
+          <Stack.Screen name="Login">
+            {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
+          </Stack.Screen>
+          <Stack.Screen name="Chat">
+            {(props) => (
+              <ChatScreen
+                {...props}
+                userEmail={userEmail}
+                onLogout={handleLogout}
+                onProfilePress={() => props.navigation.navigate('Profile')}
+                onLogoutPress={handleLogoutPress}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="Profile">
+            {(props) => (
+              <ProfileScreen
+                {...props}
+                userEmail={userEmail}
+                onBack={() => {
+                  handleProfileBack();
+                  if (profile?.isProfileComplete) {
+                    props.navigation.navigate('Chat');
+                  } else {
+                    props.navigation.goBack();
+                  }
+                }}
+                isMandatory={!profile || !profile.isProfileComplete}
+              />
+            )}
+          </Stack.Screen>
+        </Stack.Navigator>
+        
+        <LogoutModal
+          visible={showLogoutModal}
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogoutModal(false)}
+        />
+        
+        <StatusBar style="light" />
+      </View>
+    </NavigationContainer>
   );
 }
 

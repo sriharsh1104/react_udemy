@@ -17,7 +17,7 @@ import MessageItem from '../components/chat/MessageItem';
 import MessageInput from '../components/chat/MessageInput';
 import TypingIndicator from '../components/chat/TypingIndicator';
 
-const ChatScreen = ({ userEmail, onLogout }) => {
+const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress }) => {
   // Extract username from email (part before @)
   const getUsernameFromEmail = (email) => {
     if (!email) return '';
@@ -100,7 +100,12 @@ const ChatScreen = ({ userEmail, onLogout }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
-      <ChatHeader username={username} isOnline={isConnected} />
+      <ChatHeader 
+        username={username} 
+        isOnline={isConnected} 
+        onProfilePress={onProfilePress}
+        onLogoutPress={onLogoutPress}
+      />
       
       <View style={styles.chatBackground}>
         <FlatList

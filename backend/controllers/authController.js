@@ -1,25 +1,43 @@
 const otpService = require('../services/otpService');
 const userService = require('../services/userService');
+const userProfileService = require('../services/userProfileService');
 
 class AuthController {
-  // Send OTP to email
+  // Send OTP to email or phone
   async sendOTP(req, res) {
     try {
-      const { email } = req.body;
+      const { email, phone } = req.body;
+      const identifier = email || phone;
 
-      if (!email || !email.includes('@')) {
+      if (!identifier) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide email or phone number',
+        });
+      }
+
+      // Validate email format
+      if (email && !email.includes('@')) {
         return res.status(400).json({
           success: false,
           message: 'Please provide a valid email address',
         });
       }
 
-      const result = await otpService.sendOTP(email);
+      // Validate phone format (basic)
+      if (phone && !/^\+?[1-9]\d{1,14}$/.test(phone.replace(/\s/g, ''))) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a valid phone number',
+        });
+      }
+
+      const result = await otpService.sendOTP(identifier);
 
       if (result.success) {
         res.status(200).json({
           success: true,
-          message: 'OTP sent to your email',
+          message: result.message,
         });
       } else {
         res.status(500).json({
@@ -39,29 +57,53 @@ class AuthController {
   // Verify OTP and login
   async verifyOTP(req, res) {
     try {
-      const { email, otp } = req.body;
+      const { email, phone, otp } = req.body;
+      const identifier = email || phone;
 
-      if (!email || !otp) {
+      if (!identifier || !otp) {
         return res.status(400).json({
           success: false,
-          message: 'Email and OTP are required',
+          message: 'Email/Phone and OTP are required',
         });
       }
 
-      const result = otpService.verifyOTP(email, otp);
+      const result = otpService.verifyOTP(identifier, otp);
 
       if (result.success) {
+        // Find user by identifier (email or phone)
+        let userEmail = identifier;
+        
+        // If phone number, find associated email
+        if (!identifier.includes('@')) {
+          const userInfo = userProfileService.findUserByIdentifier(identifier);
+          if (userInfo && userInfo.email) {
+            userEmail = userInfo.email;
+          } else {
+            // New user with phone number - use phone as identifier
+            // Profile will be created when user accesses profile screen
+            userEmail = `phone_${identifier}@temp.local`;
+          }
+        }
+        // For email login, use email as is
+        // Profile will be created when user accesses profile screen
+
         // Generate a simple token (in production, use JWT)
         const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        // Store user session (in production, use proper session management)
-        userService.addUserSession(email, token);
+        // Store user session
+        userService.addUserSession(userEmail, token);
+
+        // Get user profile (if exists, otherwise null)
+        const profile = userProfileService.getProfileByEmail(userEmail);
+        const isProfileComplete = profile ? userProfileService.isProfileComplete(userEmail) : false;
 
         res.status(200).json({
           success: true,
           message: 'Login successful',
           token,
-          email,
+          email: userEmail,
+          profile: profile || null,
+          isProfileComplete,
         });
       } else {
         res.status(400).json({

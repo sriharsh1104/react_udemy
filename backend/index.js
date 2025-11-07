@@ -13,8 +13,30 @@ const server = http.createServer(app);
 app.use(cors());
 app.use(express.json());
 
+// Debug: Log all API requests
+app.use('/api', (req, res, next) => {
+  console.log(`[${req.method}] ${req.originalUrl}`);
+  next();
+});
+
 // Routes
 app.use('/api', routes);
+
+// Log registered routes after mounting
+setTimeout(() => {
+  console.log('\n=== Registered Routes ===');
+  if (app._router && app._router.stack) {
+    app._router.stack.forEach((middleware, index) => {
+      if (middleware.route) {
+        const methods = Object.keys(middleware.route.methods).map(m => m.toUpperCase()).join(', ');
+        console.log(`${methods} ${middleware.route.path}`);
+      } else if (middleware.name === 'router') {
+        console.log(`Router mounted at: ${middleware.regexp}`);
+      }
+    });
+  }
+  console.log('========================\n');
+}, 100);
 
 // 404 handler
 app.use(notFoundHandler);

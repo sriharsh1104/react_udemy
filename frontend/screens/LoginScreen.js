@@ -15,25 +15,47 @@ import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
 import authService from '../services/authService';
 
 const LoginScreen = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState(''); // email or phone
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState('email'); // 'email' or 'otp'
+  const [step, setStep] = useState('identifier'); // 'identifier' or 'otp'
   const [loading, setLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
+  const [loginType, setLoginType] = useState('email'); // 'email' or 'phone'
+
+  const isEmail = (text) => text.includes('@');
+  const isValidPhone = (text) => /^\+?[1-9]\d{1,14}$/.test(text.replace(/\s/g, ''));
 
   const handleSendOTP = async () => {
-    if (!email.trim() || !email.includes('@')) {
+    const trimmedId = identifier.trim();
+    
+    if (!trimmedId) {
+      Alert.alert('Required', 'Please enter your email or phone number');
+      return;
+    }
+
+    const isEmailInput = isEmail(trimmedId);
+    
+    if (isEmailInput && !trimmedId.includes('@')) {
       Alert.alert('Invalid Email', 'Please enter a valid email address');
       return;
     }
 
+    if (!isEmailInput && !isValidPhone(trimmedId)) {
+      Alert.alert('Invalid Phone', 'Please enter a valid phone number');
+      return;
+    }
+
+    setLoginType(isEmailInput ? 'email' : 'phone');
     setLoading(true);
-    const result = await authService.sendOTP(email.trim());
+    
+    const result = isEmailInput 
+      ? await authService.sendOTP(trimmedId)
+      : await authService.sendOTP(null, trimmedId);
 
     if (result.success) {
-      setOtpSent(true);
       setStep('otp');
-      Alert.alert('OTP Sent', 'Please check your email for the OTP code');
+      Alert.alert('OTP Sent', isEmailInput 
+        ? 'Please check your email for the OTP code'
+        : 'Please check your phone for the OTP code (check console for development)');
     } else {
       Alert.alert('Error', result.message || 'Failed to send OTP');
     }
@@ -47,7 +69,10 @@ const LoginScreen = ({ onLogin }) => {
     }
 
     setLoading(true);
-    const result = await authService.verifyOTP(email.trim(), otp.trim());
+    const trimmedId = identifier.trim();
+    const result = loginType === 'email'
+      ? await authService.verifyOTP(trimmedId, otp.trim())
+      : await authService.verifyOTP(null, otp.trim(), trimmedId);
 
     if (result.success) {
       // Store auth token
@@ -55,7 +80,7 @@ const LoginScreen = ({ onLogin }) => {
       await AsyncStorage.setItem('userEmail', result.email);
       
       // Directly login to chat section without alert
-      onLogin(result.email, result.token);
+      onLogin(result.email, result.token, result.profile);
     } else {
       Alert.alert('Error', result.message || 'Invalid OTP. Please try again.');
       setLoading(false);
@@ -67,10 +92,9 @@ const LoginScreen = ({ onLogin }) => {
     await handleSendOTP();
   };
 
-  const handleBackToEmail = () => {
-    setStep('email');
+  const handleBackToIdentifier = () => {
+    setStep('identifier');
     setOtp('');
-    setOtpSent(false);
   };
 
   return (
@@ -85,20 +109,20 @@ const LoginScreen = ({ onLogin }) => {
           </View>
         </View>
 
-        {step === 'email' ? (
+        {step === 'identifier' ? (
           <>
             <Text style={styles.title}>Welcome to Chat</Text>
-            <Text style={styles.subtitle}>Enter your email to receive OTP</Text>
+            <Text style={styles.subtitle}>Enter your email or phone number</Text>
 
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="your.email@example.com"
+                placeholder="email@example.com or +1234567890"
                 placeholderTextColor={COLORS.inputPlaceholder}
-                value={email}
-                onChangeText={setEmail}
+                value={identifier}
+                onChangeText={setIdentifier}
                 onSubmitEditing={handleSendOTP}
-                keyboardType="email-address"
+                keyboardType={isEmail(identifier) ? 'email-address' : 'phone-pad'}
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="send"
@@ -107,9 +131,9 @@ const LoginScreen = ({ onLogin }) => {
             </View>
 
             <TouchableOpacity
-              style={[styles.button, (!email.trim() || loading) && styles.buttonDisabled]}
+              style={[styles.button, (!identifier.trim() || loading) && styles.buttonDisabled]}
               onPress={handleSendOTP}
-              disabled={!email.trim() || loading}
+              disabled={!identifier.trim() || loading}
               activeOpacity={0.8}
             >
               {loading ? (
@@ -124,7 +148,7 @@ const LoginScreen = ({ onLogin }) => {
             <Text style={styles.title}>Enter OTP</Text>
             <Text style={styles.subtitle}>
               We sent a 6-digit code to{'\n'}
-              <Text style={styles.emailText}>{email}</Text>
+              <Text style={styles.emailText}>{identifier}</Text>
             </Text>
 
             <View style={styles.inputContainer}>
@@ -165,10 +189,10 @@ const LoginScreen = ({ onLogin }) => {
 
             <TouchableOpacity
               style={styles.backButton}
-              onPress={handleBackToEmail}
+              onPress={handleBackToIdentifier}
               disabled={loading}
             >
-              <Text style={styles.backButtonText}>← Change Email</Text>
+              <Text style={styles.backButtonText}>← Change {loginType === 'email' ? 'Email' : 'Phone'}</Text>
             </TouchableOpacity>
           </>
         )}

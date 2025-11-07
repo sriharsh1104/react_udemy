@@ -1,8 +1,61 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform, StatusBar } from 'react-native';
-import { COLORS, TYPOGRAPHY, SPACING } from '../../constants';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Platform, StatusBar, TouchableOpacity, Modal } from 'react-native';
+import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 
-const ChatHeader = ({ username, isOnline = true }) => {
+const ProfileDropdown = ({ onProfilePress, onLogoutPress, onClose }) => {
+  return (
+    <Modal
+      transparent={true}
+      visible={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity 
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <View style={styles.dropdownContainer}>
+          <TouchableOpacity 
+            style={styles.dropdownItem}
+            onPress={() => {
+              onClose();
+              onProfilePress();
+            }}
+          >
+            <Text style={styles.dropdownItemText}>👤 Profile</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.dropdownItem}
+            onPress={() => {
+              onClose();
+              // Settings - can be implemented later
+            }}
+          >
+            <Text style={styles.dropdownItemText}>⚙️ Settings</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.divider} />
+          
+          <TouchableOpacity 
+            style={[styles.dropdownItem, styles.logoutItem]}
+            onPress={() => {
+              onClose();
+              onLogoutPress();
+            }}
+          >
+            <Text style={[styles.dropdownItemText, styles.logoutText]}>🚪 Logout</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onLogoutPress }) => {
+  const [showDropdown, setShowDropdown] = useState(false);
+
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.headerBackground} />
@@ -24,8 +77,22 @@ const ChatHeader = ({ username, isOnline = true }) => {
               </View>
             </View>
           </View>
+          <TouchableOpacity 
+            onPress={() => setShowDropdown(true)} 
+            style={styles.profileButton}
+          >
+            <Text style={styles.profileButtonText}>👤</Text>
+          </TouchableOpacity>
         </View>
       </View>
+      
+      {showDropdown && (
+        <ProfileDropdown
+          onProfilePress={onProfilePress}
+          onLogoutPress={onLogoutPress}
+          onClose={() => setShowDropdown(false)}
+        />
+      )}
     </>
   );
 };
@@ -99,6 +166,63 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textSecondary,
     textTransform: 'lowercase',
+  },
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SPACING.md,
+  },
+  profileButtonText: {
+    fontSize: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: Platform.OS === 'ios' ? 100 : StatusBar.currentHeight + 60,
+    paddingRight: SPACING.md,
+  },
+  dropdownContainer: {
+    backgroundColor: COLORS.receivedMessage,
+    borderRadius: BORDER_RADIUS.lg,
+    minWidth: 180,
+    paddingVertical: SPACING.xs,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  dropdownItem: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
+  dropdownItemText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.text,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: SPACING.xs,
+  },
+  logoutItem: {
+    // Logout styling
+  },
+  logoutText: {
+    color: '#EF4444', // Red color for logout
   },
 });
 
