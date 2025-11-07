@@ -53,7 +53,7 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
@@ -76,22 +76,36 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
               <Text style={styles.sidebarButtonText}>☰</Text>
             </TouchableOpacity>
           )}
-          <View style={styles.userInfo}>
+          <TouchableOpacity 
+            style={styles.userInfo}
+            onPress={isGroup && onGroupInfoPress ? onGroupInfoPress : undefined}
+            disabled={!isGroup || !onGroupInfoPress}
+            activeOpacity={isGroup && onGroupInfoPress ? 0.7 : 1}
+          >
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {username ? username.charAt(0).toUpperCase() : 'U'}
+                {isGroup ? '👥' : (username ? username.charAt(0).toUpperCase() : 'U')}
               </Text>
             </View>
             <View style={styles.textContainer}>
               <Text style={styles.title} numberOfLines={1}>{username || 'Chat'}</Text>
               <View style={styles.statusContainer}>
+                {!isGroup && (
+                  <>
                 <View style={[styles.statusDot, isOnline && styles.statusDotOnline]} />
                 <Text style={styles.subtitle}>
                   {isOnline ? 'online' : 'offline'}
                 </Text>
+                  </>
+                )}
+                {isGroup && (
+                  <Text style={styles.subtitle}>
+                    Tap to view group info
+                  </Text>
+                )}
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => setShowDropdown(true)} 
             style={styles.profileButton}

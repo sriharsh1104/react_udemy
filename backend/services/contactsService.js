@@ -44,10 +44,29 @@ class ContactsService {
         .sort({ createdAt: -1 })
         .lean();
       
-      return contacts.map(c => c.contactEmail);
+      // Return full contact objects (for backward compatibility, also support email-only)
+      return contacts;
     } catch (error) {
       console.error('Error getting contacts:', error);
       return [];
+    }
+  }
+
+  // Toggle favorite status for a contact
+  async toggleFavorite(userEmail, contactEmail) {
+    try {
+      const contact = await Contact.findOne({ userEmail, contactEmail });
+      if (!contact) {
+        throw new Error('Contact not found');
+      }
+      
+      contact.isFavorite = !contact.isFavorite;
+      await contact.save();
+      
+      return contact.toObject();
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      throw error;
     }
   }
 

@@ -11,6 +11,11 @@ const ContactSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  isFavorite: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

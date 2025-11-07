@@ -21,6 +21,12 @@ export const SOCKET_EVENTS = {
   PRIVATE_MESSAGE: 'privateMessage',
   CHAT_HISTORY: 'chatHistory',
   TYPING: 'typing',
+  // Group events
+  JOIN_GROUP: 'joinGroup',
+  LEAVE_GROUP: 'leaveGroup',
+  GROUP_MESSAGE: 'groupMessage',
+  GROUP_CHAT_HISTORY: 'groupChatHistory',
+  GROUP_TYPING: 'groupTyping',
 };
 
 // Premium Color Scheme (WhatsApp-inspired but with premium colors)

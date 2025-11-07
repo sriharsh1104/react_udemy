@@ -7,9 +7,11 @@ import {
   Platform,
   ActivityIndicator,
   Text,
+  SafeAreaView,
 } from 'react-native';
 import { useSocket } from '../hooks/useSocket';
 import { useChat } from '../hooks/useChat';
+import { useGroupChat } from '../hooks/useGroupChat';
 import socketService from '../services/socketService';
 import { SOCKET_EVENTS, COLORS, SPACING } from '../constants';
 import ChatHeader from '../components/chat/ChatHeader';
@@ -18,44 +20,82 @@ import MessageInput from '../components/chat/MessageInput';
 import TypingIndicator from '../components/chat/TypingIndicator';
 import Sidebar, { InviteModal } from '../components/chat/Sidebar';
 import RecentChats from '../components/chat/RecentChats';
+import CreateGroupModal from '../components/chat/CreateGroupModal';
+import GroupInfoModal from '../components/chat/GroupInfoModal';
 import contactsService from '../services/contactsService';
+import groupService from '../services/groupService';
 import { Alert } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
 
 const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLogoutPress, navigation }) => {
+  const { colors } = useTheme();
+  
   // Extract username from email (part before @)
   const getUsernameFromEmail = (email) => {
     if (!email) return '';
     return email.split('@')[0];
   };
 
+  const [chatType, setChatType] = useState(null); // 'private' or 'group'
   const [contactEmail, setContactEmail] = useState(null);
+  const [groupId, setGroupId] = useState(null);
   const [contactName, setContactName] = useState('');
+  const [groupName, setGroupName] = useState('');
   const [inputMessage, setInputMessage] = useState('');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [showGroupInfoModal, setShowGroupInfoModal] = useState(false);
+  const [currentGroup, setCurrentGroup] = useState(null);
   const [contacts, setContacts] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState(null);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket();
-  const { messages, typingUser, sendMessage, sendTyping } = useChat(userEmail, contactEmail);
+  const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping } = useChat(userEmail, contactEmail);
+  const { messages: groupMessages, typingUsers, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping } = useGroupChat(userEmail, groupId);
+  
+  // Use appropriate messages and functions based on chat type
+  const messages = chatType === 'group' ? groupMessages : privateMessages;
+  const sendMessage = chatType === 'group' ? sendGroupMessage : sendPrivateMessage;
+  const sendTyping = chatType === 'group' ? sendGroupTyping : sendPrivateTyping;
+  const currentTypingUser = chatType === 'group' ? (typingUsers.length > 0 ? typingUsers[0] : null) : typingUser;
 
-  // Load contacts on mount and periodically refresh
+  // Load contacts and groups on mount
   useEffect(() => {
-    loadContacts();
-    
-    // Refresh contacts every 5 seconds to update online status and unread count
-    const interval = setInterval(() => {
-      loadContacts();
-    }, 5000);
-    
-    return () => clearInterval(interval);
+    loadContacts(true); // Show loading only on initial load
+    loadGroups();
   }, []);
 
-  // Load contact name when contactEmail changes and mark messages as read
+  // Periodically refresh contacts and groups (only when not in active chat)
   useEffect(() => {
-    if (contactEmail) {
+    if (contactEmail || groupId) {
+      // Don't auto-refresh when in active chat to prevent flickering
+      return;
+    }
+    
+    // Refresh every 10 seconds to update online status and unread count
+    const interval = setInterval(() => {
+      loadContacts(false); // Don't show loading spinner
+      loadGroups();
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [contactEmail, groupId]);
+
+  const loadGroups = async () => {
+    const result = await groupService.getGroups();
+    if (result.success) {
+      // Always update groups to ensure favorite status is current
+      setGroups(result.groups || []);
+    }
+  };
+
+  // Load contact/group info when chat changes
+  useEffect(() => {
+    if (chatType === 'private' && contactEmail) {
       const name = getUsernameFromEmail(contactEmail);
       setContactName(name);
       // Mark messages as read when chat is opened
@@ -63,25 +103,63 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         // Reload contacts to update unread count
         loadContacts();
       });
+    } else if (chatType === 'group' && groupId) {
+      const group = groups.find(g => g._id === groupId);
+      if (group) {
+        setGroupName(group.name);
+        setCurrentGroup(group);
+        // Mark group messages as read when chat is opened
+        groupService.markMessagesAsRead(groupId).then(() => {
+          // Reload groups to update unread count
+          loadGroups();
+        });
+      } else {
+        // Load group details if not in list
+        groupService.getGroup(groupId).then(result => {
+          if (result.success && result.group) {
+            setGroupName(result.group.name);
+            setCurrentGroup(result.group);
+            // Mark group messages as read when chat is opened
+            groupService.markMessagesAsRead(groupId).then(() => {
+              loadGroups();
+            });
+          }
+        });
+      }
     }
-  }, [contactEmail]);
+  }, [contactEmail, groupId, chatType, groups]);
 
-  const loadContacts = async () => {
-    setLoadingContacts(true);
+  const loadContacts = async (showLoading = false) => {
+    if (showLoading) {
+      setLoadingContacts(true);
+    }
     const result = await contactsService.getContacts();
     if (result.success) {
-      setContacts(result.contacts);
+      // Only update if data actually changed to prevent unnecessary re-renders
+      setContacts(prevContacts => {
+        const newContacts = result.contacts || [];
+        // Check if data is actually different
+        if (JSON.stringify(prevContacts) !== JSON.stringify(newContacts)) {
+          return newContacts;
+        }
+        return prevContacts;
+      });
     }
-    setLoadingContacts(false);
+    if (showLoading) {
+      setLoadingContacts(false);
+    }
   };
 
   useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+    if (messages.length > 0 && flatListRef.current) {
+      // Use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: false });
+        }, 50);
+      });
     }
-  }, [messages]);
+  }, [messages.length]); // Only depend on length to prevent unnecessary scrolls
 
   const handleSendMessage = () => {
     if (inputMessage.trim()) {
@@ -107,7 +185,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         await contactsService.addContact(selectedContactEmail);
         await loadContacts();
       }
+      setChatType('private');
       setContactEmail(selectedContactEmail);
+      setGroupId(null);
       setShowSidebar(false);
     } else {
       // User doesn't exist - show invite option
@@ -115,6 +195,39 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       setShowInviteModal(true);
       setShowSidebar(false);
     }
+  };
+
+  const handleSelectGroup = (selectedGroupId) => {
+    setChatType('group');
+    setGroupId(selectedGroupId);
+    setContactEmail(null);
+    setShowSidebar(false);
+  };
+
+  const handleCreateGroup = () => {
+    setShowCreateGroupModal(true);
+  };
+
+  const handleGroupCreated = async (group) => {
+    await loadGroups();
+    if (group && group._id) {
+      handleSelectGroup(group._id);
+    }
+  };
+
+  const handleGroupUpdated = async (updatedGroup) => {
+    await loadGroups();
+    if (updatedGroup && updatedGroup._id === groupId) {
+      setCurrentGroup(updatedGroup);
+      setGroupName(updatedGroup.name);
+    }
+  };
+
+  const handleExitGroup = () => {
+    setChatType(null);
+    setGroupId(null);
+    setCurrentGroup(null);
+    setGroupName('');
   };
 
   const handleNewChat = () => {
@@ -136,25 +249,26 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     setShowInviteModal(true);
   };
 
-  const renderMessage = ({ item, index }) => {
+  const renderMessage = React.useCallback(({ item, index }) => {
     // Determine if message is sent by current user
     const isSent = item.isSent || item.senderEmail === userEmail;
     const senderName = item.senderEmail ? getUsernameFromEmail(item.senderEmail) : 'Unknown';
+    const showSenderName = chatType === 'group' && !isSent;
     
     return (
       <MessageItem
         key={index}
         message={item.message}
-        username={senderName}
+        username={showSenderName ? senderName : undefined}
         timestamp={item.timestamp}
         isSystemMessage={false}
         isSent={isSent}
       />
     );
-  };
+  }, [userEmail, chatType]);
 
-  // Show recent chats if no contact selected
-  if (!contactEmail) {
+  // Show recent chats if no contact or group selected
+  if (!contactEmail && !groupId) {
     return (
       <KeyboardAvoidingView
         style={styles.container}
@@ -175,13 +289,18 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onSelectContact={handleSelectContact}
       />
       
-      <RecentChats
-        contacts={contacts}
-        onSelectContact={handleSelectContact}
-        onNewChat={handleNewChat}
-        onSaveContact={handleSaveContact}
-        onInvite={handleInvite}
-      />
+                  <RecentChats
+                    contacts={contacts}
+                    groups={groups}
+                    onSelectContact={handleSelectContact}
+                    onSelectGroup={handleSelectGroup}
+                    onNewChat={handleNewChat}
+                    onCreateGroup={handleCreateGroup}
+                    onSaveContact={handleSaveContact}
+                    onInvite={handleInvite}
+                    onContactsUpdate={loadContacts}
+                    onGroupsUpdate={loadGroups}
+                  />
 
       {showInviteModal && (
         <InviteModal
@@ -193,26 +312,39 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           email={inviteEmail}
         />
       )}
+
+      <CreateGroupModal
+        visible={showCreateGroupModal}
+        onClose={() => setShowCreateGroupModal(false)}
+        onGroupCreated={handleGroupCreated}
+      />
       </KeyboardAvoidingView>
     );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
+    >
       <ChatHeader 
-        username={contactName || contactEmail} 
+        username={chatType === 'group' ? groupName : (contactName || contactEmail)} 
         isOnline={isConnected} 
         onProfilePress={onProfilePress}
         onSettingsPress={onSettingsPress}
         onLogoutPress={onLogoutPress}
         onSidebarPress={() => setShowSidebar(true)}
-        onBackPress={() => setContactEmail(null)}
+        onBackPress={() => {
+          setContactEmail(null);
+          setGroupId(null);
+          setChatType(null);
+          setCurrentGroup(null);
+        }}
         showBackButton={true}
+        isGroup={chatType === 'group'}
+        onGroupInfoPress={() => setShowGroupInfoModal(true)}
       />
       
       <Sidebar
@@ -226,28 +358,44 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           ref={flatListRef}
           data={messages}
           renderItem={renderMessage}
-          keyExtractor={(item, index) => `message-${index}-${item.timestamp}-${item.senderEmail}`}
+          keyExtractor={(item, index) => `message-${index}-${item.timestamp}-${item.senderEmail}-${item.message?.substring(0, 10)}`}
           style={styles.messagesList}
           contentContainerStyle={styles.messagesContent}
           onContentSizeChange={() => {
             setTimeout(() => {
-              flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
+              flatListRef.current?.scrollToEnd({ animated: false });
+            }, 50);
           }}
           showsVerticalScrollIndicator={false}
           inverted={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={15}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={15}
+          windowSize={10}
         />
       </View>
 
-      <TypingIndicator typingUsers={typingUser ? [typingUser] : []} />
+      <TypingIndicator typingUsers={currentTypingUser ? [currentTypingUser] : []} />
 
       <MessageInput
         value={inputMessage}
         onChangeText={handleTyping}
         onSend={handleSendMessage}
       />
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      {currentGroup && (
+        <GroupInfoModal
+          visible={showGroupInfoModal}
+          onClose={() => setShowGroupInfoModal(false)}
+          group={currentGroup}
+          userEmail={userEmail}
+          onGroupUpdated={handleGroupUpdated}
+          onExitGroup={handleExitGroup}
+        />
+      )}
+    </KeyboardAvoidingView>
+      </SafeAreaView>
   );
 };
 

@@ -14,17 +14,20 @@ class ChatService {
     return roomId;
   }
 
-  // Add message to MongoDB
-  async addMessage(email1, email2, messageData) {
+  // Add message to MongoDB (private or group)
+  async addMessage(email1, email2, messageData, groupId = null) {
     try {
-      const roomId = this.getRoomId(email1, email2);
+      const roomId = groupId ? `group_${groupId}` : this.getRoomId(email1, email2);
       
       const message = new Message({
         roomId,
         senderEmail: messageData.senderEmail,
-        receiverEmail: email1 === messageData.senderEmail ? email2 : email1,
+        receiverEmail: groupId ? null : (email1 === messageData.senderEmail ? email2 : email1),
+        groupId: groupId || null,
+        messageType: groupId ? 'group' : 'private',
         message: messageData.message,
         timestamp: messageData.timestamp || new Date(),
+        readBy: groupId ? [messageData.senderEmail] : [],
       });
 
       await message.save();
@@ -33,6 +36,45 @@ class ChatService {
     } catch (error) {
       console.error('Error adding message to DB:', error);
       throw error;
+    }
+  }
+
+  // Add group message
+  async addGroupMessage(groupId, messageData) {
+    try {
+      const roomId = `group_${groupId}`;
+      
+      const message = new Message({
+        roomId,
+        senderEmail: messageData.senderEmail,
+        receiverEmail: null,
+        groupId,
+        messageType: 'group',
+        message: messageData.message,
+        timestamp: messageData.timestamp || new Date(),
+        readBy: [messageData.senderEmail],
+      });
+
+      await message.save();
+      
+      return message.toObject();
+    } catch (error) {
+      console.error('Error adding group message to DB:', error);
+      throw error;
+    }
+  }
+
+  // Get group messages
+  async getGroupMessages(groupId) {
+    try {
+      const messages = await Message.find({ groupId, messageType: 'group' })
+        .sort({ timestamp: 1 })
+        .lean();
+      
+      return messages;
+    } catch (error) {
+      console.error('Error getting group messages:', error);
+      return [];
     }
   }
 
@@ -93,6 +135,43 @@ class ChatService {
     } catch (error) {
       console.error('Error getting unread count:', error);
       return 0;
+    }
+  }
+
+  // Get unread message count for a user in a group
+  async getGroupUnreadCount(userEmail, groupId) {
+    try {
+      const count = await Message.countDocuments({
+        groupId,
+        messageType: 'group',
+        senderEmail: { $ne: userEmail }, // Exclude messages sent by the user
+        readBy: { $ne: userEmail }, // Messages not read by the user
+      });
+      return count;
+    } catch (error) {
+      console.error('Error getting group unread count:', error);
+      return 0;
+    }
+  }
+
+  // Mark group messages as read for a user
+  async markGroupMessagesAsRead(userEmail, groupId) {
+    try {
+      await Message.updateMany(
+        {
+          groupId,
+          messageType: 'group',
+          senderEmail: { $ne: userEmail },
+          readBy: { $ne: userEmail },
+        },
+        {
+          $addToSet: { readBy: userEmail },
+        }
+      );
+      return true;
+    } catch (error) {
+      console.error('Error marking group messages as read:', error);
+      return false;
     }
   }
 

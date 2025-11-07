@@ -1,5 +1,6 @@
 const userService = require('../services/userService');
 const chatService = require('../services/chatService');
+const groupService = require('../services/groupService');
 
 class SocketService {
   constructor(io) {
@@ -34,6 +35,26 @@ class SocketService {
       // Handle typing indicator in private chat
       socket.on('typing', (data) => {
         this.handleTyping(socket, data);
+      });
+
+      // Handle joining a group
+      socket.on('joinGroup', (data) => {
+        this.handleJoinGroup(socket, data);
+      });
+
+      // Handle leaving a group
+      socket.on('leaveGroup', (data) => {
+        this.handleLeaveGroup(socket, data);
+      });
+
+      // Handle incoming group messages
+      socket.on('groupMessage', (data) => {
+        this.handleGroupMessage(socket, data);
+      });
+
+      // Handle typing indicator in group chat
+      socket.on('groupTyping', (data) => {
+        this.handleGroupTyping(socket, data);
       });
 
       // Handle user disconnection
@@ -186,6 +207,113 @@ class SocketService {
       userService.removeUser(socket.id);
       console.log(`User disconnected: ${email} (socket: ${socket.id})`);
     }
+  }
+
+  async handleJoinGroup(socket, data) {
+    const { groupId } = data;
+    const userEmail = this.getEmailFromSocket(socket.id);
+    
+    if (!userEmail || !groupId) {
+      console.log('Join group failed: missing data', { userEmail, groupId });
+      return;
+    }
+
+    // Check if user is a member
+    const isMember = await groupService.isMember(groupId, userEmail);
+    if (!isMember) {
+      console.log(`User ${userEmail} tried to join group ${groupId} but is not a member`);
+      return;
+    }
+
+    const roomId = `group_${groupId}`;
+    socket.join(roomId);
+    
+    // Send existing messages from MongoDB
+    const messages = await chatService.getGroupMessages(groupId);
+    socket.emit('groupChatHistory', {
+      groupId,
+      roomId,
+      messages,
+    });
+
+    if (messages.length > 0) {
+      console.log(`📬 DELIVERED ${messages.length} pending message(s) to ${userEmail} in group ${groupId}`);
+    }
+
+    console.log(`User ${userEmail} joined group ${groupId} (room: ${roomId})`);
+  }
+
+  handleLeaveGroup(socket, data) {
+    const { groupId } = data;
+    if (groupId) {
+      const roomId = `group_${groupId}`;
+      socket.leave(roomId);
+      const userEmail = this.getEmailFromSocket(socket.id);
+      console.log(`User ${userEmail} left group ${groupId}`);
+    }
+  }
+
+  async handleGroupMessage(socket, data) {
+    const { message, groupId } = data;
+    const senderEmail = this.getEmailFromSocket(socket.id);
+    
+    if (!senderEmail || !groupId) {
+      console.log('Missing senderEmail or groupId:', { senderEmail, groupId });
+      return;
+    }
+
+    // Check if user is a member
+    const isMember = await groupService.isMember(groupId, senderEmail);
+    if (!isMember) {
+      console.log(`User ${senderEmail} tried to send message to group ${groupId} but is not a member`);
+      return;
+    }
+
+    // Add message to MongoDB
+    const messageData = {
+      senderEmail,
+      message: message.trim(),
+      timestamp: new Date(),
+    };
+    
+    try {
+      await chatService.addGroupMessage(groupId, messageData);
+      console.log(`✅ Group message STORED in MongoDB: ${senderEmail} -> Group ${groupId}: "${message.trim()}"`);
+    } catch (error) {
+      console.error('Error storing group message:', error);
+      return;
+    }
+    
+    // Get room ID
+    const roomId = `group_${groupId}`;
+    
+    // Send message to all members in the group (except sender)
+    const messagePayload = {
+      ...messageData,
+      roomId,
+      groupId,
+    };
+    
+    socket.to(roomId).emit('groupMessage', messagePayload);
+    console.log(`📤 Group message DELIVERED: Group ${groupId} received message from ${senderEmail}`);
+  }
+
+  handleGroupTyping(socket, data) {
+    const { groupId, isTyping } = data;
+    const senderEmail = this.getEmailFromSocket(socket.id);
+    
+    if (!senderEmail || !groupId) {
+      return;
+    }
+
+    const roomId = `group_${groupId}`;
+    
+    // Send typing indicator to all other members in the group
+    socket.to(roomId).emit('groupTyping', {
+      senderEmail,
+      groupId,
+      isTyping,
+    });
   }
 
   getEmailFromSocket(socketId) {

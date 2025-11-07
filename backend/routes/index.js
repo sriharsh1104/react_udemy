@@ -3,6 +3,7 @@ const authController = require('../controllers/authController');
 const profileController = require('../controllers/profileController');
 const contactsController = require('../controllers/contactsController');
 const settingsController = require('../controllers/settingsController');
+const groupController = require('../controllers/groupController');
 
 const router = require('express').Router();
 
@@ -43,6 +44,7 @@ router.get('/contacts/check-phone', asyncHandler(contactsController.checkPhoneRe
 router.post('/contacts/check-phones-batch', asyncHandler(contactsController.checkPhonesBatch.bind(contactsController)));
 router.get('/contacts', asyncHandler(contactsController.getContacts.bind(contactsController)));
 router.post('/contacts', asyncHandler(contactsController.addContact.bind(contactsController)));
+router.post('/contacts/toggle-favorite', asyncHandler(contactsController.toggleFavorite.bind(contactsController)));
 router.delete('/contacts', asyncHandler(contactsController.removeContact.bind(contactsController)));
 router.post('/contacts/mark-read', asyncHandler(contactsController.markMessagesAsRead.bind(contactsController)));
 router.get('/contacts/invite-link', asyncHandler(contactsController.generateInviteLink.bind(contactsController)));
@@ -51,6 +53,17 @@ router.get('/contacts/invite-link', asyncHandler(contactsController.generateInvi
 router.post('/settings/set-password', asyncHandler(settingsController.setPassword.bind(settingsController)));
 router.post('/settings/change-password', asyncHandler(settingsController.changePassword.bind(settingsController)));
 router.get('/settings/password-status', asyncHandler(settingsController.checkPasswordStatus.bind(settingsController)));
+
+// Group routes
+router.post('/groups', asyncHandler(groupController.createGroup.bind(groupController)));
+router.get('/groups', asyncHandler(groupController.getGroups.bind(groupController)));
+router.get('/groups/:groupId', asyncHandler(groupController.getGroup.bind(groupController)));
+router.post('/groups/add-members', asyncHandler(groupController.addMembers.bind(groupController)));
+router.post('/groups/remove-member', asyncHandler(groupController.removeMember.bind(groupController)));
+router.put('/groups/update-name', asyncHandler(groupController.updateGroupName.bind(groupController)));
+router.post('/groups/toggle-favorite', asyncHandler(groupController.toggleFavorite.bind(groupController)));
+router.post('/groups/mark-read', asyncHandler(groupController.markGroupMessagesAsRead.bind(groupController)));
+router.delete('/groups', asyncHandler(groupController.deleteGroup.bind(groupController)));
 
 console.log('Routes registered:');
 console.log('  POST /api/auth/send-otp');
@@ -66,12 +79,20 @@ console.log('  GET /api/contacts/search');
 console.log('  GET /api/contacts/check');
 console.log('  GET /api/contacts');
 console.log('  POST /api/contacts');
+console.log('  POST /api/contacts/toggle-favorite');
 console.log('  DELETE /api/contacts');
 console.log('  POST /api/contacts/mark-read');
 console.log('  GET /api/contacts/invite-link');
 console.log('  POST /api/settings/set-password');
 console.log('  POST /api/settings/change-password');
 console.log('  GET /api/settings/password-status');
+console.log('  POST /api/groups');
+console.log('  GET /api/groups');
+console.log('  GET /api/groups/:groupId');
+console.log('  POST /api/groups/add-members');
+console.log('  POST /api/groups/remove-member');
+console.log('  PUT /api/groups/update-name');
+console.log('  DELETE /api/groups');
 
 module.exports = router;
 

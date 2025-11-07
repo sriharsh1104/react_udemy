@@ -325,11 +325,12 @@ class ContactsController {
         });
       }
 
-      const contactEmails = await contactsService.getContacts(userEmail);
+      const contactList = await contactsService.getContacts(userEmail);
       const chatService = require('../services/chatService');
       
       const contacts = await Promise.all(
-        contactEmails.map(async (email) => {
+        contactList.map(async (contact) => {
+          const email = contact.contactEmail;
           const profile = await userProfileService.getProfileByEmail(email);
           // Check if contact is online
           const socketId = userService.getSocketByEmail(email);
@@ -343,6 +344,7 @@ class ContactsController {
             exists: !!profile,
             isOnline,
             unreadCount,
+            isFavorite: contact.isFavorite || false,
           };
         })
       );
@@ -357,6 +359,53 @@ class ContactsController {
       res.status(500).json({
         success: false,
         message: 'Internal server error',
+      });
+    }
+  }
+
+  // Toggle favorite status for a contact
+  async toggleFavorite(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { contactEmail } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!contactEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Contact email is required',
+        });
+      }
+
+      const contact = await contactsService.toggleFavorite(userEmail, contactEmail);
+
+      res.status(200).json({
+        success: true,
+        message: contact.isFavorite ? 'Contact marked as favorite' : 'Contact removed from favorites',
+        contact: {
+          email: contact.contactEmail,
+          isFavorite: contact.isFavorite,
+        },
+      });
+    } catch (error) {
+      console.error('Error in toggleFavorite:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
       });
     }
   }
