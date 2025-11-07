@@ -1,5 +1,6 @@
 import { API_CONFIG } from '../constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { showToastFromResponse } from '../utils/toast';
 
 class ProfileService {
   async getProfile() {
@@ -20,13 +21,22 @@ class ProfileService {
       });
 
       const data = await response.json();
+      // Don't show toast for getProfile (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Failed to Load Profile',
+          showSuccess: false,
+        });
+      }
       return data;
     } catch (error) {
       console.error('Error getting profile:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -52,13 +62,19 @@ class ProfileService {
       });
 
       const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Profile Updated',
+        errorTitle: 'Failed to Update Profile',
+      });
       return data;
     } catch (error) {
       console.error('Error updating profile:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 }

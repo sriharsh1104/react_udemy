@@ -77,9 +77,10 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false }) => {
 
     if (result.success) {
       // Directly navigate to chat section on success
+      // Toast already shown by profileService
       onBack();
     } else {
-      Alert.alert('Error', result.message || 'Failed to update profile');
+      // Toast already shown by profileService
       setSaving(false);
     }
   };

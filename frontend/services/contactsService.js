@@ -1,5 +1,6 @@
 import { API_CONFIG } from '../constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { showToastFromResponse } from '../utils/toast';
 
 class ContactsService {
   async searchUsers(query) {
@@ -20,13 +21,22 @@ class ContactsService {
       });
 
       const data = await response.json();
+      // Don't show toast for search (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Search Failed',
+          showSuccess: false,
+        });
+      }
       return data;
     } catch (error) {
       console.error('Error searching users:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -48,13 +58,22 @@ class ContactsService {
       });
 
       const data = await response.json();
+      // Don't show toast for checkUserExists (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Check Failed',
+          showSuccess: false,
+        });
+      }
       return data;
     } catch (error) {
       console.error('Error checking user:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -76,13 +95,22 @@ class ContactsService {
       });
 
       const data = await response.json();
+      // Don't show toast for getContacts (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Failed to Load Contacts',
+          showSuccess: false,
+        });
+      }
       return data;
     } catch (error) {
       console.error('Error getting contacts:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -108,13 +136,19 @@ class ContactsService {
       });
 
       const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Contact Added',
+        errorTitle: 'Failed to Add Contact',
+      });
       return data;
     } catch (error) {
       console.error('Error adding contact:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -140,13 +174,19 @@ class ContactsService {
       });
 
       const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Contact Removed',
+        errorTitle: 'Failed to Remove Contact',
+      });
       return data;
     } catch (error) {
       console.error('Error removing contact:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -172,13 +212,22 @@ class ContactsService {
       });
 
       const data = await response.json();
+      // Don't show toast for markMessagesAsRead (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Failed to Mark as Read',
+          showSuccess: false,
+        });
+      }
       return data;
     } catch (error) {
       console.error('Error marking messages as read:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -200,13 +249,22 @@ class ContactsService {
       });
 
       const data = await response.json();
+      // Don't show toast for checkPhoneRegistered (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Check Failed',
+          showSuccess: false,
+        });
+      }
       return data;
     } catch (error) {
       console.error('Error checking phone:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -232,13 +290,22 @@ class ContactsService {
       });
 
       const data = await response.json();
+      // Don't show toast for checkPhonesBatch (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Check Failed',
+          showSuccess: false,
+        });
+      }
       return data;
     } catch (error) {
       console.error('Error checking phones batch:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -260,13 +327,22 @@ class ContactsService {
       });
 
       const data = await response.json();
+      // Don't show toast for getInviteLink (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Failed to Get Invite Link',
+          showSuccess: false,
+        });
+      }
       return data;
     } catch (error) {
       console.error('Error getting invite link:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 }

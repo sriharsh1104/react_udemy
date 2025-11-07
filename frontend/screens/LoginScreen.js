@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
 import authService from '../services/authService';
@@ -53,11 +54,9 @@ const LoginScreen = ({ onLogin }) => {
 
     if (result.success) {
       setStep('otp');
-      Alert.alert('OTP Sent', isEmailInput 
-        ? 'Please check your email for the OTP code'
-        : 'Please check your phone for the OTP code (check console for development)');
+      // Toast already shown by authService
     } else {
-      Alert.alert('Error', result.message || 'Failed to send OTP');
+      // Toast already shown by authService
     }
     setLoading(false);
   };
@@ -87,7 +86,7 @@ const LoginScreen = ({ onLogin }) => {
       // Directly login to chat section without alert
       onLogin(result.email, result.token, profileWithComplete, result.isProfileComplete);
     } else {
-      Alert.alert('Error', result.message || 'Invalid OTP. Please try again.');
+      // Toast already shown by authService
       setLoading(false);
     }
   };

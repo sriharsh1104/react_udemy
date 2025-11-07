@@ -1,4 +1,5 @@
 import { API_CONFIG } from '../constants';
+import { showToastFromResponse } from '../utils/toast';
 
 class AuthService {
   async sendOTP(email, phone) {
@@ -12,13 +13,19 @@ class AuthService {
       });
 
       const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'OTP Sent',
+        errorTitle: 'Failed to Send OTP',
+      });
       return data;
     } catch (error) {
       console.error('Error sending OTP:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -33,13 +40,23 @@ class AuthService {
       });
 
       const data = await response.json();
+      // Don't show toast for verify OTP success (handled in LoginScreen)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          successTitle: 'Login Successful',
+          errorTitle: 'Invalid OTP',
+          showSuccess: false,
+        });
+      }
       return data;
     } catch (error) {
       console.error('Error verifying OTP:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 
@@ -55,13 +72,19 @@ class AuthService {
       });
 
       const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Logged Out',
+        errorTitle: 'Logout Failed',
+      });
       return data;
     } catch (error) {
       console.error('Error logging out:', error);
-      return {
+      const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
       };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
     }
   }
 }

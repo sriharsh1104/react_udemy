@@ -30,6 +30,7 @@ class ProfileController {
         const isComplete = await userProfileService.isProfileComplete(email);
         return res.status(200).json({
           success: true,
+          message: 'Profile retrieved successfully',
           profile: { ...newProfile, isProfileComplete: isComplete },
         });
       }
@@ -37,6 +38,7 @@ class ProfileController {
       const isComplete = await userProfileService.isProfileComplete(email);
       res.status(200).json({
         success: true,
+        message: 'Profile retrieved successfully',
         profile: { ...profile, isProfileComplete: isComplete },
       });
     } catch (error) {
@@ -91,24 +93,36 @@ class ProfileController {
         }
       }
 
-      const profile = await userProfileService.createOrUpdateProfile(email, {
-        name,
-        age: age ? parseInt(age) : null,
-        phoneNumbers: phoneNumbers || [],
-      });
+      try {
+        const profile = await userProfileService.createOrUpdateProfile(email, {
+          name,
+          age: age ? parseInt(age) : null,
+          phoneNumbers: phoneNumbers || [],
+        });
 
-      const isComplete = await userProfileService.isProfileComplete(email);
+        const isComplete = await userProfileService.isProfileComplete(email);
 
-      res.status(200).json({
-        success: true,
-        message: 'Profile updated successfully',
-        profile: { ...profile, isProfileComplete: isComplete },
-      });
+        res.status(200).json({
+          success: true,
+          message: 'Profile updated successfully',
+          profile: { ...profile, isProfileComplete: isComplete },
+        });
+      } catch (profileError) {
+        // Handle validation errors from userProfileService
+        if (profileError.message.includes('Duplicate phone numbers') || 
+            profileError.message.includes('already registered')) {
+          return res.status(400).json({
+            success: false,
+            message: profileError.message,
+          });
+        }
+        throw profileError; // Re-throw if it's a different error
+      }
     } catch (error) {
       console.error('Error in updateProfile:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error',
+        message: error.message || 'Internal server error',
       });
     }
   }

@@ -13,6 +13,7 @@ import {
   Linking,
   Share,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import * as Contacts from 'expo-contacts';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import contactsService from '../../services/contactsService';
@@ -135,6 +136,8 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [selectedPhone, setSelectedPhone] = useState(null);
   const [activeTab, setActiveTab] = useState('app'); // 'app' or 'phone'
+  const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [addContactEmail, setAddContactEmail] = useState('');
 
   useEffect(() => {
     if (visible) {
@@ -146,10 +149,11 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
   }, [visible, activeTab]);
 
   useEffect(() => {
-    if (searchQuery.trim().length >= 2) {
+    // Only search when complete email is entered (privacy: no partial search)
+    if (searchQuery.trim().includes('@') && searchQuery.trim().length >= 5) {
       const timeoutId = setTimeout(() => {
         searchUsers();
-      }, 300);
+      }, 500);
       return () => clearTimeout(timeoutId);
     } else {
       setSearchResults([]);
@@ -258,6 +262,36 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
     }
   };
 
+  const handleAddContact = async (email) => {
+    if (!email || !email.includes('@')) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Email',
+        text2: 'Please enter a valid email address',
+        position: 'top',
+      });
+      return;
+    }
+
+    // Check if user exists
+    const checkResult = await contactsService.checkUserExists(email);
+    
+    if (checkResult.success && checkResult.exists) {
+      // Add to contacts - toast will be shown by contactsService
+      const addResult = await contactsService.addContact(email);
+      if (addResult.success) {
+        await loadContacts();
+      }
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'User Not Found',
+        text2: checkResult.message || 'This user does not exist on the platform',
+        position: 'top',
+      });
+    }
+  };
+
   const handleSelectUser = async (user) => {
     if (user.exists) {
       // User exists - start chat
@@ -272,6 +306,23 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
       // User doesn't exist - show invite modal
       setSelectedEmail(user.email);
       setShowInviteModal(true);
+    }
+  };
+
+  const handleAddContactFromSearch = async (user) => {
+    if (user.exists) {
+      // Toast will be shown by contactsService
+      const addResult = await contactsService.addContact(user.email);
+      if (addResult.success) {
+        await loadContacts();
+      }
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'User Not Found',
+        text2: 'This user does not exist on the platform',
+        position: 'top',
+      });
     }
   };
 
@@ -292,12 +343,22 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
         </View>
       </View>
       {item.exists ? (
-        <TouchableOpacity
-          style={styles.chatButton}
-          onPress={() => handleSelectUser(item)}
-        >
-          <Text style={styles.chatButtonText}>💬</Text>
-        </TouchableOpacity>
+        <View style={styles.actionButtonsRow}>
+          {!item.isContact && (
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => handleAddContactFromSearch(item)}
+            >
+              <Text style={styles.addButtonText}>➕</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.chatButton}
+            onPress={() => handleSelectUser(item)}
+          >
+            <Text style={styles.chatButtonText}>💬</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <TouchableOpacity
           style={styles.inviteButton}
@@ -347,9 +408,17 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
           <View style={styles.sidebar}>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Contacts</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
+              <View style={styles.headerButtons}>
+                <TouchableOpacity
+                  style={styles.addContactButton}
+                  onPress={() => setShowAddContactModal(true)}
+                >
+                  <Text style={styles.addContactButtonText}>➕ Add</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.tabContainer}>
@@ -377,26 +446,25 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
             </View>
 
             {activeTab === 'app' && (
-              <View style={styles.searchContainer}>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search by email..."
-                placeholderTextColor={COLORS.textSecondary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
-
-            {loading && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={COLORS.primary} />
-              </View>
-            )}
-
-            {activeTab === 'app' && (
               <>
+                        <View style={styles.searchContainer}>
+                          <TextInput
+                            style={styles.searchInput}
+                            placeholder="Enter complete email address..."
+                            placeholderTextColor={COLORS.textSecondary}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                          />
+                        </View>
+
+                {loading && (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                  </View>
+                )}
+
                 {searchQuery.trim().length >= 2 ? (
                   <FlatList
                     data={searchResults}
@@ -508,6 +576,57 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
         }}
         email={selectedEmail}
       />
+
+      {/* Add Contact Modal */}
+      <Modal
+        transparent={true}
+        visible={showAddContactModal}
+        animationType="slide"
+        onRequestClose={() => setShowAddContactModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.addContactModal}>
+            <Text style={styles.modalTitle}>Add Contact</Text>
+            <Text style={styles.modalSubtitle}>
+              Enter email address to add contact
+            </Text>
+            
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter email address"
+              placeholderTextColor={COLORS.textSecondary}
+              value={addContactEmail}
+              onChangeText={setAddContactEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoFocus={true}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowAddContactModal(false);
+                  setAddContactEmail('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.addButtonModal]}
+                onPress={async () => {
+                  await handleAddContact(addContactEmail);
+                  setShowAddContactModal(false);
+                  setAddContactEmail('');
+                }}
+              >
+                <Text style={styles.addButtonTextModal}>Add Contact</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
@@ -545,6 +664,22 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.text,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  addContactButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  addContactButtonText: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   closeButton: {
     width: 32,
@@ -707,6 +842,22 @@ const styles = StyleSheet.create({
   inviteButtonText: {
     fontSize: 20,
   },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    alignItems: 'center',
+  },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    fontSize: 20,
+  },
   onlineIndicator: {
     fontSize: 12,
     color: COLORS.online,
@@ -782,6 +933,62 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
     color: COLORS.white,
+  },
+  addContactModal: {
+    backgroundColor: COLORS.receivedMessage,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    width: '85%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  modalSubtitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+  },
+  modalInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    justifyContent: 'flex-end',
+  },
+  modalButton: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: COLORS.divider,
+  },
+  cancelButtonText: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  addButtonModal: {
+    backgroundColor: COLORS.primary,
+  },
+  addButtonTextModal: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });
 

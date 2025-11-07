@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import Toast from 'react-native-toast-message';
 import ChatScreen from './screens/ChatScreen';
 import LoginScreen from './screens/LoginScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -200,6 +201,7 @@ export default function App() {
         />
         
         <StatusBar style="light" />
+        <Toast />
       </View>
     </NavigationContainer>
   );

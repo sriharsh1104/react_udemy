@@ -41,6 +41,7 @@ class ContactsController {
         const profile = await userProfileService.getProfileByEmail(email);
         return res.status(200).json({
           success: true,
+          message: 'User is registered on the platform',
           registered: true,
           email,
           name: profile?.name || email.split('@')[0],
@@ -49,6 +50,7 @@ class ContactsController {
 
       return res.status(200).json({
         success: true,
+        message: 'User is not registered on the platform',
         registered: false,
       });
     } catch (error) {
@@ -112,6 +114,7 @@ class ContactsController {
 
       return res.status(200).json({
         success: true,
+        message: `Checked ${phones.length} phone number(s)`,
         results,
       });
     } catch (error) {
@@ -123,7 +126,7 @@ class ContactsController {
     }
   }
 
-  // Search users by email
+  // Search users by email (PRIVACY: Only exact email match, no partial search)
   async searchUsers(req, res) {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
@@ -144,49 +147,54 @@ class ContactsController {
         });
       }
 
-      if (!query || query.trim().length < 2) {
+      if (!query || query.trim().length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'Search query must be at least 2 characters',
+          message: 'Search query is required',
         });
       }
 
-      const searchQuery = query.toLowerCase().trim();
-      const results = [];
+      const searchQuery = query.trim().toLowerCase();
 
-      // Get all profiles from MongoDB
-      const allProfiles = await userProfileService.getAllProfiles();
-
-      // Search in all user profiles
-      for (const profile of allProfiles) {
-        const email = profile.email;
-        // Skip current user
-        if (email === userEmail) continue;
-
-        // Check if email matches
-        if (email.toLowerCase().includes(searchQuery)) {
-          const isContact = await contactsService.hasContact(userEmail, email);
-          results.push({
-            email,
-            name: profile.name || email.split('@')[0],
-            exists: true,
-            isContact,
-          });
-        } else if (profile.name && profile.name.toLowerCase().includes(searchQuery)) {
-          // Check if name matches
-          const isContact = await contactsService.hasContact(userEmail, email);
-          results.push({
-            email,
-            name: profile.name,
-            exists: true,
-            isContact,
-          });
-        }
+      // PRIVACY: Only allow exact email match (no partial search to protect user privacy)
+      // Check if it's a valid email format
+      if (!searchQuery.includes('@')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please enter a complete email address',
+        });
       }
 
+      // Only check exact email match (case-insensitive)
+      const profile = await userProfileService.getProfileByEmail(searchQuery);
+      
+      if (!profile) {
+        return res.status(200).json({
+          success: true,
+          message: 'User not found',
+          results: [],
+        });
+      }
+
+      // Skip if searching for self
+      if (profile.email.toLowerCase() === userEmail.toLowerCase()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot search for yourself',
+        });
+      }
+
+      const isContact = await contactsService.hasContact(userEmail, profile.email);
+      
       res.status(200).json({
         success: true,
-        results,
+        message: 'User found',
+        results: [{
+          email: profile.email,
+          name: profile.name || profile.email.split('@')[0],
+          exists: true,
+          isContact,
+        }],
       });
     } catch (error) {
       console.error('Error in searchUsers:', error);
@@ -230,6 +238,7 @@ class ContactsController {
 
       res.status(200).json({
         success: true,
+        message: exists ? 'User exists on the platform' : 'User does not exist on the platform',
         exists,
         user: exists ? {
           email,
@@ -340,6 +349,7 @@ class ContactsController {
 
       res.status(200).json({
         success: true,
+        message: `Found ${contacts.length} contact(s)`,
         contacts,
       });
     } catch (error) {

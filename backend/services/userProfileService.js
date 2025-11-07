@@ -17,7 +17,30 @@ class UserProfileService {
         updateData.age = profileData.age || null;
       }
       if (profileData.phoneNumbers !== undefined) {
-        updateData.phoneNumbers = profileData.phoneNumbers || [];
+        // Normalize phone numbers (remove spaces, +, etc.)
+        const normalizedPhones = profileData.phoneNumbers
+          .filter(p => p && p.trim())
+          .map(p => p.replace(/[\s\+\-\(\)]/g, '').trim());
+        
+        // Check for duplicates within same user's phone numbers
+        const uniquePhones = [...new Set(normalizedPhones)];
+        if (uniquePhones.length !== normalizedPhones.length) {
+          throw new Error('Duplicate phone numbers are not allowed in your profile');
+        }
+        
+        // Check if any phone number is already used by another user
+        for (const phone of uniquePhones) {
+          const existingUser = await User.findOne({
+            phoneNumbers: phone,
+            email: { $ne: email }, // Exclude current user
+          });
+          
+          if (existingUser) {
+            throw new Error(`Phone number ${phone} is already registered with another user`);
+          }
+        }
+        
+        updateData.phoneNumbers = uniquePhones;
       }
       
       const profile = await User.findOneAndUpdate(
@@ -68,7 +91,9 @@ class UserProfileService {
   // Get email by phone number
   async getEmailByPhone(phone) {
     try {
-      const user = await User.findOne({ phoneNumbers: phone.trim() });
+      // Normalize phone number for search
+      const normalizedPhone = phone.replace(/[\s\+\-\(\)]/g, '').trim();
+      const user = await User.findOne({ phoneNumbers: normalizedPhone });
       return user ? user.email : null;
     } catch (error) {
       console.error('Error getting email by phone:', error);
