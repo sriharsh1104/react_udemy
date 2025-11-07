@@ -154,13 +154,8 @@ class SocketService {
       console.log(`⏳ Message PENDING (offline): ${contactEmail} is offline. Message stored in MongoDB, will be delivered when they come online.`);
     }
     
-    // Always send to sender for immediate feedback
-    const messagePayload = {
-      ...messageData,
-      roomId,
-      contactEmail: contactEmail,
-    };
-    socket.emit('privateMessage', messagePayload);
+    // Don't send message back to sender - they already have it via optimistic UI update
+    // Only send to receiver (contact) if they are online
 
     console.log(`Message from ${senderEmail} to ${contactEmail} in room ${roomId}: ${message}`);
   }

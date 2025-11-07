@@ -143,10 +143,10 @@ export default function App() {
   };
 
   if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <StatusBar style="light" />
-      </View>
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+    </View>
     );
   }
 

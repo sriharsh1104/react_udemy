@@ -38,24 +38,21 @@ export const useChat = (userEmail, contactEmail) => {
     const handlePrivateMessage = (data) => {
       console.log('Received private message:', data, 'Current contact:', contactEmail, 'User:', userEmail);
       
-      // Check if message is for current chat
-      // Message is for this chat if:
-      // 1. Sender is the contact (they sent to us)
-      // 2. OR we sent it (sender is us and contactEmail matches)
-      const isForCurrentChat = 
-        (data.senderEmail === contactEmail && data.senderEmail !== userEmail) ||
-        (data.senderEmail === userEmail && data.contactEmail === contactEmail);
+      // Only handle messages from the contact (not from ourselves)
+      // We already have our own messages via optimistic UI update
+      const isFromContact = data.senderEmail === contactEmail && data.senderEmail !== userEmail;
       
-      if (isForCurrentChat) {
+      if (isFromContact) {
         // Check if message already exists (prevent duplicates)
         setMessages((prev) => {
           const messageExists = prev.some(
             msg => msg.message === data.message && 
                    msg.senderEmail === data.senderEmail && 
-                   msg.timestamp === data.timestamp
+                   Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 1000 // Within 1 second
           );
           
           if (messageExists) {
+            console.log('Duplicate message ignored:', data.message);
             return prev;
           }
           
@@ -63,7 +60,7 @@ export const useChat = (userEmail, contactEmail) => {
             senderEmail: data.senderEmail,
             message: data.message,
             timestamp: data.timestamp,
-            isSent: data.senderEmail === userEmail,
+            isSent: false, // Always false since this is from contact
           }];
         });
       }
@@ -87,9 +84,9 @@ export const useChat = (userEmail, contactEmail) => {
     const handleTyping = (data) => {
       // Only show typing if it's from the current contact
       if (data.senderEmail === contactEmail) {
-        if (data.isTyping) {
+      if (data.isTyping) {
           setTypingUser(data.senderEmail);
-        } else {
+      } else {
           setTypingUser(null);
         }
       }
