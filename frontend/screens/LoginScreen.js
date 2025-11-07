@@ -9,6 +9,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   ActivityIndicator,
+  SafeAreaView,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -200,12 +203,22 @@ const LoginScreen = ({ onLogin }) => {
     setLoading(false);
   };
 
+  const screenHeight = Dimensions.get('window').height;
+  const isSmallScreen = screenHeight < 700;
+
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.content}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, isSmallScreen && styles.smallScreenContent]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
         <View style={styles.iconContainer}>
           <View style={[styles.icon, { backgroundColor: colors.primary, shadowColor: colors.shadow }]}>
             <Text style={styles.iconText}>📧</Text>
@@ -459,19 +472,32 @@ const LoginScreen = ({ onLogin }) => {
             </TouchableOpacity>
           </>
         ) : null}
-      </View>
-    </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    paddingVertical: SPACING.xl,
+  },
+  smallScreenContent: {
+    paddingVertical: SPACING.md,
   },
   content: {
     paddingHorizontal: SPACING.xl,
     alignItems: 'center',
+    minHeight: Dimensions.get('window').height * 0.7,
   },
   iconContainer: {
     marginBottom: SPACING.xl,

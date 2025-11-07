@@ -11,6 +11,7 @@ import {
   Switch,
   Share,
   Linking,
+  SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -166,9 +167,10 @@ const SettingsScreen = ({ navigation, onBack }) => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
-      <View style={[styles.header, { backgroundColor: colors.headerBackground, shadowColor: colors.shadow }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.headerBackground, shadowColor: colors.shadow }]}>
         <TouchableOpacity onPress={onBack || (() => navigation.goBack())} style={styles.backButton}>
           <Text style={[styles.backButtonText, { color: colors.headerText }]}>←</Text>
         </TouchableOpacity>
@@ -425,11 +427,15 @@ const SettingsScreen = ({ navigation, onBack }) => {
           </View>
         </View>
       </ScrollView>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
