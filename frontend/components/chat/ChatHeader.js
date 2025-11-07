@@ -53,7 +53,7 @@ const ProfileDropdown = ({ onProfilePress, onLogoutPress, onClose }) => {
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onLogoutPress }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onLogoutPress, onSidebarPress }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
@@ -61,6 +61,12 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onLogoutPress }
       <StatusBar barStyle="light-content" backgroundColor={COLORS.headerBackground} />
       <View style={styles.container}>
         <View style={styles.content}>
+          <TouchableOpacity 
+            onPress={onSidebarPress}
+            style={styles.sidebarButton}
+          >
+            <Text style={styles.sidebarButtonText}>☰</Text>
+          </TouchableOpacity>
           <View style={styles.userInfo}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
@@ -166,6 +172,19 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textSecondary,
     textTransform: 'lowercase',
+  },
+  sidebarButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  sidebarButtonText: {
+    fontSize: 20,
+    color: COLORS.white,
   },
   profileButton: {
     width: 40,

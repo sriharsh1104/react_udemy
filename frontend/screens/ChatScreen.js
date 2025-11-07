@@ -16,8 +16,9 @@ import ChatHeader from '../components/chat/ChatHeader';
 import MessageItem from '../components/chat/MessageItem';
 import MessageInput from '../components/chat/MessageInput';
 import TypingIndicator from '../components/chat/TypingIndicator';
+import Sidebar from '../components/chat/Sidebar';
 
-const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress }) => {
+const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, navigation }) => {
   // Extract username from email (part before @)
   const getUsernameFromEmail = (email) => {
     if (!email) return '';
@@ -26,6 +27,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress }) => {
 
   const [username, setUsername] = useState('');
   const [inputMessage, setInputMessage] = useState('');
+  const [showSidebar, setShowSidebar] = useState(false);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket();
@@ -64,6 +66,13 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress }) => {
   const handleTyping = (text) => {
     setInputMessage(text);
     sendTyping(text.length > 0);
+  };
+
+  const handleSelectContact = (contactEmail) => {
+    // For now, we'll just show an alert
+    // In future, this can navigate to a specific chat screen
+    console.log('Selected contact:', contactEmail);
+    // You can implement navigation to individual chat here
   };
 
   const renderMessage = ({ item, index }) => {
@@ -105,6 +114,13 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress }) => {
         isOnline={isConnected} 
         onProfilePress={onProfilePress}
         onLogoutPress={onLogoutPress}
+        onSidebarPress={() => setShowSidebar(true)}
+      />
+      
+      <Sidebar
+        visible={showSidebar}
+        onClose={() => setShowSidebar(false)}
+        onSelectContact={handleSelectContact}
       />
       
       <View style={styles.chatBackground}>

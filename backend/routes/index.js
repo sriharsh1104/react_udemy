@@ -1,6 +1,7 @@
 const healthController = require('../controllers/healthController');
 const authController = require('../controllers/authController');
 const profileController = require('../controllers/profileController');
+const contactsController = require('../controllers/contactsController');
 
 const router = require('express').Router();
 
@@ -31,6 +32,14 @@ router.post('/profile', asyncHandler(async (req, res) => {
   await profileController.updateProfile(req, res);
 }));
 
+// Contacts routes
+router.get('/contacts/search', asyncHandler(contactsController.searchUsers.bind(contactsController)));
+router.get('/contacts/check', asyncHandler(contactsController.checkUserExists.bind(contactsController)));
+router.get('/contacts', asyncHandler(contactsController.getContacts.bind(contactsController)));
+router.post('/contacts', asyncHandler(contactsController.addContact.bind(contactsController)));
+router.delete('/contacts', asyncHandler(contactsController.removeContact.bind(contactsController)));
+router.get('/contacts/invite-link', asyncHandler(contactsController.generateInviteLink.bind(contactsController)));
+
 console.log('Routes registered:');
 console.log('  POST /api/auth/send-otp');
 console.log('  POST /api/auth/verify-otp');
@@ -38,6 +47,12 @@ console.log('  POST /api/auth/logout');
 console.log('  GET /api/profile');
 console.log('  PUT /api/profile');
 console.log('  POST /api/profile');
+console.log('  GET /api/contacts/search');
+console.log('  GET /api/contacts/check');
+console.log('  GET /api/contacts');
+console.log('  POST /api/contacts');
+console.log('  DELETE /api/contacts');
+console.log('  GET /api/contacts/invite-link');
 
 module.exports = router;
 
