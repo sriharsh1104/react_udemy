@@ -2,12 +2,16 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const config = require('./config');
+const connectDB = require('./config/database');
 const routes = require('./routes');
 const SocketService = require('./services/socketService');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const app = express();
 const server = http.createServer(app);
+
+// Connect to MongoDB
+connectDB();
 
 // Middleware
 app.use(cors());

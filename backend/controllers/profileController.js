@@ -14,7 +14,7 @@ class ProfileController {
         });
       }
 
-      const email = userService.getUserByToken(token);
+      const email = await userService.getUserByToken(token);
       if (!email) {
         return res.status(401).json({
           success: false,
@@ -22,28 +22,30 @@ class ProfileController {
         });
       }
 
-      const profile = userProfileService.getProfileByEmail(email);
+      const profile = await userProfileService.getProfileByEmail(email);
       
       if (!profile) {
         // Create default profile if doesn't exist
-        const newProfile = userProfileService.createOrUpdateProfile(email, {});
-        const isComplete = userProfileService.isProfileComplete(email);
+        const newProfile = await userProfileService.createOrUpdateProfile(email, {});
+        const isComplete = await userProfileService.isProfileComplete(email);
         return res.status(200).json({
           success: true,
           profile: { ...newProfile, isProfileComplete: isComplete },
         });
       }
 
-      const isComplete = userProfileService.isProfileComplete(email);
+      const isComplete = await userProfileService.isProfileComplete(email);
       res.status(200).json({
         success: true,
         profile: { ...profile, isProfileComplete: isComplete },
       });
     } catch (error) {
       console.error('Error in getProfile:', error);
+      console.error('Error stack:', error.stack);
       res.status(500).json({
         success: false,
         message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
   }
@@ -61,7 +63,7 @@ class ProfileController {
         });
       }
 
-      const email = userService.getUserByToken(token);
+      const email = await userService.getUserByToken(token);
       if (!email) {
         return res.status(401).json({
           success: false,
@@ -89,13 +91,13 @@ class ProfileController {
         }
       }
 
-      const profile = userProfileService.createOrUpdateProfile(email, {
+      const profile = await userProfileService.createOrUpdateProfile(email, {
         name,
         age: age ? parseInt(age) : null,
         phoneNumbers: phoneNumbers || [],
       });
 
-      const isComplete = userProfileService.isProfileComplete(email);
+      const isComplete = await userProfileService.isProfileComplete(email);
 
       res.status(200).json({
         success: true,

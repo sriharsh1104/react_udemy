@@ -1,88 +1,137 @@
-// User Profile Service - stores user profiles
+const User = require('../models/User');
+
 class UserProfileService {
-  constructor() {
-    // email -> user profile
-    this.profiles = new Map();
-    // phone -> email mapping for login
-    this.phoneToEmail = new Map();
-  }
-
   // Create or update user profile
-  createOrUpdateProfile(email, profileData) {
-    const existingProfile = this.profiles.get(email) || {};
-    
-    const profile = {
-      email,
-      name: profileData.name || existingProfile.name || '',
-      age: profileData.age || existingProfile.age || null,
-      phoneNumbers: profileData.phoneNumbers || existingProfile.phoneNumbers || [],
-      createdAt: existingProfile.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.profiles.set(email, profile);
-
-    // Update phone number mappings
-    if (profile.phoneNumbers && profile.phoneNumbers.length > 0) {
-      profile.phoneNumbers.forEach(phone => {
-        if (phone && phone.trim()) {
-          this.phoneToEmail.set(phone.trim(), email);
+  async createOrUpdateProfile(email, profileData) {
+    try {
+      const updateData = {
+        email,
+        updatedAt: new Date(),
+      };
+      
+      // Only update fields that are provided
+      if (profileData.name !== undefined) {
+        updateData.name = profileData.name || '';
+      }
+      if (profileData.age !== undefined) {
+        updateData.age = profileData.age || null;
+      }
+      if (profileData.phoneNumbers !== undefined) {
+        updateData.phoneNumbers = profileData.phoneNumbers || [];
+      }
+      
+      const profile = await User.findOneAndUpdate(
+        { email },
+        updateData,
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true,
         }
-      });
+      );
+      
+      if (!profile) {
+        throw new Error('Failed to create/update profile');
+      }
+      
+      return profile.toObject();
+    } catch (error) {
+      console.error('Error creating/updating profile:', error);
+      throw error;
     }
-
-    return profile;
   }
 
   // Get user profile by email
-  getProfileByEmail(email) {
-    return this.profiles.get(email) || null;
+  async getProfileByEmail(email) {
+    try {
+      if (!email) {
+        console.error('getProfileByEmail: email is required');
+        return null;
+      }
+      
+      // Check if mongoose is connected
+      const mongoose = require('mongoose');
+      if (mongoose.connection.readyState !== 1) {
+        console.error('MongoDB not connected. ReadyState:', mongoose.connection.readyState);
+        throw new Error('Database connection not available');
+      }
+      
+      const profile = await User.findOne({ email });
+      return profile ? profile.toObject() : null;
+    } catch (error) {
+      console.error('Error getting profile:', error);
+      console.error('Error details:', error.message);
+      throw error; // Re-throw to let controller handle it
+    }
   }
 
   // Get email by phone number
-  getEmailByPhone(phone) {
-    return this.phoneToEmail.get(phone) || null;
+  async getEmailByPhone(phone) {
+    try {
+      const user = await User.findOne({ phoneNumbers: phone.trim() });
+      return user ? user.email : null;
+    } catch (error) {
+      console.error('Error getting email by phone:', error);
+      return null;
+    }
   }
 
   // Check if identifier (email or phone) exists
-  findUserByIdentifier(identifier) {
-    // Check if it's an email
-    if (identifier.includes('@')) {
-      return {
-        type: 'email',
-        email: identifier,
-        profile: this.getProfileByEmail(identifier),
-      };
-    }
-    
-    // Check if it's a phone number
-    const email = this.getEmailByPhone(identifier);
-    if (email) {
-      return {
-        type: 'phone',
-        email,
-        phone: identifier,
-        profile: this.getProfileByEmail(email),
-      };
-    }
+  async findUserByIdentifier(identifier) {
+    try {
+      // Check if it's an email
+      if (identifier.includes('@')) {
+        const profile = await this.getProfileByEmail(identifier);
+        return {
+          type: 'email',
+          email: identifier,
+          profile,
+        };
+      }
+      
+      // Check if it's a phone number
+      const email = await this.getEmailByPhone(identifier);
+      if (email) {
+        const profile = await this.getProfileByEmail(email);
+        return {
+          type: 'phone',
+          email,
+          phone: identifier,
+          profile,
+        };
+      }
 
-    return null;
+      return null;
+    } catch (error) {
+      console.error('Error finding user by identifier:', error);
+      return null;
+    }
   }
 
   // Check if profile is complete (has name and at least one phone number)
-  isProfileComplete(email) {
-    const profile = this.getProfileByEmail(email);
-    if (!profile) return false;
-    
-    return !!(profile.name && profile.name.trim() && 
-              profile.phoneNumbers && profile.phoneNumbers.length > 0);
+  async isProfileComplete(email) {
+    try {
+      const profile = await this.getProfileByEmail(email);
+      if (!profile) return false;
+      
+      return !!(profile.name && profile.name.trim() && 
+                profile.phoneNumbers && profile.phoneNumbers.length > 0);
+    } catch (error) {
+      console.error('Error checking profile completeness:', error);
+      return false;
+    }
   }
 
   // Get all profiles (for debugging)
-  getAllProfiles() {
-    return Array.from(this.profiles.values());
+  async getAllProfiles() {
+    try {
+      const profiles = await User.find({});
+      return profiles.map(p => p.toObject());
+    } catch (error) {
+      console.error('Error getting all profiles:', error);
+      return [];
+    }
   }
 }
 
 module.exports = new UserProfileService();
-

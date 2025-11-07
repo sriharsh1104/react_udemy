@@ -16,7 +16,7 @@ class ContactsController {
         });
       }
 
-      const userEmail = userService.getUserByToken(token);
+      const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
         return res.status(401).json({
           success: false,
@@ -34,8 +34,8 @@ class ContactsController {
       const searchQuery = query.toLowerCase().trim();
       const results = [];
 
-      // Get all profiles
-      const allProfiles = userProfileService.getAllProfiles();
+      // Get all profiles from MongoDB
+      const allProfiles = await userProfileService.getAllProfiles();
 
       // Search in all user profiles
       for (const profile of allProfiles) {
@@ -45,19 +45,21 @@ class ContactsController {
 
         // Check if email matches
         if (email.toLowerCase().includes(searchQuery)) {
+          const isContact = await contactsService.hasContact(userEmail, email);
           results.push({
             email,
             name: profile.name || email.split('@')[0],
             exists: true,
-            isContact: contactsService.hasContact(userEmail, email),
+            isContact,
           });
         } else if (profile.name && profile.name.toLowerCase().includes(searchQuery)) {
           // Check if name matches
+          const isContact = await contactsService.hasContact(userEmail, email);
           results.push({
             email,
             name: profile.name,
             exists: true,
-            isContact: contactsService.hasContact(userEmail, email),
+            isContact,
           });
         }
       }
@@ -88,7 +90,7 @@ class ContactsController {
         });
       }
 
-      const userEmail = userService.getUserByToken(token);
+      const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
         return res.status(401).json({
           success: false,
@@ -103,7 +105,7 @@ class ContactsController {
         });
       }
 
-      const profile = userProfileService.getProfileByEmail(email);
+      const profile = await userProfileService.getProfileByEmail(email);
       const exists = !!profile;
 
       res.status(200).json({
@@ -136,7 +138,7 @@ class ContactsController {
         });
       }
 
-      const userEmail = userService.getUserByToken(token);
+      const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
         return res.status(401).json({
           success: false,
@@ -158,7 +160,7 @@ class ContactsController {
         });
       }
 
-      const contacts = contactsService.addContact(userEmail, contactEmail);
+      const contacts = await contactsService.addContact(userEmail, contactEmail);
 
       res.status(200).json({
         success: true,
@@ -186,7 +188,7 @@ class ContactsController {
         });
       }
 
-      const userEmail = userService.getUserByToken(token);
+      const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
         return res.status(401).json({
           success: false,
@@ -194,15 +196,17 @@ class ContactsController {
         });
       }
 
-      const contactEmails = contactsService.getContacts(userEmail);
-      const contacts = contactEmails.map(email => {
-        const profile = userProfileService.getProfileByEmail(email);
-        return {
-          email,
-          name: profile?.name || email.split('@')[0],
-          exists: !!profile,
-        };
-      });
+      const contactEmails = await contactsService.getContacts(userEmail);
+      const contacts = await Promise.all(
+        contactEmails.map(async (email) => {
+          const profile = await userProfileService.getProfileByEmail(email);
+          return {
+            email,
+            name: profile?.name || email.split('@')[0],
+            exists: !!profile,
+          };
+        })
+      );
 
       res.status(200).json({
         success: true,
@@ -230,7 +234,7 @@ class ContactsController {
         });
       }
 
-      const userEmail = userService.getUserByToken(token);
+      const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
         return res.status(401).json({
           success: false,
@@ -245,7 +249,7 @@ class ContactsController {
         });
       }
 
-      const contacts = contactsService.removeContact(userEmail, contactEmail);
+      const contacts = await contactsService.removeContact(userEmail, contactEmail);
 
       res.status(200).json({
         success: true,
@@ -273,7 +277,7 @@ class ContactsController {
         });
       }
 
-      const userEmail = userService.getUserByToken(token);
+      const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
         return res.status(401).json({
           success: false,

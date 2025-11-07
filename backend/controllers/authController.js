@@ -75,7 +75,7 @@ class AuthController {
         
         // If phone number, find associated email
         if (!identifier.includes('@')) {
-          const userInfo = userProfileService.findUserByIdentifier(identifier);
+          const userInfo = await userProfileService.findUserByIdentifier(identifier);
           if (userInfo && userInfo.email) {
             userEmail = userInfo.email;
           } else {
@@ -90,12 +90,12 @@ class AuthController {
         // Generate a simple token (in production, use JWT)
         const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        // Store user session
-        userService.addUserSession(userEmail, token);
+        // Store user session in MongoDB
+        await userService.addUserSession(userEmail, token);
 
         // Get user profile (if exists, otherwise null)
-        const profile = userProfileService.getProfileByEmail(userEmail);
-        const isProfileComplete = profile ? userProfileService.isProfileComplete(userEmail) : false;
+        const profile = await userProfileService.getProfileByEmail(userEmail);
+        const isProfileComplete = profile ? await userProfileService.isProfileComplete(userEmail) : false;
 
         res.status(200).json({
           success: true,
@@ -132,8 +132,8 @@ class AuthController {
         });
       }
 
-      // Remove user session
-      userService.removeSession(token);
+      // Remove user session from MongoDB
+      await userService.removeSession(token);
 
       res.status(200).json({
         success: true,

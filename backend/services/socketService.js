@@ -4,8 +4,6 @@ const chatService = require('../services/chatService');
 class SocketService {
   constructor(io) {
     this.io = io;
-    // email -> socketId mapping for private chats
-    this.emailToSocket = new Map();
     this.setupSocketHandlers();
   }
 
@@ -48,13 +46,13 @@ class SocketService {
   handleLogin(socket, data) {
     const { email } = data;
     if (email) {
-      this.emailToSocket.set(email, socket.id);
+      userService.setEmailToSocket(email, socket.id);
       userService.addUser(socket.id, email);
       console.log(`User logged in: ${email} (socket: ${socket.id})`);
     }
   }
 
-  handleJoinChat(socket, data) {
+  async handleJoinChat(socket, data) {
     const { userEmail, contactEmail } = data;
     const currentUserEmail = this.getEmailFromSocket(socket.id);
     
@@ -67,7 +65,7 @@ class SocketService {
     socket.join(roomId);
     
     // Also ensure the contact is in the room if they're online
-    const contactSocketId = this.emailToSocket.get(contactEmail);
+    const contactSocketId = userService.getSocketByEmail(contactEmail);
     if (contactSocketId) {
       const contactSocket = this.io.sockets.sockets.get(contactSocketId);
       if (contactSocket && !contactSocket.rooms.has(roomId)) {
@@ -76,8 +74,8 @@ class SocketService {
       }
     }
     
-    // Send existing messages (PENDING MESSAGES) to the user when they come online
-    const messages = chatService.getMessages(userEmail, contactEmail);
+    // Send existing messages (PENDING MESSAGES) from MongoDB to the user when they come online
+    const messages = await chatService.getMessages(userEmail, contactEmail);
     socket.emit('chatHistory', {
       roomId,
       messages,
@@ -100,7 +98,7 @@ class SocketService {
     }
   }
 
-  handlePrivateMessage(socket, data) {
+  async handlePrivateMessage(socket, data) {
     const { message, contactEmail } = data;
     const senderEmail = this.getEmailFromSocket(socket.id);
     
@@ -109,21 +107,26 @@ class SocketService {
       return;
     }
 
-    // Add message to chat service (STORED PERMANENTLY - will be delivered when user comes online)
+    // Add message to MongoDB (STORED PERMANENTLY - will be delivered when user comes online)
     const messageData = {
       senderEmail,
       message: message.trim(),
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(),
     };
     
-    chatService.addMessage(senderEmail, contactEmail, messageData);
-    console.log(`✅ Message STORED: ${senderEmail} -> ${contactEmail}: "${message.trim()}"`);
+    try {
+      await chatService.addMessage(senderEmail, contactEmail, messageData);
+      console.log(`✅ Message STORED in MongoDB: ${senderEmail} -> ${contactEmail}: "${message.trim()}"`);
+    } catch (error) {
+      console.error('Error storing message:', error);
+      return;
+    }
     
     // Get room ID
     const roomId = chatService.getRoomId(senderEmail, contactEmail);
     
     // Check if contact is online
-    const contactSocketId = this.emailToSocket.get(contactEmail);
+    const contactSocketId = userService.getSocketByEmail(contactEmail);
     const isContactOnline = !!contactSocketId;
     
     if (isContactOnline) {
@@ -147,8 +150,8 @@ class SocketService {
         console.log(`📤 Message DELIVERED (online): ${contactEmail} received message from ${senderEmail}`);
       }
     } else {
-      // Contact is OFFLINE - message is stored, will be delivered when they come online
-      console.log(`⏳ Message PENDING (offline): ${contactEmail} is offline. Message stored, will be delivered when they come online.`);
+      // Contact is OFFLINE - message is stored in MongoDB, will be delivered when they come online
+      console.log(`⏳ Message PENDING (offline): ${contactEmail} is offline. Message stored in MongoDB, will be delivered when they come online.`);
     }
     
     // Always send to sender for immediate feedback
@@ -184,19 +187,15 @@ class SocketService {
     const email = this.getEmailFromSocket(socket.id);
     
     if (email) {
-      this.emailToSocket.delete(email);
+      userService.removeEmailToSocket(email);
       userService.removeUser(socket.id);
       console.log(`User disconnected: ${email} (socket: ${socket.id})`);
     }
   }
 
   getEmailFromSocket(socketId) {
-    for (const [email, sid] of this.emailToSocket.entries()) {
-      if (sid === socketId) {
-        return email;
-      }
-    }
-    return null;
+    const user = userService.getUser(socketId);
+    return user || null;
   }
 }
 

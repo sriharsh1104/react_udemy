@@ -1,72 +1,72 @@
-// Chat Service - manages one-on-one private chats
-class ChatService {
-  constructor() {
-    // roomId -> [messages]
-    this.chatRooms = new Map();
-    // email -> [roomIds]
-    this.userRooms = new Map();
-  }
+const Message = require('../models/Message');
 
+class ChatService {
   // Generate room ID from two emails (sorted to ensure same room for both users)
   getRoomId(email1, email2) {
     const sorted = [email1, email2].sort();
     return `chat_${sorted[0]}_${sorted[1]}`;
   }
 
-  // Join a chat room
+  // Join a chat room (in-memory tracking)
   joinRoom(email1, email2) {
     const roomId = this.getRoomId(email1, email2);
-    
-    // Initialize room if doesn't exist
-    if (!this.chatRooms.has(roomId)) {
-      this.chatRooms.set(roomId, []);
-    }
-
-    // Track user rooms
-    if (!this.userRooms.has(email1)) {
-      this.userRooms.set(email1, []);
-    }
-    if (!this.userRooms.get(email1).includes(roomId)) {
-      this.userRooms.get(email1).push(roomId);
-    }
-
-    if (!this.userRooms.has(email2)) {
-      this.userRooms.set(email2, []);
-    }
-    if (!this.userRooms.get(email2).includes(roomId)) {
-      this.userRooms.get(email2).push(roomId);
-    }
-
+    // Room tracking is handled by socket.io rooms
     return roomId;
   }
 
-  // Add message to a chat room
-  addMessage(email1, email2, messageData) {
-    const roomId = this.getRoomId(email1, email2);
-    
-    if (!this.chatRooms.has(roomId)) {
-      this.chatRooms.set(roomId, []);
+  // Add message to MongoDB
+  async addMessage(email1, email2, messageData) {
+    try {
+      const roomId = this.getRoomId(email1, email2);
+      
+      const message = new Message({
+        roomId,
+        senderEmail: messageData.senderEmail,
+        receiverEmail: email1 === messageData.senderEmail ? email2 : email1,
+        message: messageData.message,
+        timestamp: messageData.timestamp || new Date(),
+      });
+
+      await message.save();
+      
+      return message.toObject();
+    } catch (error) {
+      console.error('Error adding message to DB:', error);
+      throw error;
     }
-
-    const messages = this.chatRooms.get(roomId);
-    messages.push({
-      ...messageData,
-      roomId,
-      timestamp: new Date().toISOString(),
-    });
-
-    return messages;
   }
 
-  // Get messages for a chat room
-  getMessages(email1, email2) {
-    const roomId = this.getRoomId(email1, email2);
-    return this.chatRooms.get(roomId) || [];
+  // Get messages from MongoDB
+  async getMessages(email1, email2) {
+    try {
+      const roomId = this.getRoomId(email1, email2);
+      
+      const messages = await Message.find({ roomId })
+        .sort({ timestamp: 1 })
+        .lean();
+      
+      return messages;
+    } catch (error) {
+      console.error('Error getting messages:', error);
+      return [];
+    }
   }
 
-  // Get all chat rooms for a user
-  getUserRooms(email) {
-    return this.userRooms.get(email) || [];
+  // Get all chat rooms for a user (from messages)
+  async getUserRooms(email) {
+    try {
+      const rooms = await Message.distinct('roomId', {
+        $or: [
+          { senderEmail: email },
+          { receiverEmail: email },
+        ],
+      });
+      
+      return rooms;
+    } catch (error) {
+      console.error('Error getting user rooms:', error);
+      return [];
+    }
   }
 
   // Get chat room participants
@@ -81,4 +81,3 @@ class ChatService {
 }
 
 module.exports = new ChatService();
-

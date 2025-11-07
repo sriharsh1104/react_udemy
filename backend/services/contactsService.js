@@ -1,48 +1,66 @@
-// Contacts Service - manages user contacts
-class ContactsService {
-  constructor() {
-    // email -> [contact emails]
-    this.userContacts = new Map();
-  }
+const Contact = require('../models/Contact');
 
+class ContactsService {
   // Add a contact for a user
-  addContact(userEmail, contactEmail) {
-    if (!this.userContacts.has(userEmail)) {
-      this.userContacts.set(userEmail, []);
+  async addContact(userEmail, contactEmail) {
+    try {
+      const contact = await Contact.findOneAndUpdate(
+        { userEmail, contactEmail },
+        {
+          userEmail,
+          contactEmail,
+          createdAt: new Date(),
+        },
+        {
+          upsert: true,
+          new: true,
+        }
+      );
+      
+      const contacts = await this.getContacts(userEmail);
+      return contacts;
+    } catch (error) {
+      console.error('Error adding contact:', error);
+      throw error;
     }
-    
-    const contacts = this.userContacts.get(userEmail);
-    if (!contacts.includes(contactEmail)) {
-      contacts.push(contactEmail);
-    }
-    
-    return contacts;
   }
 
   // Remove a contact for a user
-  removeContact(userEmail, contactEmail) {
-    if (!this.userContacts.has(userEmail)) {
-      return [];
+  async removeContact(userEmail, contactEmail) {
+    try {
+      await Contact.deleteOne({ userEmail, contactEmail });
+      const contacts = await this.getContacts(userEmail);
+      return contacts;
+    } catch (error) {
+      console.error('Error removing contact:', error);
+      throw error;
     }
-    
-    const contacts = this.userContacts.get(userEmail);
-    const filtered = contacts.filter(c => c !== contactEmail);
-    this.userContacts.set(userEmail, filtered);
-    
-    return filtered;
   }
 
   // Get all contacts for a user
-  getContacts(userEmail) {
-    return this.userContacts.get(userEmail) || [];
+  async getContacts(userEmail) {
+    try {
+      const contacts = await Contact.find({ userEmail })
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      return contacts.map(c => c.contactEmail);
+    } catch (error) {
+      console.error('Error getting contacts:', error);
+      return [];
+    }
   }
 
   // Check if contact exists for a user
-  hasContact(userEmail, contactEmail) {
-    const contacts = this.getContacts(userEmail);
-    return contacts.includes(contactEmail);
+  async hasContact(userEmail, contactEmail) {
+    try {
+      const contact = await Contact.findOne({ userEmail, contactEmail });
+      return !!contact;
+    } catch (error) {
+      console.error('Error checking contact:', error);
+      return false;
+    }
   }
 }
 
 module.exports = new ContactsService();
-
