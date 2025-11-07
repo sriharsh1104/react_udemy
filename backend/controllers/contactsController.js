@@ -3,6 +3,126 @@ const userService = require('../services/userService');
 const userProfileService = require('../services/userProfileService');
 
 class ContactsController {
+  // Check if phone number is registered in app
+  async checkPhoneRegistered(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+      const { phone } = req.query;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!phone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number is required',
+        });
+      }
+
+      // Normalize phone number (remove spaces, +, etc.)
+      const normalizedPhone = phone.replace(/[\s\+\-\(\)]/g, '');
+      
+      // Check if phone number exists in any user's profile
+      const email = await userProfileService.getEmailByPhone(normalizedPhone);
+      
+      if (email) {
+        const profile = await userProfileService.getProfileByEmail(email);
+        return res.status(200).json({
+          success: true,
+          registered: true,
+          email,
+          name: profile?.name || email.split('@')[0],
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        registered: false,
+      });
+    } catch (error) {
+      console.error('Error in checkPhoneRegistered:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Batch check multiple phone numbers
+  async checkPhonesBatch(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { phones } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!phones || !Array.isArray(phones)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phones array is required',
+        });
+      }
+
+      const results = await Promise.all(
+        phones.map(async (phone) => {
+          const normalizedPhone = phone.replace(/[\s\+\-\(\)]/g, '');
+          const email = await userProfileService.getEmailByPhone(normalizedPhone);
+          
+          if (email) {
+            const profile = await userProfileService.getProfileByEmail(email);
+            return {
+              phone,
+              registered: true,
+              email,
+              name: profile?.name || email.split('@')[0],
+            };
+          }
+          
+          return {
+            phone,
+            registered: false,
+          };
+        })
+      );
+
+      return res.status(200).json({
+        success: true,
+        results,
+      });
+    } catch (error) {
+      console.error('Error in checkPhonesBatch:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
   // Search users by email
   async searchUsers(req, res) {
     try {

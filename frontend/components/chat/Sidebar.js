@@ -13,6 +13,7 @@ import {
   Linking,
   Share,
 } from 'react-native';
+import * as Contacts from 'expo-contacts';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import contactsService from '../../services/contactsService';
 
@@ -127,15 +128,22 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [contacts, setContacts] = useState([]);
+  const [phoneContacts, setPhoneContacts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingPhoneContacts, setLoadingPhoneContacts] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState(null);
+  const [selectedPhone, setSelectedPhone] = useState(null);
+  const [activeTab, setActiveTab] = useState('app'); // 'app' or 'phone'
 
   useEffect(() => {
     if (visible) {
       loadContacts();
+      if (activeTab === 'phone') {
+        loadPhoneContacts();
+      }
     }
-  }, [visible]);
+  }, [visible, activeTab]);
 
   useEffect(() => {
     if (searchQuery.trim().length >= 2) {
@@ -164,6 +172,90 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
       setSearchResults(result.results);
     }
     setLoading(false);
+  };
+
+  const loadPhoneContacts = async () => {
+    try {
+      setLoadingPhoneContacts(true);
+      
+      // Request permission
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Contacts permission is required to sync phone contacts.');
+        setLoadingPhoneContacts(false);
+        return;
+      }
+
+      // Get contacts
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
+      });
+
+      // Filter contacts with phone numbers
+      const contactsWithPhones = data
+        .filter(contact => contact.phoneNumbers && contact.phoneNumbers.length > 0)
+        .map(contact => ({
+          id: contact.id,
+          name: contact.name || 'Unknown',
+          phones: contact.phoneNumbers.map(p => p.number),
+        }));
+
+      // Get all unique phone numbers
+      const allPhones = [];
+      contactsWithPhones.forEach(contact => {
+        contact.phones.forEach(phone => {
+          const normalized = phone.replace(/[\s\+\-\(\)]/g, '');
+          if (normalized && !allPhones.includes(normalized)) {
+            allPhones.push(normalized);
+          }
+        });
+      });
+
+      // Batch check which phones are registered
+      if (allPhones.length > 0) {
+        const checkResult = await contactsService.checkPhonesBatch(allPhones);
+        
+        if (checkResult.success) {
+          // Map results back to contacts
+          const phoneContactsWithStatus = contactsWithPhones.map(contact => {
+            const firstPhone = contact.phones[0]?.replace(/[\s\+\-\(\)]/g, '');
+            const registeredInfo = checkResult.results.find(r => 
+              r.phone.replace(/[\s\+\-\(\)]/g, '') === firstPhone
+            );
+            
+            return {
+              ...contact,
+              phone: contact.phones[0],
+              registered: registeredInfo?.registered || false,
+              email: registeredInfo?.email || null,
+              registeredName: registeredInfo?.name || null,
+            };
+          });
+
+          setPhoneContacts(phoneContactsWithStatus);
+        }
+      } else {
+        setPhoneContacts([]);
+      }
+    } catch (error) {
+      console.error('Error loading phone contacts:', error);
+      Alert.alert('Error', 'Failed to load phone contacts');
+    } finally {
+      setLoadingPhoneContacts(false);
+    }
+  };
+
+  const handlePhoneContactSelect = async (contact) => {
+    if (contact.registered && contact.email) {
+      // User is registered - start chat
+      await contactsService.addContact(contact.email);
+      onSelectContact(contact.email);
+      onClose();
+    } else {
+      // User not registered - show invite
+      setSelectedPhone(contact.phone);
+      setShowInviteModal(true);
+    }
   };
 
   const handleSelectUser = async (user) => {
@@ -260,7 +352,32 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.searchContainer}>
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'app' && styles.activeTab]}
+                onPress={() => setActiveTab('app')}
+              >
+                <Text style={[styles.tabText, activeTab === 'app' && styles.activeTabText]}>
+                  App Contacts
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'phone' && styles.activeTab]}
+                onPress={() => {
+                  setActiveTab('phone');
+                  if (phoneContacts.length === 0) {
+                    loadPhoneContacts();
+                  }
+                }}
+              >
+                <Text style={[styles.tabText, activeTab === 'phone' && styles.activeTabText]}>
+                  Phone Contacts
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {activeTab === 'app' && (
+              <View style={styles.searchContainer}>
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search by email..."
@@ -278,37 +395,106 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
               </View>
             )}
 
-            {searchQuery.trim().length >= 2 ? (
-              <FlatList
-                data={searchResults}
-                renderItem={renderSearchResult}
-                keyExtractor={(item) => item.email}
-                style={styles.list}
-                ListEmptyComponent={
-                  !loading && (
-                    <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>No users found</Text>
-                    </View>
-                  )
-                }
-              />
-            ) : (
-              <FlatList
-                data={contacts}
-                renderItem={renderContact}
-                keyExtractor={(item) => item.email}
-                style={styles.list}
-                ListEmptyComponent={
-                  !loading && (
-                    <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>No contacts yet</Text>
-                      <Text style={styles.emptySubtext}>
-                        Search for users to add contacts
-                      </Text>
-                    </View>
-                  )
-                }
-              />
+            {activeTab === 'app' && (
+              <>
+                {searchQuery.trim().length >= 2 ? (
+                  <FlatList
+                    data={searchResults}
+                    renderItem={renderSearchResult}
+                    keyExtractor={(item) => item.email}
+                    style={styles.list}
+                    ListEmptyComponent={
+                      !loading && (
+                        <View style={styles.emptyContainer}>
+                          <Text style={styles.emptyText}>No users found</Text>
+                        </View>
+                      )
+                    }
+                  />
+                ) : (
+                  <FlatList
+                    data={contacts}
+                    renderItem={renderContact}
+                    keyExtractor={(item) => item.email}
+                    style={styles.list}
+                    ListEmptyComponent={
+                      !loading && (
+                        <View style={styles.emptyContainer}>
+                          <Text style={styles.emptyText}>No contacts yet</Text>
+                          <Text style={styles.emptySubtext}>
+                            Search for users to add contacts
+                          </Text>
+                        </View>
+                      )
+                    }
+                  />
+                )}
+              </>
+            )}
+
+            {activeTab === 'phone' && (
+              <>
+                {loadingPhoneContacts ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                    <Text style={styles.loadingText}>Loading phone contacts...</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={phoneContacts}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.resultItem}
+                        onPress={() => handlePhoneContactSelect(item)}
+                      >
+                        <View style={styles.resultItemContent}>
+                          <View style={styles.avatar}>
+                            <Text style={styles.avatarText}>
+                              {item.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={styles.resultItemText}>
+                            <Text style={styles.resultItemName}>{item.name}</Text>
+                            <Text style={styles.resultItemEmail}>{item.phone}</Text>
+                            {item.registered && (
+                              <Text style={styles.registeredText}>
+                                ✓ Registered as {item.registeredName || item.email?.split('@')[0]}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                        {item.registered ? (
+                          <TouchableOpacity
+                            style={styles.chatButton}
+                            onPress={() => handlePhoneContactSelect(item)}
+                          >
+                            <Text style={styles.chatButtonText}>💬</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.inviteButton}
+                            onPress={() => handlePhoneContactSelect(item)}
+                          >
+                            <Text style={styles.inviteButtonText}>📤</Text>
+                          </TouchableOpacity>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                    keyExtractor={(item) => item.id}
+                    style={styles.list}
+                    ListEmptyComponent={
+                      !loadingPhoneContacts && (
+                        <View style={styles.emptyContainer}>
+                          <Text style={styles.emptyText}>No phone contacts found</Text>
+                          <Text style={styles.emptySubtext}>
+                            Make sure contacts have phone numbers
+                          </Text>
+                        </View>
+                      )
+                    }
+                  />
+                )}
+              </>
             )}
           </View>
         </View>
@@ -373,6 +559,30 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: 'bold',
   },
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: COLORS.primary,
+  },
+  tabText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.textSecondary,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  activeTabText: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
   searchContainer: {
     padding: SPACING.md,
     borderBottomWidth: 1,
@@ -391,6 +601,16 @@ const styles = StyleSheet.create({
   loadingContainer: {
     padding: SPACING.lg,
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: SPACING.sm,
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+  },
+  registeredText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.online,
+    marginTop: 2,
   },
   emptyContainer: {
     padding: SPACING.xl,

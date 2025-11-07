@@ -182,6 +182,66 @@ class ContactsService {
     }
   }
 
+  async checkPhoneRegistered(phone) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check-phone?phone=${encodeURIComponent(phone)}&token=${encodeURIComponent(token)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error checking phone:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+    }
+  }
+
+  async checkPhonesBatch(phones) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check-phones-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phones,
+          token,
+        }),
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error checking phones batch:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+    }
+  }
+
   async getInviteLink() {
     try {
       const token = await AsyncStorage.getItem('authToken');

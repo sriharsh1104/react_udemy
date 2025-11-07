@@ -35,6 +35,8 @@ router.post('/profile', asyncHandler(async (req, res) => {
 // Contacts routes
 router.get('/contacts/search', asyncHandler(contactsController.searchUsers.bind(contactsController)));
 router.get('/contacts/check', asyncHandler(contactsController.checkUserExists.bind(contactsController)));
+router.get('/contacts/check-phone', asyncHandler(contactsController.checkPhoneRegistered.bind(contactsController)));
+router.post('/contacts/check-phones-batch', asyncHandler(contactsController.checkPhonesBatch.bind(contactsController)));
 router.get('/contacts', asyncHandler(contactsController.getContacts.bind(contactsController)));
 router.post('/contacts', asyncHandler(contactsController.addContact.bind(contactsController)));
 router.delete('/contacts', asyncHandler(contactsController.removeContact.bind(contactsController)));
