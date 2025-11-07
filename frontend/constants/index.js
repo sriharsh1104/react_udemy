@@ -15,12 +15,12 @@ export const API_CONFIG = {
 export const SOCKET_EVENTS = {
   CONNECT: 'connect',
   DISCONNECT: 'disconnect',
-  JOIN: 'join',
-  MESSAGE: 'message',
+  LOGIN: 'login',
+  JOIN_CHAT: 'joinChat',
+  LEAVE_CHAT: 'leaveChat',
+  PRIVATE_MESSAGE: 'privateMessage',
+  CHAT_HISTORY: 'chatHistory',
   TYPING: 'typing',
-  USER_JOINED: 'userJoined',
-  USER_LEFT: 'userLeft',
-  USERS_UPDATE: 'usersUpdate',
 };
 
 // Premium Color Scheme (WhatsApp-inspired but with premium colors)

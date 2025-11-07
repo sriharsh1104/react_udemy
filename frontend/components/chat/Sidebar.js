@@ -16,7 +16,7 @@ import {
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import contactsService from '../../services/contactsService';
 
-const InviteModal = ({ visible, onClose, email }) => {
+export const InviteModal = ({ visible, onClose, email }) => {
   const [inviteLink, setInviteLink] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -56,7 +56,6 @@ const InviteModal = ({ visible, onClose, email }) => {
   };
 
   const handleCopyToClipboard = () => {
-    // For React Native, we'll use Share API
     Share.share({
       message: inviteLink,
     });
@@ -181,16 +180,6 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
       // User doesn't exist - show invite modal
       setSelectedEmail(user.email);
       setShowInviteModal(true);
-    }
-  };
-
-  const handleAddContact = async (email) => {
-    const result = await contactsService.addContact(email);
-    if (result.success) {
-      await loadContacts();
-      Alert.alert('Success', 'Contact added successfully');
-    } else {
-      Alert.alert('Error', result.message || 'Failed to add contact');
     }
   };
 
@@ -362,7 +351,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: SPACING.lg,
+    padding: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
@@ -577,4 +566,3 @@ const styles = StyleSheet.create({
 });
 
 export default Sidebar;
-

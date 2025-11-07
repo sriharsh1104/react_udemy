@@ -16,7 +16,10 @@ import ChatHeader from '../components/chat/ChatHeader';
 import MessageItem from '../components/chat/MessageItem';
 import MessageInput from '../components/chat/MessageInput';
 import TypingIndicator from '../components/chat/TypingIndicator';
-import Sidebar from '../components/chat/Sidebar';
+import Sidebar, { InviteModal } from '../components/chat/Sidebar';
+import RecentChats from '../components/chat/RecentChats';
+import contactsService from '../services/contactsService';
+import { Alert } from 'react-native';
 
 const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, navigation }) => {
   // Extract username from email (part before @)
@@ -25,28 +28,40 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, naviga
     return email.split('@')[0];
   };
 
-  const [username, setUsername] = useState('');
+  const [contactEmail, setContactEmail] = useState(null);
+  const [contactName, setContactName] = useState('');
   const [inputMessage, setInputMessage] = useState('');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [contacts, setContacts] = useState([]);
+  const [loadingContacts, setLoadingContacts] = useState(true);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState(null);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket();
-  const { messages, typingUsers, sendMessage, sendTyping } = useChat(username);
+  const { messages, typingUser, sendMessage, sendTyping } = useChat(userEmail, contactEmail);
 
-  // Initialize username from email
+  // Load contacts on mount
   useEffect(() => {
-    if (userEmail) {
-      const name = getUsernameFromEmail(userEmail);
-      setUsername(name);
-    }
-  }, [userEmail]);
+    loadContacts();
+  }, []);
 
-  // Join chat when socket is connected
+  // Load contact name when contactEmail changes
   useEffect(() => {
-    if (username && socket && isConnected) {
-      socketService.emit(SOCKET_EVENTS.JOIN, username);
+    if (contactEmail) {
+      const name = getUsernameFromEmail(contactEmail);
+      setContactName(name);
     }
-  }, [username, socket, isConnected]);
+  }, [contactEmail]);
+
+  const loadContacts = async () => {
+    setLoadingContacts(true);
+    const result = await contactsService.getContacts();
+    if (result.success) {
+      setContacts(result.contacts);
+    }
+    setLoadingContacts(false);
+  };
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -68,38 +83,104 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, naviga
     sendTyping(text.length > 0);
   };
 
-  const handleSelectContact = (contactEmail) => {
-    // For now, we'll just show an alert
-    // In future, this can navigate to a specific chat screen
-    console.log('Selected contact:', contactEmail);
-    // You can implement navigation to individual chat here
+  const handleSelectContact = async (selectedContactEmail) => {
+    // Check if user exists
+    const checkResult = await contactsService.checkUserExists(selectedContactEmail);
+    
+    if (checkResult.success && checkResult.exists) {
+      // User exists - start chat
+      // Add to contacts if not already added
+      const isContact = contacts.some(c => c.email === selectedContactEmail);
+      if (!isContact) {
+        await contactsService.addContact(selectedContactEmail);
+        await loadContacts();
+      }
+      setContactEmail(selectedContactEmail);
+      setShowSidebar(false);
+    } else {
+      // User doesn't exist - show invite option
+      setInviteEmail(selectedContactEmail);
+      setShowInviteModal(true);
+      setShowSidebar(false);
+    }
+  };
+
+  const handleNewChat = () => {
+    setShowSidebar(true);
+  };
+
+  const handleSaveContact = async (email) => {
+    const result = await contactsService.addContact(email);
+    if (result.success) {
+      Alert.alert('Success', 'Contact saved successfully');
+      await loadContacts();
+    } else {
+      Alert.alert('Error', result.message || 'Failed to save contact');
+    }
+  };
+
+  const handleInvite = (email) => {
+    setInviteEmail(email);
+    setShowInviteModal(true);
   };
 
   const renderMessage = ({ item, index }) => {
-    const isSystemMessage = 
-      item.message.includes('joined') || item.message.includes('left');
-    
     // Determine if message is sent by current user
-    const isSent = item.username === username;
+    const isSent = item.isSent || item.senderEmail === userEmail;
+    const senderName = item.senderEmail ? getUsernameFromEmail(item.senderEmail) : 'Unknown';
     
     return (
       <MessageItem
         key={index}
         message={item.message}
-        username={item.username}
+        username={senderName}
         timestamp={item.timestamp}
-        isSystemMessage={isSystemMessage}
+        isSystemMessage={false}
         isSent={isSent}
       />
     );
   };
 
-  if (!username) {
+  // Show recent chats if no contact selected
+  if (!contactEmail) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading chat...</Text>
-      </View>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ChatHeader 
+          username={getUsernameFromEmail(userEmail)} 
+          isOnline={isConnected} 
+          onProfilePress={onProfilePress}
+          onLogoutPress={onLogoutPress}
+          onSidebarPress={() => setShowSidebar(true)}
+        />
+        
+      <Sidebar
+        visible={showSidebar}
+        onClose={() => setShowSidebar(false)}
+        onSelectContact={handleSelectContact}
+      />
+      
+      <RecentChats
+        contacts={contacts}
+        onSelectContact={handleSelectContact}
+        onNewChat={handleNewChat}
+        onSaveContact={handleSaveContact}
+        onInvite={handleInvite}
+      />
+
+      {showInviteModal && (
+        <InviteModal
+          visible={showInviteModal}
+          onClose={() => {
+            setShowInviteModal(false);
+            setInviteEmail(null);
+          }}
+          email={inviteEmail}
+        />
+      )}
+      </KeyboardAvoidingView>
     );
   }
 
@@ -110,7 +191,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, naviga
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       <ChatHeader 
-        username={username} 
+        username={contactName || contactEmail} 
         isOnline={isConnected} 
         onProfilePress={onProfilePress}
         onLogoutPress={onLogoutPress}
@@ -128,7 +209,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, naviga
           ref={flatListRef}
           data={messages}
           renderItem={renderMessage}
-          keyExtractor={(item, index) => `message-${index}-${item.timestamp}`}
+          keyExtractor={(item, index) => `message-${index}-${item.timestamp}-${item.senderEmail}`}
           style={styles.messagesList}
           contentContainerStyle={styles.messagesContent}
           onContentSizeChange={() => {
@@ -141,7 +222,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onLogoutPress, naviga
         />
       </View>
 
-      <TypingIndicator typingUsers={typingUsers} />
+      <TypingIndicator typingUsers={typingUser ? [typingUser] : []} />
 
       <MessageInput
         value={inputMessage}
@@ -179,6 +260,24 @@ const styles = StyleSheet.create({
   messagesContent: {
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
 });
 
