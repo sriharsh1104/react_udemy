@@ -31,7 +31,7 @@ class OTPService {
   }
 
   // Send OTP to email or phone
-  async sendOTP(identifier) {
+  async sendOTP(identifier, purpose = 'login') {
     try {
       const otp = this.generateOTP();
       const expiryTime = Date.now() + this.otpExpiry;
@@ -40,24 +40,36 @@ class OTPService {
       this.otpStore.set(identifier, {
         otp,
         expiry: expiryTime,
+        purpose, // Store purpose for reference
       });
 
       // Check if it's email or phone
       if (identifier.includes('@')) {
         // Email OTP
+        const isPasswordReset = purpose === 'password-reset';
+        const subject = isPasswordReset 
+          ? 'Password Reset OTP - Chat App'
+          : 'Your OTP for Chat App Login';
+        const title = isPasswordReset 
+          ? 'Chat App - Password Reset'
+          : 'Chat App - Login OTP';
+        const description = isPasswordReset
+          ? 'Your OTP to reset your password is:'
+          : 'Your OTP for login is:';
+        
         const mailOptions = {
           from: process.env.EMAIL_USER || 'your-email@gmail.com',
           to: identifier,
-          subject: 'Your OTP for Chat App Login',
+          subject: subject,
           html: `
             <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #6366F1;">Chat App - Login OTP</h2>
-              <p>Your OTP for login is:</p>
+              <h2 style="color: #6366F1;">${title}</h2>
+              <p>${description}</p>
               <div style="background-color: #1E293B; color: #F1F5F9; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; border-radius: 8px; margin: 20px 0;">
                 ${otp}
               </div>
               <p style="color: #64748B; font-size: 12px;">This OTP will expire in 5 minutes.</p>
-              <p style="color: #64748B; font-size: 12px;">If you didn't request this OTP, please ignore this email.</p>
+              <p style="color: #64748B; font-size: 12px;">If you didn't request this ${isPasswordReset ? 'password reset' : 'OTP'}, please ignore this email.</p>
             </div>
           `,
         };
@@ -65,7 +77,8 @@ class OTPService {
         await this.getTransporter().sendMail(mailOptions);
       } else {
         // Phone OTP - For now, log it (in production, use SMS service like Twilio)
-        console.log(`\n📱 SMS OTP for ${identifier}: ${otp}\n`);
+        const purposeText = purpose === 'password-reset' ? 'Password Reset' : 'Login';
+        console.log(`\n📱 SMS OTP for ${purposeText} - ${identifier}: ${otp}\n`);
         // TODO: Integrate SMS service (Twilio, AWS SNS, etc.)
         // await this.sendSMS(identifier, otp);
       }
@@ -73,7 +86,17 @@ class OTPService {
       // Clean up expired OTPs
       this.cleanupExpiredOTPs();
 
-      return { success: true, message: identifier.includes('@') ? 'OTP sent to your email' : 'OTP sent to your phone (check console for development)' };
+      const purposeMessage = purpose === 'password-reset' 
+        ? 'Password reset OTP sent to your email'
+        : 'OTP sent to your email';
+      const phoneMessage = purpose === 'password-reset'
+        ? 'Password reset OTP sent to your phone (check console for development)'
+        : 'OTP sent to your phone (check console for development)';
+
+      return { 
+        success: true, 
+        message: identifier.includes('@') ? purposeMessage : phoneMessage 
+      };
     } catch (error) {
       console.error('Error sending OTP:', error);
       console.error('Email config check:', {

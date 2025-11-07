@@ -258,7 +258,7 @@ class AuthController {
       }
 
       // Send OTP for password reset
-      const result = await otpService.sendOTP(identifier);
+      const result = await otpService.sendOTP(identifier, 'password-reset');
 
       if (result.success) {
         res.status(200).json({
