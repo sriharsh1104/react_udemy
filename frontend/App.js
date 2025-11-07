@@ -9,6 +9,7 @@ import LoginScreen from './screens/LoginScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import LogoutModal from './components/common/LogoutModal';
 import profileService from './services/profileService';
+import authService from './services/authService';
 import { COLORS } from './constants';
 
 const Stack = createNativeStackNavigator();
@@ -37,13 +38,15 @@ export default function App() {
         const profileResult = await profileService.getProfile();
         if (profileResult.success) {
           setProfile(profileResult.profile);
-          // Navigate based on profile completeness
+          // Navigate based on profile completeness - ONLY navigate to Profile if incomplete
           setTimeout(() => {
             if (navigationRef.current) {
-              if (!profileResult.profile || !profileResult.profile.isProfileComplete) {
-                navigationRef.current.navigate('Profile');
-              } else {
+              // If profile is complete (true), go directly to Chat
+              // If profile is incomplete (false/null), go to Profile
+              if (profileResult.profile && profileResult.profile.isProfileComplete === true) {
                 navigationRef.current.navigate('Chat');
+              } else {
+                navigationRef.current.navigate('Profile');
               }
             }
           }, 100);
@@ -56,18 +59,25 @@ export default function App() {
     }
   };
 
-  const handleLogin = async (email, token, loginProfile) => {
+  const handleLogin = async (email, token, loginProfile, isProfileComplete) => {
     setUserEmail(email);
     setIsLoggedIn(true);
-    setProfile(loginProfile || null);
     
-    // Navigate based on profile completeness
+    // Set profile with isProfileComplete flag
+    const profileWithComplete = loginProfile 
+      ? { ...loginProfile, isProfileComplete: isProfileComplete ?? loginProfile.isProfileComplete }
+      : null;
+    setProfile(profileWithComplete);
+    
+    // Navigate based on profile completeness - ONLY navigate to Profile if incomplete
     setTimeout(() => {
       if (navigationRef.current) {
-        if (!loginProfile || !loginProfile.isProfileComplete) {
-          navigationRef.current.navigate('Profile');
-        } else {
+        // If profile is complete (true), go directly to Chat
+        // If profile is incomplete (false/null), go to Profile
+        if (isProfileComplete === true || (profileWithComplete && profileWithComplete.isProfileComplete === true)) {
           navigationRef.current.navigate('Chat');
+        } else {
+          navigationRef.current.navigate('Profile');
         }
       }
     }, 100);
@@ -75,12 +85,22 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
+      // Get token before clearing
+      const token = await AsyncStorage.getItem('authToken');
+      
+      // Call logout API
+      if (token) {
+        await authService.logout(token);
+      }
+      
+      // Clear local storage
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userEmail');
       setIsLoggedIn(false);
       setUserEmail(null);
       setProfile(null);
       setShowLogoutModal(false);
+      
       // Navigate to login
       if (navigationRef.current) {
         navigationRef.current.reset({
@@ -90,6 +110,19 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error logging out:', error);
+      // Even if API fails, clear local storage and logout
+      await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('userEmail');
+      setIsLoggedIn(false);
+      setUserEmail(null);
+      setProfile(null);
+      setShowLogoutModal(false);
+      if (navigationRef.current) {
+        navigationRef.current.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+      }
     }
   };
 

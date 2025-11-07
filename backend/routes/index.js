@@ -16,6 +16,7 @@ router.get('/health', healthController.getHealth);
 // Auth routes
 router.post('/auth/send-otp', asyncHandler(authController.sendOTP.bind(authController)));
 router.post('/auth/verify-otp', asyncHandler(authController.verifyOTP.bind(authController)));
+router.post('/auth/logout', asyncHandler(authController.logout.bind(authController)));
 
 // Profile routes - Direct function call
 router.get('/profile', asyncHandler(async (req, res) => {
@@ -30,7 +31,13 @@ router.post('/profile', asyncHandler(async (req, res) => {
   await profileController.updateProfile(req, res);
 }));
 
-console.log('Routes registered: GET /profile, PUT /profile, POST /profile');
+console.log('Routes registered:');
+console.log('  POST /api/auth/send-otp');
+console.log('  POST /api/auth/verify-otp');
+console.log('  POST /api/auth/logout');
+console.log('  GET /api/profile');
+console.log('  PUT /api/profile');
+console.log('  POST /api/profile');
 
 module.exports = router;
 

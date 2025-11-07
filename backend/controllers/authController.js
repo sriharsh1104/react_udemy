@@ -119,6 +119,34 @@ class AuthController {
       });
     }
   }
+
+  // Logout user
+  async logout(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          message: 'Token is required',
+        });
+      }
+
+      // Remove user session
+      userService.removeSession(token);
+
+      res.status(200).json({
+        success: true,
+        message: 'Logout successful',
+      });
+    } catch (error) {
+      console.error('Error in logout:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
 }
 
 module.exports = new AuthController();

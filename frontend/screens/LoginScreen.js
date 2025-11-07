@@ -79,8 +79,13 @@ const LoginScreen = ({ onLogin }) => {
       await AsyncStorage.setItem('authToken', result.token);
       await AsyncStorage.setItem('userEmail', result.email);
       
+      // Pass profile with isProfileComplete flag
+      const profileWithComplete = result.profile 
+        ? { ...result.profile, isProfileComplete: result.isProfileComplete }
+        : null;
+      
       // Directly login to chat section without alert
-      onLogin(result.email, result.token, result.profile);
+      onLogin(result.email, result.token, profileWithComplete, result.isProfileComplete);
     } else {
       Alert.alert('Error', result.message || 'Invalid OTP. Please try again.');
       setLoading(false);
