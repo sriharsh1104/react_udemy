@@ -142,30 +142,109 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               // Send reply message directly
               if (replyMessage && replyMessage.trim()) {
                 try {
-                  // Encrypt the reply message
-                  const encryptedData = await encryptionService.encryptPrivateMessage(
-                    replyMessage,
-                    userEmail,
-                    data.senderEmail
-                  );
+                  const messageText = replyMessage.trim();
                   
-                  // Convert encrypted data to JSON string for storage
-                  const encryptedMessage = JSON.stringify(encryptedData);
+                  // Check if socket is connected
+                  const currentSocket = socketService.getSocket();
+                  if (!currentSocket) {
+                    Alert.alert('Connection Error', 'Socket not initialized. Please refresh the app.');
+                    console.error('❌ Socket not initialized');
+                    return;
+                  }
                   
-                  // Send encrypted message to server
-                  socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
-                    message: encryptedMessage,
-                    contactEmail: data.senderEmail,
-                    senderEmail: userEmail,
+                  if (!currentSocket.connected) {
+                    Alert.alert('Connection Error', 'Not connected to server. Please check your connection.');
+                    console.error('❌ Socket not connected. Connection state:', currentSocket.connected);
+                    return;
+                  }
+                  
+                  console.log('📤 Starting reply send process...', {
+                    to: data.senderEmail,
+                    from: userEmail,
+                    socketConnected: currentSocket.connected
                   });
                   
-                  // Refresh contacts to update last message
-                  loadContacts();
+                  // Ensure user is logged in via socket (important for message delivery)
+                  const loginSuccess = socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
+                  if (!loginSuccess) {
+                    throw new Error('Failed to send login event');
+                  }
+                  
+                  // Join the chat room to ensure proper message delivery
+                  const joinSuccess = socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
+                    userEmail: userEmail,
+                    contactEmail: data.senderEmail,
+                  });
+                  if (!joinSuccess) {
+                    throw new Error('Failed to join chat room');
+                  }
+                  
+                  // Small delay to ensure socket operations are processed
+                  await new Promise(resolve => setTimeout(resolve, 300));
+                  
+                  // If user is viewing this chat, use the sendMessage function for optimistic update
+                  const isViewingThisChat = contactEmail === data.senderEmail && chatType === 'private';
+                  
+                  if (isViewingThisChat) {
+                    // Use the sendMessage function which handles optimistic update
+                    await sendPrivateMessage(messageText);
+                  } else {
+                    // Send directly via socket (user not viewing this chat)
+                    // Encrypt the reply message
+                    const encryptedData = await encryptionService.encryptPrivateMessage(
+                      messageText,
+                      userEmail,
+                      data.senderEmail
+                    );
+                    
+                    // Convert encrypted data to JSON string for storage
+                    const encryptedMessage = JSON.stringify(encryptedData);
+                    
+                    // Verify socket is still connected before sending
+                    if (!currentSocket || !currentSocket.connected) {
+                      throw new Error('Socket disconnected before sending message');
+                    }
+                    
+                    // Send encrypted message to server
+                    const messageSent = socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+                      message: encryptedMessage,
+                      contactEmail: data.senderEmail,
+                      senderEmail: userEmail,
+                    });
+                    
+                    if (!messageSent) {
+                      throw new Error('Failed to emit PRIVATE_MESSAGE event');
+                    }
+                    
+                    // Also send typing stop signal
+                    socketService.emit(SOCKET_EVENTS.TYPING, {
+                      contactEmail: data.senderEmail,
+                      isTyping: false,
+                    });
+                    
+                    console.log('✅ Reply message emitted successfully:', {
+                      to: data.senderEmail,
+                      from: userEmail,
+                      messagePreview: messageText.substring(0, 50),
+                      encryptedLength: encryptedMessage.length,
+                      socketConnected: currentSocket.connected
+                    });
+                  }
+                  
+                  console.log('Reply sent successfully to:', data.senderEmail, 'Message:', messageText);
+                  
+                  // Refresh contacts to update last message (with delay to ensure server processed)
+                  setTimeout(() => {
+                    loadContacts();
+                  }, 500);
                   
                   // Clear notification after sending
                   clearNotification(data.senderEmail);
                 } catch (error) {
                   console.error('Error sending reply:', error);
+                  console.error('Error details:', error.message, error.stack);
+                  // Show error to user
+                  Alert.alert('Error', `Failed to send message: ${error.message || 'Please try again.'}`);
                 }
               }
             },

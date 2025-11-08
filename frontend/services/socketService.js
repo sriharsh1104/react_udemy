@@ -23,8 +23,23 @@ class SocketService {
   }
 
   emit(event, data) {
-    if (this.socket) {
+    if (!this.socket) {
+      console.error('❌ Socket not initialized. Cannot emit:', event);
+      return false;
+    }
+    
+    if (!this.socket.connected) {
+      console.error('❌ Socket not connected. Cannot emit:', event);
+      return false;
+    }
+    
+    try {
       this.socket.emit(event, data);
+      console.log('✅ Socket emit:', event, data ? Object.keys(data) : 'no data');
+      return true;
+    } catch (error) {
+      console.error('❌ Error emitting socket event:', event, error);
+      return false;
     }
   }
 
