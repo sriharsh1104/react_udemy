@@ -53,7 +53,7 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
@@ -78,9 +78,9 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
           )}
           <TouchableOpacity 
             style={styles.userInfo}
-            onPress={isGroup && onGroupInfoPress ? onGroupInfoPress : undefined}
-            disabled={!isGroup || !onGroupInfoPress}
-            activeOpacity={isGroup && onGroupInfoPress ? 0.7 : 1}
+            onPress={isGroup && onGroupInfoPress ? onGroupInfoPress : (!isGroup && onContactInfoPress ? onContactInfoPress : undefined)}
+            disabled={isGroup ? (!onGroupInfoPress) : (!onContactInfoPress)}
+            activeOpacity={(isGroup && onGroupInfoPress) || (!isGroup && onContactInfoPress) ? 0.7 : 1}
           >
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>

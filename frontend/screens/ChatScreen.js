@@ -21,6 +21,7 @@ import Sidebar, { InviteModal } from '../components/chat/Sidebar';
 import RecentChats from '../components/chat/RecentChats';
 import CreateGroupModal from '../components/chat/CreateGroupModal';
 import GroupInfoModal from '../components/chat/GroupInfoModal';
+import ContactInfoModal from '../components/chat/ContactInfoModal';
 import GLoader from '../components/common/GLoader';
 import contactsService from '../services/contactsService';
 import groupService from '../services/groupService';
@@ -46,12 +47,14 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [showSidebar, setShowSidebar] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [showGroupInfoModal, setShowGroupInfoModal] = useState(false);
+  const [showContactInfoModal, setShowContactInfoModal] = useState(false);
   const [currentGroup, setCurrentGroup] = useState(null);
   const [contacts, setContacts] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState(null);
+  const [contactOnlineStatus, setContactOnlineStatus] = useState(false);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket();
@@ -92,13 +95,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     };
   }, [socket, userEmail]);
 
-  // Periodically refresh contacts and groups (only when not in active chat)
+  // Periodically refresh contacts and groups
   useEffect(() => {
-    if (contactEmail || groupId) {
-      // Don't auto-refresh when in active chat to prevent flickering
-      return;
-    }
-    
     // Refresh every 10 seconds to update online status and unread count
     const interval = setInterval(() => {
       loadContacts(false); // Don't show loading spinner
@@ -106,7 +104,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }, 10000);
     
     return () => clearInterval(interval);
-  }, [contactEmail, groupId]);
+  }, []);
 
   const loadGroups = async () => {
     const result = await groupService.getGroups();
@@ -115,6 +113,21 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       setGroups(result.groups || []);
     }
   };
+
+  // Update contact online status when contactEmail or contacts change
+  useEffect(() => {
+    if (contactEmail && contacts.length > 0) {
+      const contact = contacts.find(c => c.email === contactEmail);
+      if (contact) {
+        setContactOnlineStatus(contact.isOnline || false);
+      } else {
+        // Contact not found in list, assume offline
+        setContactOnlineStatus(false);
+      }
+    } else {
+      setContactOnlineStatus(false);
+    }
+  }, [contactEmail, contacts]);
 
   // Load contact/group info when chat changes
   useEffect(() => {
@@ -275,6 +288,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     setGroupId(selectedGroupId);
     setContactEmail(null);
     setShowSidebar(false);
+    setShowContactInfoModal(false);
   };
 
   const handleCreateGroup = () => {
@@ -429,7 +443,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       >
         <ChatHeader 
         username={chatType === 'group' ? groupName : (contactName || contactEmail)} 
-        isOnline={isConnected} 
+        isOnline={chatType === 'group' ? false : contactOnlineStatus} 
         onProfilePress={onProfilePress}
         onSettingsPress={onSettingsPress}
         onLogoutPress={onLogoutPress}
@@ -443,6 +457,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         showBackButton={true}
         isGroup={chatType === 'group'}
         onGroupInfoPress={() => setShowGroupInfoModal(true)}
+        onContactInfoPress={() => setShowContactInfoModal(true)}
       />
       
       <Sidebar
@@ -492,6 +507,18 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           userEmail={userEmail}
           onGroupUpdated={handleGroupUpdated}
           onExitGroup={handleExitGroup}
+        />
+      )}
+
+      {chatType === 'private' && contactEmail && (
+        <ContactInfoModal
+          visible={showContactInfoModal}
+          onClose={() => setShowContactInfoModal(false)}
+          contactEmail={contactEmail}
+          userEmail={userEmail}
+          contactName={contactName}
+          onSelectGroup={handleSelectGroup}
+          messages={privateMessages}
         />
       )}
     </KeyboardAvoidingView>
