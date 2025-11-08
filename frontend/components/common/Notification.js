@@ -71,9 +71,20 @@ const Notification = ({ notification, onDismiss, onPress, onMarkAsRead, onReply,
 
   const handleSendReply = () => {
     if (replyText.trim() && onSendReply) {
+      console.log('📤 Notification: Sending reply...', {
+        notificationId: notification.id,
+        senderEmail: notification.senderEmail,
+        message: replyText.trim(),
+        hasOnSendReply: !!onSendReply
+      });
       onSendReply(notification, replyText.trim());
       setReplyText('');
       setShowReplyInput(false);
+    } else {
+      console.warn('⚠️ Notification: Cannot send reply', {
+        hasText: !!replyText.trim(),
+        hasOnSendReply: !!onSendReply
+      });
     }
   };
 

@@ -43,8 +43,26 @@ const AppContentWithNotifications = () => {
   };
 
   const handleSendReply = (notification, message) => {
+    console.log('📨 App: handleSendReply called', {
+      hasNotification: !!notification,
+      hasOnReply: !!(notification && notification.onReply),
+      senderEmail: notification?.senderEmail,
+      message: message
+    });
+    
     if (notification && notification.onReply) {
-      notification.onReply(message);
+      try {
+        console.log('✅ App: Calling notification.onReply...');
+        notification.onReply(message);
+        console.log('✅ App: notification.onReply called successfully');
+      } catch (error) {
+        console.error('❌ App: Error calling notification.onReply:', error);
+      }
+    } else {
+      console.error('❌ App: Missing notification or onReply callback', {
+        hasNotification: !!notification,
+        hasOnReply: !!(notification && notification.onReply)
+      });
     }
   };
 

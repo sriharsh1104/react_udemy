@@ -119,26 +119,35 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             senderName = data.senderEmail?.split('@')[0] || 'Unknown';
           }
 
+          // Capture senderEmail in a variable to avoid closure issues
+          const notificationSenderEmail = data.senderEmail;
+          
           // Add notification
           addNotification({
-            senderEmail: data.senderEmail,
+            senderEmail: notificationSenderEmail,
             senderName: senderName,
             message: messageText,
             timestamp: data.timestamp || new Date(),
             type: 'private',
             onPress: () => {
               // Navigate to chat
-              setContactEmail(data.senderEmail);
+              setContactEmail(notificationSenderEmail);
               setChatType('private');
               setContactName(senderName);
-              clearNotification(data.senderEmail);
+              clearNotification(notificationSenderEmail);
             },
             onMarkAsRead: async () => {
               // Mark messages as read
-              await contactsService.markMessagesAsRead(data.senderEmail);
+              await contactsService.markMessagesAsRead(notificationSenderEmail);
               loadContacts();
             },
             onReply: async (replyMessage) => {
+              console.log('📨 ChatScreen: onReply callback called', {
+                replyMessage: replyMessage,
+                senderEmail: notificationSenderEmail,
+                userEmail: userEmail
+              });
+              
               // Send reply message directly
               if (replyMessage && replyMessage.trim()) {
                 try {
@@ -158,8 +167,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                     return;
                   }
                   
-                  console.log('📤 Starting reply send process...', {
-                    to: data.senderEmail,
+                  console.log('📤 ChatScreen: Starting reply send process...', {
+                    to: notificationSenderEmail,
                     from: userEmail,
                     socketConnected: currentSocket.connected
                   });
@@ -173,7 +182,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                   // Join the chat room to ensure proper message delivery
                   const joinSuccess = socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
                     userEmail: userEmail,
-                    contactEmail: data.senderEmail,
+                    contactEmail: notificationSenderEmail,
                   });
                   if (!joinSuccess) {
                     throw new Error('Failed to join chat room');
@@ -183,7 +192,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                   await new Promise(resolve => setTimeout(resolve, 300));
                   
                   // If user is viewing this chat, use the sendMessage function for optimistic update
-                  const isViewingThisChat = contactEmail === data.senderEmail && chatType === 'private';
+                  const isViewingThisChat = contactEmail === notificationSenderEmail && chatType === 'private';
                   
                   if (isViewingThisChat) {
                     // Use the sendMessage function which handles optimistic update
@@ -194,7 +203,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                     const encryptedData = await encryptionService.encryptPrivateMessage(
                       messageText,
                       userEmail,
-                      data.senderEmail
+                      notificationSenderEmail
                     );
                     
                     // Convert encrypted data to JSON string for storage
@@ -208,7 +217,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                     // Send encrypted message to server
                     const messageSent = socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
                       message: encryptedMessage,
-                      contactEmail: data.senderEmail,
+                      contactEmail: notificationSenderEmail,
                       senderEmail: userEmail,
                     });
                     
@@ -218,12 +227,12 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                     
                     // Also send typing stop signal
                     socketService.emit(SOCKET_EVENTS.TYPING, {
-                      contactEmail: data.senderEmail,
+                      contactEmail: notificationSenderEmail,
                       isTyping: false,
                     });
                     
-                    console.log('✅ Reply message emitted successfully:', {
-                      to: data.senderEmail,
+                    console.log('✅ ChatScreen: Reply message emitted successfully:', {
+                      to: notificationSenderEmail,
                       from: userEmail,
                       messagePreview: messageText.substring(0, 50),
                       encryptedLength: encryptedMessage.length,
@@ -231,7 +240,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                     });
                   }
                   
-                  console.log('Reply sent successfully to:', data.senderEmail, 'Message:', messageText);
+                  console.log('✅ ChatScreen: Reply sent successfully to:', notificationSenderEmail, 'Message:', messageText);
                   
                   // Refresh contacts to update last message (with delay to ensure server processed)
                   setTimeout(() => {
@@ -239,13 +248,15 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                   }, 500);
                   
                   // Clear notification after sending
-                  clearNotification(data.senderEmail);
+                  clearNotification(notificationSenderEmail);
                 } catch (error) {
-                  console.error('Error sending reply:', error);
+                  console.error('❌ ChatScreen: Error sending reply:', error);
                   console.error('Error details:', error.message, error.stack);
                   // Show error to user
                   Alert.alert('Error', `Failed to send message: ${error.message || 'Please try again.'}`);
                 }
+              } else {
+                console.warn('⚠️ ChatScreen: Empty reply message received');
               }
             },
           });
