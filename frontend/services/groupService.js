@@ -466,6 +466,158 @@ class GroupService {
       return errorResponse;
     }
   }
+
+  async pinMessage(messageId, groupId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/pin-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageId,
+          groupId,
+          token,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Message Pinned',
+        errorTitle: 'Failed to Pin Message',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error pinning message:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
+  async unpinMessage(messageId, groupId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/unpin-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageId,
+          groupId,
+          token,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Message Unpinned',
+        errorTitle: 'Failed to Unpin Message',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error unpinning message:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
+  async getPinnedMessages(groupId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/${groupId}/pinned-messages?token=${encodeURIComponent(token)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Failed to Load Pinned Messages',
+          showSuccess: false,
+        });
+      }
+      return data;
+    } catch (error) {
+      console.error('Error getting pinned messages:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
+  async deleteMessage(messageId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/delete-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageId,
+          token,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Message Deleted',
+        errorTitle: 'Failed to Delete Message',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
 }
 
 export default new GroupService();

@@ -123,6 +123,9 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             isSent: false, // Always false since this is from contact
             messageId: data.messageId || null,
             status: 'delivered', // Messages received are already delivered
+            replyTo: data.replyTo || null,
+            replyToMessage: data.replyToMessage || null,
+            replyToSender: data.replyToSender || null,
           };
           
           // Send read receipt immediately if we have messageId
@@ -154,6 +157,9 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
               messageId: msg._id ? msg._id.toString() : null,
               status: msg.status || 'sent',
               deliveredAt: msg.deliveredAt || null,
+              replyTo: msg.replyTo || null,
+              replyToMessage: msg.replyToMessage || null,
+              replyToSender: msg.replyToSender || null,
             };
           })
         );
@@ -302,7 +308,7 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     };
   }, [socket, userEmail, contactEmail]);
 
-  const sendMessage = async (message) => {
+  const sendMessage = async (message, replyInfo = null) => {
     if (message.trim() && socket && contactEmail && userEmail) {
       const messageText = message.trim();
       
@@ -326,6 +332,9 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         isSent: true,
         status: 'sent', // Initial status - will be updated when delivered
         messageId: null, // Will be set when we get confirmation from server
+        replyTo: replyInfo?.replyTo || null,
+        replyToMessage: replyInfo?.replyToMessage || null,
+        replyToSender: replyInfo?.replyToSender || null,
       };
       
       setMessages((prev) => [...prev, tempMessage]);
@@ -346,6 +355,9 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           message: encryptedMessage,
         contactEmail,
           senderEmail: userEmail, // Include senderEmail for reliability
+          replyTo: replyInfo?.replyTo || null,
+          replyToMessage: replyInfo?.replyToMessage || null,
+          replyToSender: replyInfo?.replyToSender || null,
       });
       
       socketService.emit(SOCKET_EVENTS.TYPING, {

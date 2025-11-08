@@ -659,6 +659,231 @@ class GroupController {
       });
     }
   }
+
+  // Pin a group message
+  async pinMessage(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { messageId, groupId } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!messageId || !groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Message ID and Group ID are required',
+        });
+      }
+
+      const chatService = require('../services/chatService');
+      const message = await chatService.pinMessage(messageId, userEmail, groupId);
+
+      // Emit socket event to notify all group members
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io) {
+        const roomId = `group_${groupId}`;
+        io.to(roomId).emit('messagePinned', {
+          groupId,
+          messageId: message._id,
+          message: message,
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Message pinned successfully',
+        pinnedMessage: message,
+      });
+    } catch (error) {
+      console.error('Error in pinMessage:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Unpin a group message
+  async unpinMessage(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { messageId, groupId } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!messageId || !groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Message ID and Group ID are required',
+        });
+      }
+
+      const chatService = require('../services/chatService');
+      const message = await chatService.unpinMessage(messageId, userEmail, groupId);
+
+      // Emit socket event to notify all group members
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io) {
+        const roomId = `group_${groupId}`;
+        io.to(roomId).emit('messageUnpinned', {
+          groupId,
+          messageId: message._id,
+          message: message,
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Message unpinned successfully',
+        unpinnedMessage: message,
+      });
+    } catch (error) {
+      console.error('Error in unpinMessage:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Get pinned messages for a group
+  async getPinnedMessages(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+      const { groupId } = req.params;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Group ID is required',
+        });
+      }
+
+      // Verify user is a member of the group
+      const isMember = await groupService.isMember(groupId, userEmail);
+      if (!isMember) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not a member of this group',
+        });
+      }
+
+      const chatService = require('../services/chatService');
+      const pinnedMessages = await chatService.getPinnedMessages(groupId);
+
+      res.status(200).json({
+        success: true,
+        pinnedMessages,
+      });
+    } catch (error) {
+      console.error('Error in getPinnedMessages:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Delete a group message
+  async deleteMessage(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { messageId } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!messageId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Message ID is required',
+        });
+      }
+
+      const chatService = require('../services/chatService');
+      await chatService.deleteMessage(messageId, userEmail);
+
+      // Emit socket event to notify all group members
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io) {
+        const message = await chatService.getMessageById(messageId);
+        if (message && message.groupId) {
+          const roomId = `group_${message.groupId}`;
+          io.to(roomId).emit('messageDeleted', {
+            groupId: message.groupId,
+            messageId: messageId,
+          });
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Message deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error in deleteMessage:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
 }
 
 module.exports = new GroupController();

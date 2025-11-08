@@ -92,9 +92,20 @@ class GroupService {
         throw new Error('You can only remove yourself from the group');
       }
 
-      // Cannot remove creator
+      // If creator is being removed, transfer creator role to next oldest member
       if (group.createdBy === memberToRemove) {
-        throw new Error('Cannot remove group creator');
+        // Get remaining members (excluding the creator being removed)
+        const remainingMembers = group.members.filter(m => m !== memberToRemove);
+        
+        if (remainingMembers.length === 0) {
+          throw new Error('Cannot remove creator when no other members exist. Delete the group instead.');
+        }
+
+        // Find the oldest member (first in the members array, excluding creator)
+        // Sort by creation date or use first member in array
+        // Since we don't have join date, we'll use the first member in the array (oldest by insertion)
+        const newCreator = remainingMembers[0];
+        group.createdBy = newCreator;
       }
 
       group.members = group.members.filter(m => m !== memberToRemove);

@@ -2,10 +2,21 @@ const userService = require('../services/userService');
 const chatService = require('../services/chatService');
 const groupService = require('../services/groupService');
 
+let ioInstance = null;
+
 class SocketService {
   constructor(io) {
     this.io = io;
+    ioInstance = io; // Store instance globally
     this.setupSocketHandlers();
+  }
+
+  getIO() {
+    return this.io || ioInstance;
+  }
+
+  static getIO() {
+    return ioInstance;
   }
 
   setupSocketHandlers() {
@@ -150,7 +161,7 @@ class SocketService {
   }
 
   async handlePrivateMessage(socket, data) {
-    const { message, contactEmail, senderEmail: providedSenderEmail } = data;
+    const { message, contactEmail, senderEmail: providedSenderEmail, replyTo, replyToMessage, replyToSender } = data;
     // Try to get senderEmail from data first, fallback to socket lookup
     let senderEmail = providedSenderEmail || this.getEmailFromSocket(socket.id);
     
@@ -172,6 +183,9 @@ class SocketService {
       senderEmail,
       message: message.trim(),
       timestamp: new Date(),
+      replyTo: replyTo || null,
+      replyToMessage: replyToMessage || null,
+      replyToSender: replyToSender || null,
     };
     
     let savedMessage;
@@ -206,6 +220,9 @@ class SocketService {
           roomId,
           contactEmail: contactEmail,
           messageId: savedMessage._id.toString(),
+          replyTo: savedMessage.replyTo || null,
+          replyToMessage: savedMessage.replyToMessage || null,
+          replyToSender: savedMessage.replyToSender || null,
         };
         
         contactSocket.emit('privateMessage', messagePayload);
@@ -317,7 +334,7 @@ class SocketService {
   }
 
   async handleGroupMessage(socket, data) {
-    const { message, groupId, senderEmail: providedSenderEmail } = data;
+    const { message, groupId, senderEmail: providedSenderEmail, replyTo, replyToMessage, replyToSender } = data;
     // Try to get senderEmail from data first, fallback to socket lookup
     let senderEmail = providedSenderEmail || this.getEmailFromSocket(socket.id);
     
@@ -346,10 +363,14 @@ class SocketService {
       senderEmail,
       message: message.trim(),
       timestamp: new Date(),
+      replyTo: replyTo || null,
+      replyToMessage: replyToMessage || null,
+      replyToSender: replyToSender || null,
     };
     
+    let savedMessage;
     try {
-      await chatService.addGroupMessage(groupId, messageData);
+      savedMessage = await chatService.addGroupMessage(groupId, messageData);
       console.log(`✅ Group message STORED in MongoDB: ${senderEmail} -> Group ${groupId}: "${message.trim()}"`);
     } catch (error) {
       console.error('Error storing group message:', error);
@@ -359,14 +380,21 @@ class SocketService {
     // Get room ID
     const roomId = `group_${groupId}`;
     
-    // Send message to all members in the group (except sender)
+    // Send message to all members in the group (including sender for consistency)
     const messagePayload = {
       ...messageData,
+      _id: savedMessage._id,
+      messageId: savedMessage._id,
       roomId,
       groupId,
+      isPinned: savedMessage.isPinned || false,
+      replyTo: savedMessage.replyTo || null,
+      replyToMessage: savedMessage.replyToMessage || null,
+      replyToSender: savedMessage.replyToSender || null,
     };
     
-    socket.to(roomId).emit('groupMessage', messagePayload);
+    // Emit to all members including sender
+    this.io.to(roomId).emit('groupMessage', messagePayload);
     console.log(`📤 Group message DELIVERED: Group ${groupId} received message from ${senderEmail}`);
   }
 

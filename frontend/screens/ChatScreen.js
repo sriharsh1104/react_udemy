@@ -22,14 +22,19 @@ import RecentChats from '../components/chat/RecentChats';
 import CreateGroupModal from '../components/chat/CreateGroupModal';
 import GroupInfoModal from '../components/chat/GroupInfoModal';
 import ContactInfoModal from '../components/chat/ContactInfoModal';
+import MessageActionMenu from '../components/chat/MessageActionMenu';
+import MessageActionBar from '../components/chat/MessageActionBar';
+import PinnedMessageBanner from '../components/chat/PinnedMessageBanner';
 import GLoader from '../components/common/GLoader';
 import contactsService from '../services/contactsService';
 import groupService from '../services/groupService';
 import fileUploadService from '../services/fileUploadService';
 import { Alert } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import encryptionService from '../services/encryptionService';
+import { showSuccessToast } from '../utils/toast';
 
 const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLogoutPress, navigation }) => {
   const { colors } = useTheme();
@@ -58,6 +63,12 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState(null);
   const [contactOnlineStatus, setContactOnlineStatus] = useState(false);
+  const [showMessageMenu, setShowMessageMenu] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [selectedMessages, setSelectedMessages] = useState([]); // Array of selected messages
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [pinnedMessage, setPinnedMessage] = useState(null);
+  const [loadingPinnedMessage, setLoadingPinnedMessage] = useState(false);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket();
@@ -378,8 +389,16 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
   const handleSendMessage = () => {
     if (inputMessage.trim()) {
-      sendMessage(inputMessage);
+      // Include reply info if replying
+      const replyInfo = replyingTo ? {
+        replyTo: replyingTo.messageId,
+        replyToMessage: replyingTo.message,
+        replyToSender: replyingTo.senderEmail,
+      } : null;
+      
+      sendMessage(inputMessage, replyInfo);
       setInputMessage('');
+      setReplyingTo(null); // Clear reply after sending
     }
   };
   
@@ -512,11 +531,313 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     setShowInviteModal(true);
   };
 
+  const handlePinMessage = async (messageId) => {
+    if (!groupId || !messageId) return;
+    const result = await groupService.pinMessage(messageId, groupId);
+    if (result.success) {
+      // Reload pinned message banner
+      await loadPinnedMessage();
+      // The socket will handle the message update
+    }
+  };
+
+  const handleUnpinMessage = async (messageId) => {
+    if (!groupId || !messageId) return;
+    const result = await groupService.unpinMessage(messageId, groupId);
+    if (result.success) {
+      // Clear pinned message banner
+      setPinnedMessage(null);
+      // The socket will handle the update
+    }
+  };
+
+  // Load pinned message for group
+  const loadPinnedMessage = async () => {
+    if (chatType !== 'group' || !groupId) {
+      setPinnedMessage(null);
+      return;
+    }
+
+    setLoadingPinnedMessage(true);
+    try {
+      const result = await groupService.getPinnedMessages(groupId);
+      if (result.success && result.pinnedMessages && result.pinnedMessages.length > 0) {
+        // Get the most recently pinned message (first in array)
+        const latestPinned = result.pinnedMessages[0];
+        // Decrypt if needed
+        let decryptedMessage = latestPinned.message;
+        try {
+          const parsed = JSON.parse(latestPinned.message);
+          if (parsed && parsed.encrypted && parsed.iv) {
+            decryptedMessage = await encryptionService.decryptGroupMessage(parsed, groupId);
+          }
+        } catch {
+          // Not encrypted, use as-is
+        }
+        setPinnedMessage({
+          ...latestPinned,
+          message: decryptedMessage,
+        });
+      } else {
+        setPinnedMessage(null);
+      }
+    } catch (error) {
+      console.error('Error loading pinned message:', error);
+      setPinnedMessage(null);
+    } finally {
+      setLoadingPinnedMessage(false);
+    }
+  };
+
+  // Load pinned message when group changes
+  useEffect(() => {
+    if (chatType === 'group' && groupId) {
+      loadPinnedMessage();
+    } else {
+      setPinnedMessage(null);
+    }
+  }, [groupId, chatType]);
+
+  // Listen for pinned/unpinned socket events to update banner
+  useEffect(() => {
+    if (!socket || chatType !== 'group' || !groupId) return;
+
+    const handleMessagePinned = async (data) => {
+      if (data.groupId === groupId) {
+        // Reload pinned message
+        await loadPinnedMessage();
+      }
+    };
+
+    const handleMessageUnpinned = (data) => {
+      if (data.groupId === groupId) {
+        // Clear pinned message banner
+        setPinnedMessage(null);
+      }
+    };
+
+    socket.on('messagePinned', handleMessagePinned);
+    socket.on('messageUnpinned', handleMessageUnpinned);
+
+    return () => {
+      socket.off('messagePinned', handleMessagePinned);
+      socket.off('messageUnpinned', handleMessageUnpinned);
+    };
+  }, [socket, chatType, groupId]);
+
+  // Handle pinned message click - scroll to message
+  const handlePinnedMessagePress = () => {
+    if (!pinnedMessage || !pinnedMessage._id) return;
+    
+    // Find message index in messages array
+    const messageIndex = messages.findIndex(
+      (msg) => (msg.messageId === pinnedMessage._id || msg._id === pinnedMessage._id)
+    );
+    
+    if (messageIndex >= 0 && flatListRef.current) {
+      flatListRef.current.scrollToIndex({
+        index: messageIndex,
+        animated: true,
+        viewPosition: 0.5, // Center the message
+      });
+    }
+  };
+
+  // Handle unpin from banner
+  const handleUnpinFromBanner = async () => {
+    if (!pinnedMessage || !pinnedMessage._id || !groupId) return;
+    await handleUnpinMessage(pinnedMessage._id);
+  };
+
+  // Handle message selection (for action bar)
+  const handleMessageSelect = (messageData) => {
+    if (!messageData) {
+      // Deselect all
+      setSelectedMessages([]);
+      return;
+    }
+
+    setSelectedMessages((prev) => {
+      const exists = prev.some(
+        (msg) => (msg.messageId || msg._id) === (messageData.messageId || messageData._id)
+      );
+      
+      if (exists) {
+        // Deselect if already selected
+        return prev.filter(
+          (msg) => (msg.messageId || msg._id) !== (messageData.messageId || messageData._id)
+        );
+      } else {
+        // Add to selection
+        const fullMessage = messages.find(
+          (msg) => (msg.messageId || msg._id) === (messageData.messageId || messageData._id)
+        );
+        return [
+          ...prev,
+          {
+            ...messageData,
+            timestamp: fullMessage?.timestamp || messageData.timestamp,
+          },
+        ];
+      }
+    });
+  };
+
+  // Message action menu handlers (for backward compatibility)
+  const handleMenuPress = (messageData) => {
+    // Find the full message object to get timestamp
+    const fullMessage = messages.find(
+      (msg) => (msg.messageId || msg._id) === messageData.messageId
+    );
+    setSelectedMessage({
+      ...messageData,
+      timestamp: fullMessage?.timestamp || messageData.timestamp,
+    });
+    setShowMessageMenu(true);
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!selectedMessage || !selectedMessage.messageId) return;
+    
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              let result;
+              if (chatType === 'group') {
+                result = await groupService.deleteMessage(selectedMessage.messageId);
+              } else {
+                result = await contactsService.deleteMessage(selectedMessage.messageId);
+              }
+              
+              if (result.success) {
+                // For group messages, socket event will handle the update
+                // For private messages, the message will be removed from backend
+                // UI will update on next message load or refresh
+              }
+            } catch (error) {
+              console.error('Error deleting message:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleForwardMessage = () => {
+    // TODO: Implement forward functionality
+    Alert.alert('Forward', 'Forward functionality coming soon');
+  };
+
+  const handleReplyMessage = () => {
+    if (!selectedMessage) return;
+    setReplyingTo({
+      messageId: selectedMessage.messageId,
+      message: selectedMessage.message,
+      senderEmail: selectedMessage.isSent ? userEmail : (chatType === 'group' ? null : contactEmail),
+    });
+    setShowMessageMenu(false);
+  };
+
+  const handleCopyMessage = async () => {
+    if (selectedMessages.length === 0) return;
+    try {
+      // Copy first selected message
+      const messageToCopy = selectedMessages[0];
+      await Clipboard.setStringAsync(messageToCopy.message);
+      showSuccessToast('Copied!', 'Message copied to clipboard');
+      setSelectedMessages([]);
+    } catch (error) {
+      console.error('Error copying message:', error);
+    }
+  };
+
+  const handleInfoMessage = () => {
+    if (selectedMessages.length === 0) return;
+    // Show info for first selected message
+    const messageToShow = selectedMessages[0];
+    Alert.alert(
+      'Message Info',
+      `Sent: ${new Date(messageToShow.timestamp || Date.now()).toLocaleString()}\n${messageToShow.isPinned ? '📌 Pinned' : ''}`
+    );
+  };
+
+  // Action bar handlers
+  const handleActionBarCopy = () => {
+    handleCopyMessage();
+  };
+
+  const handleActionBarReply = () => {
+    if (selectedMessages.length === 0) return;
+    const messageToReply = selectedMessages[0];
+    setReplyingTo({
+      messageId: messageToReply.messageId,
+      message: messageToReply.message,
+      senderEmail: messageToReply.isSent ? userEmail : (chatType === 'group' ? null : contactEmail),
+    });
+    setSelectedMessages([]);
+  };
+
+  const handleActionBarForward = () => {
+    if (selectedMessages.length === 0) return;
+    Alert.alert('Forward', 'Forward functionality coming soon');
+    setSelectedMessages([]);
+  };
+
+  const handleActionBarPin = () => {
+    if (selectedMessages.length === 0 || !groupId) return;
+    const messageToPin = selectedMessages[0];
+    if (messageToPin.messageId) {
+      handlePinMessage(messageToPin.messageId);
+      setSelectedMessages([]);
+    }
+  };
+
+  const handleActionBarUnpin = () => {
+    if (selectedMessages.length === 0 || !groupId) return;
+    const messageToUnpin = selectedMessages[0];
+    if (messageToUnpin.messageId) {
+      handleUnpinMessage(messageToUnpin.messageId);
+      setSelectedMessages([]);
+    }
+  };
+
+  const handleActionBarDelete = () => {
+    if (selectedMessages.length === 0) return;
+    const messageToDelete = selectedMessages[0];
+    setSelectedMessage(messageToDelete);
+    handleDeleteMessage();
+    setSelectedMessages([]);
+  };
+
+  const handleActionBarInfo = () => {
+    handleInfoMessage();
+  };
+
+  const handleActionBarClose = () => {
+    setSelectedMessages([]);
+  };
+
   const renderMessage = React.useCallback(({ item, index }) => {
     // Determine if message is sent by current user
     const isSent = item.isSent || item.senderEmail === userEmail;
     const senderName = item.senderEmail ? getUsernameFromEmail(item.senderEmail) : 'Unknown';
     const showSenderName = chatType === 'group' && !isSent;
+    
+    // Check if current user is creator (only for group chats)
+    const isCreator = chatType === 'group' && currentGroup && currentGroup.createdBy === userEmail;
+    const isPinned = item.isPinned || false;
+    
+    // Check if message is selected
+    const isSelected = selectedMessages.some(
+      (msg) => (msg.messageId || msg._id) === (item.messageId || item._id)
+    );
     
     return (
       <MessageItem
@@ -527,10 +848,23 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         isSystemMessage={false}
         isSent={isSent}
         status={item.status || 'sent'}
-        messageId={item.messageId || null}
+        messageId={item.messageId || item._id || null}
+        isPinned={isPinned}
+        isCreator={isCreator}
+        onPin={handlePinMessage}
+        onUnpin={handleUnpinMessage}
+        groupId={chatType === 'group' ? groupId : null}
+        onSelect={handleMessageSelect}
+        isSelected={isSelected}
+        onMenuPress={handleMenuPress}
+        isGroup={chatType === 'group'}
+        replyTo={item.replyTo || null}
+        replyToMessage={item.replyToMessage || null}
+        replyToSender={item.replyToSender || null}
+        userEmail={userEmail}
       />
     );
-  }, [userEmail, chatType]);
+  }, [userEmail, chatType, currentGroup, groupId, selectedMessages, handleMessageSelect, handleMenuPress, handlePinMessage, handleUnpinMessage]);
 
   // Mark messages as read when chat is viewed (only once per contact)
   const hasMarkedAsRead = useRef(false);
@@ -644,6 +978,33 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onSelectContact={handleSelectContact}
       />
       
+      {/* Message Action Bar - WhatsApp style */}
+      <MessageActionBar
+        visible={selectedMessages.length > 0}
+        selectedCount={selectedMessages.length}
+        isCreator={chatType === 'group' && currentGroup && currentGroup.createdBy === userEmail}
+        isGroup={chatType === 'group'}
+        isPinned={selectedMessages.length > 0 && selectedMessages[0].isPinned}
+        onCopy={handleActionBarCopy}
+        onReply={handleActionBarReply}
+        onForward={handleActionBarForward}
+        onPin={handleActionBarPin}
+        onUnpin={handleActionBarUnpin}
+        onDelete={handleActionBarDelete}
+        onInfo={handleActionBarInfo}
+        onClose={handleActionBarClose}
+      />
+
+      {/* Pinned Message Banner - Only for groups */}
+      {chatType === 'group' && pinnedMessage && (
+        <PinnedMessageBanner
+          pinnedMessage={pinnedMessage}
+          onPress={handlePinnedMessagePress}
+          onClose={handleUnpinFromBanner}
+          isCreator={currentGroup && currentGroup.createdBy === userEmail}
+        />
+      )}
+      
       <View style={styles.chatBackground}>
         <FlatList
           ref={flatListRef}
@@ -675,6 +1036,29 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onSend={handleSendMessage}
         onFileSelect={handleFileSelect}
         userEmail={userEmail}
+        replyingTo={replyingTo}
+        onCancelReply={() => setReplyingTo(null)}
+      />
+
+      <MessageActionMenu
+        visible={showMessageMenu}
+        onClose={() => {
+          setShowMessageMenu(false);
+          setSelectedMessage(null);
+        }}
+        message={selectedMessage?.message || ''}
+        messageId={selectedMessage?.messageId || null}
+        isSent={selectedMessage?.isSent || false}
+        isPinned={selectedMessage?.isPinned || false}
+        isCreator={selectedMessage?.isCreator || false}
+        isGroup={selectedMessage?.isGroup || false}
+        onDelete={handleDeleteMessage}
+        onForward={handleForwardMessage}
+        onReply={handleReplyMessage}
+        onPin={() => selectedMessage?.messageId && handlePinMessage(selectedMessage.messageId)}
+        onUnpin={() => selectedMessage?.messageId && handleUnpinMessage(selectedMessage.messageId)}
+        onCopy={handleCopyMessage}
+        onInfo={handleInfoMessage}
       />
 
       {currentGroup && (

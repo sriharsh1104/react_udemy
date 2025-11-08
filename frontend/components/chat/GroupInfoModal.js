@@ -37,6 +37,7 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
   const [inviteLink, setInviteLink] = useState('');
   const [loadingInviteLink, setLoadingInviteLink] = useState(false);
   const [resettingLink, setResettingLink] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
 
   useEffect(() => {
     if (visible && group) {
@@ -107,9 +108,21 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
   const handleExitGroup = async () => {
     if (!groupDetails || !groupDetails._id) return;
 
+    const isCreatorExiting = isCreator;
+    const memberCount = groupDetails.members?.length || 0;
+    
+    let message = 'Are you sure you want to exit this group?';
+    if (isCreatorExiting && memberCount > 1) {
+      message = 'You are the group creator. If you exit, the next oldest member will become the new creator. Are you sure you want to exit?';
+    } else if (isCreatorExiting && memberCount === 1) {
+      message = 'You are the only member. Please delete the group instead of exiting.';
+      Alert.alert('Cannot Exit', message, [{ text: 'OK' }]);
+      return;
+    }
+
     Alert.alert(
       'Exit Group',
-      'Are you sure you want to exit this group?',
+      message,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -121,7 +134,37 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
             setExiting(false);
 
             if (result.success) {
-              showToastFromResponse(result, { successTitle: 'Exited Group' });
+              showToastFromResponse(result, { 
+                successTitle: isCreatorExiting ? 'Exited Group - Creator Transferred' : 'Exited Group' 
+              });
+              if (onExitGroup) {
+                onExitGroup();
+              }
+              onClose();
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!groupDetails || !groupDetails._id) return;
+
+    Alert.alert(
+      'Delete Group',
+      `Are you sure you want to delete "${groupDetails.name}"? This action cannot be undone and all messages will be lost.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingGroup(true);
+            const result = await groupService.deleteGroup(groupDetails._id);
+            setDeletingGroup(false);
+
+            if (result.success) {
               if (onExitGroup) {
                 onExitGroup();
               }
@@ -397,11 +440,12 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
 
   if (!visible || !group) return null;
 
-  const isLoading = loading || searching || addingMember || exiting || loadingInviteLink;
+  const isLoading = loading || searching || addingMember || exiting || loadingInviteLink || deletingGroup;
   const loadingMessage = loading ? "Loading group details..." : 
                         searching ? "Searching..." : 
                         addingMember ? "Adding member..." : 
                         exiting ? "Exiting group..." :
+                        deletingGroup ? "Deleting group..." :
                         loadingInviteLink ? "Loading invite link..." : "Loading...";
 
   return (
@@ -571,6 +615,24 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
                 )}
               </View>
 
+              {/* Delete Group Button (Creator Only) */}
+              {isCreator && (
+                <View style={styles.section}>
+                  <Button
+                    title="🗑️ Delete Group"
+                    onPress={handleDeleteGroup}
+                    variant="outline"
+                    loading={deletingGroup}
+                    disabled={deletingGroup}
+                    fullWidth
+                    textStyle={{ color: '#EF4444' }}
+                  />
+                  <Text style={[styles.creatorNote, { color: colors.textSecondary }]}>
+                    This will permanently delete the group and all messages
+                  </Text>
+                </View>
+              )}
+
               {/* Exit Group Button */}
               <View style={styles.section}>
                 <Button
@@ -578,13 +640,13 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
                   onPress={handleExitGroup}
                   variant="outline"
                   loading={exiting}
-                  disabled={exiting || isCreator}
+                  disabled={exiting}
                   fullWidth
-                  textStyle={isCreator ? { color: colors.textSecondary } : { color: '#EF4444' }}
+                  textStyle={{ color: '#EF4444' }}
                 />
                 {isCreator && (
                   <Text style={[styles.creatorNote, { color: colors.textSecondary }]}>
-                    Group creator cannot exit the group
+                    If you exit, the next oldest member will become the new creator
                   </Text>
                 )}
               </View>

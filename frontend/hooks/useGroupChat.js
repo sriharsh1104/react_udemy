@@ -97,6 +97,12 @@ export const useGroupChat = (userEmail, groupId) => {
             message: decryptedMessage,
             timestamp: data.timestamp,
             isSent: false, // Always false since this is from another member
+            messageId: data._id || data.messageId,
+            _id: data._id || data.messageId,
+            isPinned: data.isPinned || false,
+            replyTo: data.replyTo || null,
+            replyToMessage: data.replyToMessage || null,
+            replyToSender: data.replyToSender || null,
           }];
         });
       }
@@ -114,6 +120,12 @@ export const useGroupChat = (userEmail, groupId) => {
               message: decryptedMessage,
           timestamp: msg.timestamp,
           isSent: msg.senderEmail === userEmail,
+              messageId: msg._id || msg.messageId,
+              _id: msg._id || msg.messageId,
+              isPinned: msg.isPinned || false,
+              replyTo: msg.replyTo || null,
+              replyToMessage: msg.replyToMessage || null,
+              replyToSender: msg.replyToSender || null,
             };
           })
         );
@@ -139,18 +151,61 @@ export const useGroupChat = (userEmail, groupId) => {
       }
     };
 
+    // Handle message pinned event
+    const handleMessagePinned = (data) => {
+      if (data.groupId === groupId) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            (msg.messageId === data.messageId || msg._id === data.messageId)
+              ? { ...msg, isPinned: true }
+              : { ...msg, isPinned: false } // Unpin all other messages
+          )
+        );
+      }
+    };
+
+    // Handle message unpinned event
+    const handleMessageUnpinned = (data) => {
+      if (data.groupId === groupId) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            (msg.messageId === data.messageId || msg._id === data.messageId)
+              ? { ...msg, isPinned: false }
+              : msg
+          )
+        );
+      }
+    };
+
+    // Handle message deleted event
+    const handleMessageDeleted = (data) => {
+      if (data.groupId === groupId) {
+        setMessages((prev) =>
+          prev.filter(
+            (msg) => (msg.messageId !== data.messageId && msg._id !== data.messageId)
+          )
+        );
+      }
+    };
+
     socket.on(SOCKET_EVENTS.GROUP_MESSAGE, handleGroupMessage);
     socket.on(SOCKET_EVENTS.GROUP_CHAT_HISTORY, handleGroupChatHistory);
     socket.on(SOCKET_EVENTS.GROUP_TYPING, handleGroupTyping);
+    socket.on('messagePinned', handleMessagePinned);
+    socket.on('messageUnpinned', handleMessageUnpinned);
+    socket.on('messageDeleted', handleMessageDeleted);
 
     return () => {
       socket.off(SOCKET_EVENTS.GROUP_MESSAGE, handleGroupMessage);
       socket.off(SOCKET_EVENTS.GROUP_CHAT_HISTORY, handleGroupChatHistory);
       socket.off(SOCKET_EVENTS.GROUP_TYPING, handleGroupTyping);
+      socket.off('messagePinned', handleMessagePinned);
+      socket.off('messageUnpinned', handleMessageUnpinned);
+      socket.off('messageDeleted', handleMessageDeleted);
     };
   }, [socket, userEmail, groupId]);
 
-  const sendMessage = async (message) => {
+  const sendMessage = async (message, replyInfo = null) => {
     if (message.trim() && socket && groupId && userEmail) {
       const messageText = message.trim();
       
@@ -172,6 +227,10 @@ export const useGroupChat = (userEmail, groupId) => {
         message: displayMessage,
         timestamp: new Date().toISOString(),
         isSent: true,
+        isPinned: false,
+        replyTo: replyInfo?.replyTo || null,
+        replyToMessage: replyInfo?.replyToMessage || null,
+        replyToSender: replyInfo?.replyToSender || null,
       };
       
       setMessages((prev) => [...prev, tempMessage]);
@@ -191,6 +250,9 @@ export const useGroupChat = (userEmail, groupId) => {
           message: encryptedMessage,
         groupId,
           senderEmail: userEmail, // Include senderEmail for reliability
+          replyTo: replyInfo?.replyTo || null,
+          replyToMessage: replyInfo?.replyToMessage || null,
+          replyToSender: replyInfo?.replyToSender || null,
       });
       
       socketService.emit(SOCKET_EVENTS.GROUP_TYPING, {

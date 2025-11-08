@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Modal, A
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
 
-const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail }) => {
+const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, replyingTo, onCancelReply }) => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
 
   const handleSend = () => {
@@ -47,8 +47,47 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail }) 
     }
   };
 
+  // Extract message text from replyingTo (handle JSON file messages)
+  const getReplyMessageText = () => {
+    if (!replyingTo || !replyingTo.message) return '';
+    try {
+      const parsed = JSON.parse(replyingTo.message);
+      if (parsed && parsed.type === 'file') {
+        return `📎 ${parsed.fileName || 'File'}`;
+      }
+    } catch {
+      // Not JSON, return as-is
+    }
+    return replyingTo.message.length > 50 
+      ? replyingTo.message.substring(0, 50) + '...' 
+      : replyingTo.message;
+  };
+
   return (
     <View style={styles.container}>
+      {replyingTo && (
+        <View style={styles.replyContainer}>
+          <View style={styles.replyContent}>
+            <View style={styles.replyIndicator} />
+            <View style={styles.replyTextContainer}>
+              <Text style={styles.replyLabel}>
+                {replyingTo.senderEmail === userEmail ? 'You' : 'Replying to'}
+              </Text>
+              <Text style={styles.replyMessage} numberOfLines={1}>
+                {getReplyMessageText()}
+              </Text>
+            </View>
+          </View>
+          {onCancelReply && (
+            <TouchableOpacity 
+              style={styles.cancelReplyButton}
+              onPress={onCancelReply}
+            >
+              <Text style={styles.cancelReplyIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       <View style={styles.inputWrapper}>
         <TouchableOpacity 
           style={styles.attachmentButton}
@@ -229,6 +268,49 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.text,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  replyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.receivedMessage,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.xs,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  replyContent: {
+    flexDirection: 'row',
+    flex: 1,
+    alignItems: 'center',
+  },
+  replyIndicator: {
+    width: 3,
+    height: 40,
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
+    marginRight: SPACING.sm,
+  },
+  replyTextContainer: {
+    flex: 1,
+  },
+  replyLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    marginBottom: 2,
+  },
+  replyMessage: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+  },
+  cancelReplyButton: {
+    padding: SPACING.xs,
+    marginLeft: SPACING.sm,
+  },
+  cancelReplyIcon: {
+    fontSize: 18,
+    color: COLORS.textSecondary,
+    fontWeight: 'bold',
   },
 });
 

@@ -30,6 +30,9 @@ class ChatService {
         readBy: groupId ? [messageData.senderEmail] : [],
         status: 'sent', // Initial status is 'sent'
         deliveredAt: null,
+        replyTo: messageData.replyTo || null,
+        replyToMessage: messageData.replyToMessage || null,
+        replyToSender: messageData.replyToSender || null,
       });
 
       await message.save();
@@ -57,6 +60,9 @@ class ChatService {
         readBy: [messageData.senderEmail],
         status: 'sent', // Initial status is 'sent'
         deliveredAt: null,
+        replyTo: messageData.replyTo || null,
+        replyToMessage: messageData.replyToMessage || null,
+        replyToSender: messageData.replyToSender || null,
       });
 
       await message.save();
@@ -244,6 +250,124 @@ class ChatService {
     } catch (error) {
       console.error('Error getting message by ID:', error);
       return null;
+    }
+  }
+
+  // Pin a group message (only creator can pin)
+  async pinMessage(messageId, userEmail, groupId) {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) {
+        throw new Error('Message not found');
+      }
+
+      // Verify it's a group message
+      if (message.messageType !== 'group' || !message.groupId) {
+        throw new Error('Can only pin group messages');
+      }
+
+      // Verify user is the group creator
+      const Group = require('../models/Group');
+      const group = await Group.findById(groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+
+      if (group.createdBy !== userEmail) {
+        throw new Error('Only group creator can pin messages');
+      }
+
+      // Unpin any previously pinned message in this group
+      await Message.updateMany(
+        { groupId: groupId, isPinned: true },
+        { isPinned: false, pinnedAt: null, pinnedBy: null }
+      );
+
+      // Pin the new message
+      message.isPinned = true;
+      message.pinnedAt = new Date();
+      message.pinnedBy = userEmail;
+      await message.save();
+
+      return message.toObject();
+    } catch (error) {
+      console.error('Error pinning message:', error);
+      throw error;
+    }
+  }
+
+  // Unpin a group message (only creator can unpin)
+  async unpinMessage(messageId, userEmail, groupId) {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) {
+        throw new Error('Message not found');
+      }
+
+      // Verify it's a group message
+      if (message.messageType !== 'group' || !message.groupId) {
+        throw new Error('Can only unpin group messages');
+      }
+
+      // Verify user is the group creator
+      const Group = require('../models/Group');
+      const group = await Group.findById(groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+
+      if (group.createdBy !== userEmail) {
+        throw new Error('Only group creator can unpin messages');
+      }
+
+      // Unpin the message
+      message.isPinned = false;
+      message.pinnedAt = null;
+      message.pinnedBy = null;
+      await message.save();
+
+      return message.toObject();
+    } catch (error) {
+      console.error('Error unpinning message:', error);
+      throw error;
+    }
+  }
+
+  // Get pinned messages for a group
+  async getPinnedMessages(groupId) {
+    try {
+      const messages = await Message.find({
+        groupId: groupId,
+        isPinned: true,
+      })
+        .sort({ pinnedAt: -1 }) // Most recently pinned first
+        .lean();
+
+      return messages;
+    } catch (error) {
+      console.error('Error getting pinned messages:', error);
+      return [];
+    }
+  }
+
+  // Delete a message (only sender can delete their own message)
+  async deleteMessage(messageId, userEmail) {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) {
+        throw new Error('Message not found');
+      }
+
+      // Only sender can delete their own message
+      if (message.senderEmail !== userEmail) {
+        throw new Error('You can only delete your own messages');
+      }
+
+      await Message.deleteOne({ _id: messageId });
+      return true;
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      throw error;
     }
   }
 }

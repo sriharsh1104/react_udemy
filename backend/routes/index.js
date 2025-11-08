@@ -54,6 +54,7 @@ router.post('/contacts/toggle-favorite', asyncHandler(contactsController.toggleF
 router.delete('/contacts', asyncHandler(contactsController.removeContact.bind(contactsController)));
 router.post('/contacts/mark-read', asyncHandler(contactsController.markMessagesAsRead.bind(contactsController)));
 router.get('/contacts/invite-link', asyncHandler(contactsController.generateInviteLink.bind(contactsController)));
+router.post('/contacts/delete-message', asyncHandler(contactsController.deleteMessage.bind(contactsController)));
 
 // Settings routes
 router.post('/settings/set-password', asyncHandler(settingsController.setPassword.bind(settingsController)));
@@ -74,6 +75,10 @@ router.post('/groups/generate-invite-link', asyncHandler(groupController.generat
 router.post('/groups/reset-invite-link', asyncHandler(groupController.resetInviteLink.bind(groupController)));
 router.post('/groups/join-via-link', asyncHandler(groupController.joinGroupViaLink.bind(groupController)));
 router.get('/groups/invite/:inviteToken', asyncHandler(groupController.getGroupByInviteToken.bind(groupController)));
+router.post('/groups/pin-message', asyncHandler(groupController.pinMessage.bind(groupController)));
+router.post('/groups/unpin-message', asyncHandler(groupController.unpinMessage.bind(groupController)));
+router.get('/groups/:groupId/pinned-messages', asyncHandler(groupController.getPinnedMessages.bind(groupController)));
+router.post('/groups/delete-message', asyncHandler(groupController.deleteMessage.bind(groupController)));
 
 // File routes
 router.post('/files/upload', fileController.uploadFile);

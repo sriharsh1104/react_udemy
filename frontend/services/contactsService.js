@@ -386,6 +386,44 @@ class ContactsService {
       return errorResponse;
     }
   }
+
+  async deleteMessage(messageId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/delete-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageId,
+          token,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Message Deleted',
+        errorTitle: 'Failed to Delete Message',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
 }
 
 export default new ContactsService();

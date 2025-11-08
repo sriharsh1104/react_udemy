@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
 
-const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId }) => {
+const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail }) => {
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
@@ -15,6 +15,9 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
   
   // Default status to 'sent' if not provided
   const messageStatus = status || 'sent';
+  
+  // Default isSelected to false if not provided
+  const isMessageSelected = isSelected || false;
   
   // Check if message is a file message
   useEffect(() => {
@@ -74,6 +77,21 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
     );
   }
 
+  // Handle long press to select message
+  const handleLongPress = () => {
+    if (onSelect) {
+      onSelect({
+        message,
+        messageId,
+        isSent,
+        isPinned,
+        isCreator,
+        isGroup,
+        timestamp,
+      });
+    }
+  };
+
   // Render file message
   if (fileData) {
     // Video player component
@@ -92,13 +110,53 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
         />
       );
     };
-    
+
     return (
-      <View style={[styles.container, isMyMessage ? styles.sentContainer : styles.receivedContainer]}>
+      <TouchableOpacity
+        style={[
+          styles.container,
+          isMyMessage ? styles.sentContainer : styles.receivedContainer,
+          isMessageSelected && styles.selectedContainer,
+        ]}
+        onLongPress={handleLongPress}
+        onPress={() => isMessageSelected && onSelect && onSelect(null)} // Deselect on tap if selected
+        activeOpacity={0.7}
+      >
         {!isMyMessage && (
           <Text style={styles.username} numberOfLines={1}>{username}</Text>
         )}
         <View style={[styles.bubble, isMyMessage ? styles.sentBubble : styles.receivedBubble]}>
+          {/* Reply Reference */}
+          {replyTo && replyToMessage && (
+            <View style={[styles.replyReference, { borderLeftColor: isMyMessage ? COLORS.white : COLORS.primary }]}>
+              <Text style={[styles.replySenderName, { color: isMyMessage ? COLORS.white : COLORS.primary }]} numberOfLines={1}>
+                {replyToSender === userEmail ? 'You' : (replyToSender ? replyToSender.split('@')[0] : 'Unknown')}
+              </Text>
+              <Text style={[styles.replyMessageText, { color: isMyMessage ? COLORS.white : COLORS.textSecondary }]} numberOfLines={1}>
+                {replyToMessage.length > 50 ? replyToMessage.substring(0, 50) + '...' : replyToMessage}
+              </Text>
+            </View>
+          )}
+          <View style={styles.messageHeader}>
+            {onMenuPress && (
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => onMenuPress({
+                  message,
+                  messageId,
+                  isSent,
+                  isPinned,
+                  isCreator,
+                  isGroup,
+                })}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={[styles.menuIcon, { color: isMyMessage ? COLORS.white : COLORS.textSecondary }]}>
+                  ⋮
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
           {/* Display image if downloaded */}
           {fileData.fileType === 'image' && localFileUri && (
             <View style={styles.imageContainer}>
@@ -198,17 +256,37 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
             )}
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   }
-  
+
   // Render regular text message
   return (
-    <View style={[styles.container, isMyMessage ? styles.sentContainer : styles.receivedContainer]}>
+    <TouchableOpacity
+      style={[
+        styles.container,
+        isMyMessage ? styles.sentContainer : styles.receivedContainer,
+        isMessageSelected && styles.selectedContainer,
+      ]}
+      onLongPress={handleLongPress}
+      onPress={() => isMessageSelected && onSelect && onSelect(null)} // Deselect on tap if selected
+      activeOpacity={0.7}
+    >
       {!isMyMessage && (
         <Text style={styles.username} numberOfLines={1}>{username}</Text>
       )}
       <View style={[styles.bubble, isMyMessage ? styles.sentBubble : styles.receivedBubble]}>
+        {/* Reply Reference */}
+        {replyTo && replyToMessage && (
+          <View style={[styles.replyReference, { borderLeftColor: isMyMessage ? COLORS.white : COLORS.primary }]}>
+            <Text style={[styles.replySenderName, { color: isMyMessage ? COLORS.white : COLORS.primary }]} numberOfLines={1}>
+              {replyToSender === userEmail ? 'You' : (replyToSender ? replyToSender.split('@')[0] : 'Unknown')}
+            </Text>
+            <Text style={[styles.replyMessageText, { color: isMyMessage ? COLORS.white : COLORS.textSecondary }]} numberOfLines={1}>
+              {replyToMessage.length > 50 ? replyToMessage.substring(0, 50) + '...' : replyToMessage}
+            </Text>
+          </View>
+        )}
         <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText]}>
           {message}
         </Text>
@@ -233,7 +311,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
           )}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -404,6 +482,60 @@ const styles = StyleSheet.create({
   tickMarkRead: {
     color: '#4FC3F7', // Light blue color for read messages (WhatsApp style)
     opacity: 1,
+  },
+  pinnedBubble: {
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+  },
+  pinnedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+    paddingBottom: SPACING.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: Platform.OS === 'ios' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+  },
+  pinnedIcon: {
+    fontSize: 14,
+    marginRight: SPACING.xs / 2,
+  },
+  pinnedText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontStyle: 'italic',
+  },
+  messageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  menuButton: {
+    padding: SPACING.xs,
+    marginLeft: SPACING.xs,
+  },
+  menuIcon: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  selectedContainer: {
+    opacity: 0.7,
+    backgroundColor: COLORS.primary + '20', // Semi-transparent primary color
+  },
+  replyReference: {
+    borderLeftWidth: 3,
+    paddingLeft: SPACING.sm,
+    marginBottom: SPACING.xs,
+    paddingVertical: SPACING.xs / 2,
+  },
+  replySenderName: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    marginBottom: 2,
+  },
+  replyMessageText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
   },
 });
 

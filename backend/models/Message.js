@@ -55,11 +55,38 @@ const MessageSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  isPinned: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  pinnedAt: {
+    type: Date,
+    default: null,
+  },
+  pinnedBy: {
+    type: String, // Email of user who pinned the message
+    default: null,
+  },
+  replyTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message',
+    default: null,
+  },
+  replyToMessage: {
+    type: String, // Original message text (for quick reference)
+    default: null,
+  },
+  replyToSender: {
+    type: String, // Email of original message sender
+    default: null,
+  },
 });
 
 // Compound index for efficient querying
 MessageSchema.index({ roomId: 1, timestamp: 1 });
 MessageSchema.index({ groupId: 1, timestamp: 1 });
+MessageSchema.index({ groupId: 1, isPinned: 1 }); // For querying pinned messages
 
 module.exports = mongoose.model('Message', MessageSchema);
 
