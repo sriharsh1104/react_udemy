@@ -28,6 +28,8 @@ class ChatService {
         message: messageData.message,
         timestamp: messageData.timestamp || new Date(),
         readBy: groupId ? [messageData.senderEmail] : [],
+        status: 'sent', // Initial status is 'sent'
+        deliveredAt: null,
       });
 
       await message.save();
@@ -53,6 +55,8 @@ class ChatService {
         message: messageData.message,
         timestamp: messageData.timestamp || new Date(),
         readBy: [messageData.senderEmail],
+        status: 'sent', // Initial status is 'sent'
+        deliveredAt: null,
       });
 
       await message.save();
@@ -187,13 +191,59 @@ class ChatService {
           read: false,
         },
         {
-          $set: { read: true },
+          $set: { read: true, status: 'read' },
         }
       );
       return true;
     } catch (error) {
       console.error('Error marking messages as read:', error);
       return false;
+    }
+  }
+
+  // Mark message as delivered
+  async markMessageAsDelivered(messageId) {
+    try {
+      const message = await Message.findByIdAndUpdate(
+        messageId,
+        {
+          $set: { status: 'delivered', deliveredAt: new Date() },
+        },
+        { new: true }
+      );
+      return message;
+    } catch (error) {
+      console.error('Error marking message as delivered:', error);
+      return null;
+    }
+  }
+
+  // Mark message as read (for private messages)
+  async markMessageAsRead(messageId, readerEmail) {
+    try {
+      const message = await Message.findByIdAndUpdate(
+        messageId,
+        {
+          $set: { status: 'read', read: true },
+          $addToSet: { readBy: readerEmail },
+        },
+        { new: true }
+      );
+      return message;
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+      return null;
+    }
+  }
+
+  // Get message by ID
+  async getMessageById(messageId) {
+    try {
+      const message = await Message.findById(messageId).lean();
+      return message;
+    } catch (error) {
+      console.error('Error getting message by ID:', error);
+      return null;
     }
   }
 }

@@ -55,6 +55,9 @@ export const SOCKET_EVENTS = {
   GROUP_MESSAGE: 'groupMessage',
   GROUP_CHAT_HISTORY: 'groupChatHistory',
   GROUP_TYPING: 'groupTyping',
+  // Message status events
+  MESSAGE_STATUS_UPDATE: 'messageStatusUpdate',
+  MESSAGE_READ: 'messageRead',
 };
 
 // Premium Color Scheme (WhatsApp-inspired but with premium colors)

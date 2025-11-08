@@ -45,6 +45,16 @@ const MessageSchema = new mongoose.Schema({
   readBy: [{
     type: String, // Array of emails who have read the message
   }],
+  status: {
+    type: String,
+    enum: ['sent', 'delivered', 'read'],
+    default: 'sent',
+    index: true,
+  },
+  deliveredAt: {
+    type: Date,
+    default: null,
+  },
 });
 
 // Compound index for efficient querying

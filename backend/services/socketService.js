@@ -57,6 +57,11 @@ class SocketService {
         this.handleGroupTyping(socket, data);
       });
 
+      // Handle message read receipt
+      socket.on('messageRead', (data) => {
+        this.handleMessageRead(socket, data);
+      });
+
       // Handle user disconnection
       socket.on('disconnect', () => {
         this.handleDisconnect(socket);
@@ -105,6 +110,31 @@ class SocketService {
 
     if (messages.length > 0) {
       console.log(`📬 DELIVERED ${messages.length} pending message(s) to ${userEmail} from ${contactEmail}`);
+      
+      // Mark all pending messages as delivered and notify senders
+      for (const msg of messages) {
+        if (msg.status === 'sent' && msg.senderEmail !== userEmail) {
+          try {
+            const updatedMessage = await chatService.markMessageAsDelivered(msg._id);
+            if (updatedMessage) {
+              // Notify sender that message was delivered
+              const senderSocketId = userService.getSocketByEmail(msg.senderEmail);
+              if (senderSocketId) {
+                const senderSocket = this.io.sockets.sockets.get(senderSocketId);
+                if (senderSocket) {
+                  senderSocket.emit('messageStatusUpdate', {
+                    messageId: msg._id.toString(),
+                    status: 'delivered',
+                    deliveredAt: updatedMessage.deliveredAt,
+                  });
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error marking pending message as delivered:', error);
+          }
+        }
+      }
     }
 
     console.log(`User ${userEmail} joined chat with ${contactEmail} (room: ${roomId})`);
@@ -144,8 +174,9 @@ class SocketService {
       timestamp: new Date(),
     };
     
+    let savedMessage;
     try {
-      await chatService.addMessage(senderEmail, contactEmail, messageData);
+      savedMessage = await chatService.addMessage(senderEmail, contactEmail, messageData);
       console.log(`✅ Message STORED in MongoDB: ${senderEmail} -> ${contactEmail}: "${message.trim()}"`);
     } catch (error) {
       console.error('Error storing message:', error);
@@ -174,13 +205,36 @@ class SocketService {
           ...messageData,
           roomId,
           contactEmail: contactEmail,
+          messageId: savedMessage._id.toString(),
         };
         
         contactSocket.emit('privateMessage', messagePayload);
         console.log(`📤 Message DELIVERED (online): ${contactEmail} received message from ${senderEmail}`);
+        
+        // Mark message as delivered and notify sender
+        try {
+          const updatedMessage = await chatService.markMessageAsDelivered(savedMessage._id);
+          if (updatedMessage) {
+            // Notify sender that message was delivered
+            const senderSocketId = userService.getSocketByEmail(senderEmail);
+            if (senderSocketId) {
+              const senderSocket = this.io.sockets.sockets.get(senderSocketId);
+              if (senderSocket) {
+                senderSocket.emit('messageStatusUpdate', {
+                  messageId: savedMessage._id.toString(),
+                  status: 'delivered',
+                  deliveredAt: updatedMessage.deliveredAt,
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error marking message as delivered:', error);
+        }
       }
     } else {
       // Contact is OFFLINE - message is stored in MongoDB, will be delivered when they come online
+      // Status remains 'sent' until they come online
       console.log(`⏳ Message PENDING (offline): ${contactEmail} is offline. Message stored in MongoDB, will be delivered when they come online.`);
     }
     
@@ -332,6 +386,44 @@ class SocketService {
       groupId,
       isTyping,
     });
+  }
+
+  async handleMessageRead(socket, data) {
+    const { messageId, senderEmail } = data;
+    const readerEmail = this.getEmailFromSocket(socket.id);
+    
+    if (!readerEmail || !messageId) {
+      return;
+    }
+
+    try {
+      // Get the message to verify it exists and get sender
+      const message = await chatService.getMessageById(messageId);
+      if (!message) {
+        console.log('Message not found for read receipt:', messageId);
+        return;
+      }
+
+      // Only mark as read if the reader is the receiver
+      if (message.receiverEmail === readerEmail && message.senderEmail !== readerEmail) {
+        const updatedMessage = await chatService.markMessageAsRead(messageId, readerEmail);
+        if (updatedMessage) {
+          // Notify sender that message was read
+          const senderSocketId = userService.getSocketByEmail(message.senderEmail);
+          if (senderSocketId) {
+            const senderSocket = this.io.sockets.sockets.get(senderSocketId);
+            if (senderSocket) {
+              senderSocket.emit('messageStatusUpdate', {
+                messageId: messageId,
+                status: 'read',
+              });
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error handling message read:', error);
+    }
   }
 
   getEmailFromSocket(socketId) {

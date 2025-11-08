@@ -5,13 +5,16 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
 
-const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent }) => {
+const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId }) => {
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
   
   // Determine if message is sent by current user (for WhatsApp-like alignment)
   const isMyMessage = isSent !== undefined ? isSent : false;
+  
+  // Default status to 'sent' if not provided
+  const messageStatus = status || 'sent';
   
   // Check if message is a file message
   useEffect(() => {
@@ -182,6 +185,17 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent }) 
                 hour12: false 
               })}
             </Text>
+            {/* Show tick marks for sent messages */}
+            {isMyMessage && (
+              <Text style={[
+                styles.tickMark,
+                status === 'read' ? styles.tickMarkRead : 
+                status === 'delivered' ? styles.tickMarkDelivered : 
+                styles.tickMarkSent
+              ]}>
+                {status === 'read' || status === 'delivered' ? '✓✓' : '✓'}
+              </Text>
+            )}
           </View>
         </View>
       </View>
@@ -206,6 +220,17 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent }) 
               hour12: false 
             })}
           </Text>
+          {/* Show tick marks for sent messages */}
+          {isMyMessage && (
+            <Text style={[
+              styles.tickMark,
+              messageStatus === 'read' ? styles.tickMarkRead : 
+              messageStatus === 'delivered' ? styles.tickMarkDelivered : 
+              styles.tickMarkSent
+            ]}>
+              {messageStatus === 'read' || messageStatus === 'delivered' ? '✓✓' : '✓'}
+            </Text>
+          )}
         </View>
       </View>
     </View>
@@ -363,6 +388,22 @@ const styles = StyleSheet.create({
   fileInfoContainer: {
     alignItems: 'center',
     marginTop: SPACING.xs,
+  },
+  tickMark: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginLeft: SPACING.xs / 2,
+  },
+  tickMarkSent: {
+    color: COLORS.white,
+    opacity: 0.6,
+  },
+  tickMarkDelivered: {
+    color: COLORS.white,
+    opacity: 0.8,
+  },
+  tickMarkRead: {
+    color: '#4FC3F7', // Light blue color for read messages (WhatsApp style)
+    opacity: 1,
   },
 });
 

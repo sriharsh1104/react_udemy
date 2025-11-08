@@ -55,7 +55,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket();
-  const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping } = useChat(userEmail, contactEmail, () => {
+  const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead } = useChat(userEmail, contactEmail, () => {
     // Refresh contacts when a new message is received
     loadContacts();
   });
@@ -336,9 +336,33 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         timestamp={item.timestamp}
         isSystemMessage={false}
         isSent={isSent}
+        status={item.status || 'sent'}
+        messageId={item.messageId || null}
       />
     );
   }, [userEmail, chatType]);
+
+  // Mark messages as read when chat is viewed (only once per contact)
+  const hasMarkedAsRead = useRef(false);
+  useEffect(() => {
+    if (contactEmail && chatType === 'private' && markPrivateMessagesAsRead) {
+      // Reset flag when contact changes
+      hasMarkedAsRead.current = false;
+    }
+  }, [contactEmail, chatType]);
+  
+  useEffect(() => {
+    if (contactEmail && chatType === 'private' && markPrivateMessagesAsRead && !hasMarkedAsRead.current) {
+      // Small delay to ensure messages are loaded
+      const timer = setTimeout(() => {
+        if (!hasMarkedAsRead.current) {
+          markPrivateMessagesAsRead();
+          hasMarkedAsRead.current = true;
+        }
+      }, 1000); // Increased delay to ensure messages are fully loaded
+      return () => clearTimeout(timer);
+    }
+  }, [contactEmail, chatType, markPrivateMessagesAsRead, messages.length]); // Also depend on messages.length to ensure messages are loaded
 
   // Show recent chats if no contact or group selected
   if (!contactEmail && !groupId) {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import socketService from '../services/socketService';
 import { SOCKET_EVENTS } from '../constants';
 import encryptionService from '../services/encryptionService';
@@ -7,6 +7,9 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(null);
   const socket = socketService.getSocket();
+  
+  // Track message IDs that have been read (to avoid duplicate read receipts)
+  const readMessageIds = useRef(new Set());
   
   /**
    * Check if a message is encrypted (contains encrypted and iv fields)
@@ -101,12 +104,25 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             onMessageReceived();
           }
           
-          return [...prev, {
+          const newMessage = {
             senderEmail: data.senderEmail,
             message: decryptedMessage,
             timestamp: data.timestamp,
             isSent: false, // Always false since this is from contact
-          }];
+            messageId: data.messageId || null,
+            status: 'delivered', // Messages received are already delivered
+          };
+          
+          // Send read receipt immediately if we have messageId
+          if (data.messageId && !readMessageIds.current.has(data.messageId)) {
+            readMessageIds.current.add(data.messageId);
+            socketService.emit(SOCKET_EVENTS.MESSAGE_READ, {
+              messageId: data.messageId,
+              senderEmail: data.senderEmail,
+            });
+          }
+          
+          return [...prev, newMessage];
         });
       }
     };
@@ -123,12 +139,86 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
               message: decryptedMessage,
           timestamp: msg.timestamp,
           isSent: msg.senderEmail === userEmail,
+              messageId: msg._id ? msg._id.toString() : null,
+              status: msg.status || 'sent',
+              deliveredAt: msg.deliveredAt || null,
             };
           })
         );
         
+        // Only replace messages if we don't have any messages yet, or if this is the initial load
+        // Otherwise, merge with existing messages to avoid clearing optimistic updates
+        setMessages((prev) => {
+          // If we already have messages, merge them intelligently
+          if (prev.length > 0) {
+            // Create a map of existing messages by messageId for quick lookup
+            const existingMessagesMap = new Map();
+            prev.forEach(msg => {
+              if (msg.messageId) {
+                existingMessagesMap.set(msg.messageId, msg);
+              }
+            });
+            
+            // Merge: keep existing messages that aren't in history (optimistic updates)
+            // and add/update messages from history
+            const mergedMessages = [...prev];
+            
+            formattedMessages.forEach((historyMsg) => {
+              if (historyMsg.messageId) {
+                const existingIndex = mergedMessages.findIndex(
+                  m => m.messageId === historyMsg.messageId
+                );
+                if (existingIndex >= 0) {
+                  // Update existing message with history data (preserve status if it's more recent)
+                  mergedMessages[existingIndex] = {
+                    ...mergedMessages[existingIndex],
+                    ...historyMsg,
+                    // Keep the more recent status if we have one
+                    status: mergedMessages[existingIndex].status === 'read' || 
+                            mergedMessages[existingIndex].status === 'delivered' 
+                            ? mergedMessages[existingIndex].status 
+                            : historyMsg.status,
+                  };
+                } else {
+                  // Add new message from history
+                  mergedMessages.push(historyMsg);
+                }
+              } else {
+                // Message without ID - add it if not duplicate
+                const isDuplicate = mergedMessages.some(
+                  m => m.message === historyMsg.message && 
+                       m.senderEmail === historyMsg.senderEmail &&
+                       Math.abs(new Date(m.timestamp) - new Date(historyMsg.timestamp)) < 1000
+                );
+                if (!isDuplicate) {
+                  mergedMessages.push(historyMsg);
+                }
+              }
+            });
+            
+            // Sort by timestamp
+            mergedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            
+            return mergedMessages;
+          }
+          
+          // First load - just set the messages
+          return formattedMessages;
+        });
+        
+        // Send read receipts for messages from contact that haven't been read yet
+        formattedMessages.forEach((msg) => {
+          if (!msg.isSent && msg.messageId && !readMessageIds.current.has(msg.messageId)) {
+            // Mark as read and send receipt
+            readMessageIds.current.add(msg.messageId);
+            socketService.emit(SOCKET_EVENTS.MESSAGE_READ, {
+              messageId: msg.messageId,
+              senderEmail: msg.senderEmail,
+            });
+          }
+        });
+        
         console.log(`📬 Received ${formattedMessages.length} message(s) from chat history for ${contactEmail}`);
-        setMessages(formattedMessages);
       }
     };
 
@@ -143,14 +233,60 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       }
     };
 
+    const handleMessageStatusUpdate = (data) => {
+      // Update message status when server notifies us
+      setMessages((prev) => {
+        // First, try to match by messageId
+        const messageById = prev.find(msg => data.messageId && msg.messageId === data.messageId);
+        if (messageById) {
+          return prev.map((msg) => {
+            if (msg.messageId === data.messageId) {
+              return {
+                ...msg,
+                status: data.status,
+                deliveredAt: data.deliveredAt || msg.deliveredAt,
+              };
+            }
+            return msg;
+          });
+        }
+        
+        // If no match by messageId, try to match the most recent 'sent' message without messageId
+        // This handles optimistic updates where we don't have messageId yet
+        const sentMessagesWithoutId = prev
+          .filter(msg => msg.isSent && msg.senderEmail === userEmail && !msg.messageId && msg.status === 'sent')
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Most recent first
+        
+        if (sentMessagesWithoutId.length > 0) {
+          // Update the most recent one
+          const mostRecent = sentMessagesWithoutId[0];
+          return prev.map((msg) => {
+            if (msg === mostRecent) {
+              return {
+                ...msg,
+                status: data.status,
+                deliveredAt: data.deliveredAt || msg.deliveredAt,
+                messageId: data.messageId || msg.messageId,
+              };
+            }
+            return msg;
+          });
+        }
+        
+        return prev;
+      });
+    };
+
     socket.on(SOCKET_EVENTS.PRIVATE_MESSAGE, handlePrivateMessage);
     socket.on(SOCKET_EVENTS.CHAT_HISTORY, handleChatHistory);
     socket.on(SOCKET_EVENTS.TYPING, handleTyping);
+    socket.on(SOCKET_EVENTS.MESSAGE_STATUS_UPDATE, handleMessageStatusUpdate);
 
     return () => {
       socket.off(SOCKET_EVENTS.PRIVATE_MESSAGE, handlePrivateMessage);
       socket.off(SOCKET_EVENTS.CHAT_HISTORY, handleChatHistory);
       socket.off(SOCKET_EVENTS.TYPING, handleTyping);
+      socket.off(SOCKET_EVENTS.MESSAGE_STATUS_UPDATE, handleMessageStatusUpdate);
     };
   }, [socket, userEmail, contactEmail]);
 
@@ -176,6 +312,8 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         message: displayMessage,
         timestamp: new Date().toISOString(),
         isSent: true,
+        status: 'sent', // Initial status - will be updated when delivered
+        messageId: null, // Will be set when we get confirmation from server
       };
       
       setMessages((prev) => [...prev, tempMessage]);
@@ -221,10 +359,27 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     }
   };
 
+  // Function to mark messages as read (called when chat is viewed)
+  const markMessagesAsRead = () => {
+    if (!contactEmail || !userEmail) return;
+    
+    // Send read receipts for all unread messages from contact
+    messages.forEach((msg) => {
+      if (!msg.isSent && msg.messageId && !readMessageIds.current.has(msg.messageId)) {
+        readMessageIds.current.add(msg.messageId);
+        socketService.emit(SOCKET_EVENTS.MESSAGE_READ, {
+          messageId: msg.messageId,
+          senderEmail: msg.senderEmail,
+        });
+      }
+    });
+  };
+
   return {
     messages,
     typingUser,
     sendMessage,
     sendTyping,
+    markMessagesAsRead,
   };
 };
