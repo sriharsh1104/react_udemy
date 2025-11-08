@@ -31,6 +31,10 @@ router.get('/profile', asyncHandler(async (req, res) => {
   await profileController.getProfile(req, res);
 }));
 
+router.get('/profile/:email', asyncHandler(async (req, res) => {
+  await profileController.getContactProfile(req, res);
+}));
+
 router.put('/profile', asyncHandler(async (req, res) => {
   await profileController.updateProfile(req, res);
 }));
@@ -81,6 +85,7 @@ console.log('  POST /api/auth/forget-password');
 console.log('  POST /api/auth/reset-password');
 console.log('  POST /api/auth/logout');
 console.log('  GET /api/profile');
+console.log('  GET /api/profile/:email');
 console.log('  PUT /api/profile');
 console.log('  POST /api/profile');
 console.log('  GET /api/contacts/search');

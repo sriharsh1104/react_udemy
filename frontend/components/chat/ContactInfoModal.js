@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 import groupService from '../../services/groupService';
+import profileService from '../../services/profileService';
 
 const ContactInfoModal = ({ 
   visible, 
@@ -25,18 +26,32 @@ const ContactInfoModal = ({
   const [loading, setLoading] = useState(true);
   const [showAllGroups, setShowAllGroups] = useState(false);
   const [showAllMedia, setShowAllMedia] = useState(false);
+  const [contactProfile, setContactProfile] = useState(null);
 
   useEffect(() => {
     if (visible && contactEmail && userEmail) {
       loadContactInfo();
+      loadContactProfile();
     } else {
       // Reset when modal closes
       setCommonGroups([]);
       setSharedMedia([]);
       setShowAllGroups(false);
       setShowAllMedia(false);
+      setContactProfile(null);
     }
   }, [visible, contactEmail, userEmail]);
+
+  const loadContactProfile = async () => {
+    try {
+      const result = await profileService.getContactProfile(contactEmail);
+      if (result.success && result.profile) {
+        setContactProfile(result.profile);
+      }
+    } catch (error) {
+      console.error('Error loading contact profile:', error);
+    }
+  };
 
   const loadContactInfo = async () => {
     setLoading(true);
@@ -141,6 +156,15 @@ const ContactInfoModal = ({
               </View>
               <Text style={styles.contactName}>{displayName}</Text>
               <Text style={styles.contactEmail}>{contactEmail}</Text>
+              {contactProfile && contactProfile.phoneNumbers && contactProfile.phoneNumbers.length > 0 && (
+                <View style={styles.phoneNumbersContainer}>
+                  {contactProfile.phoneNumbers.map((phone, index) => (
+                    <Text key={index} style={styles.contactPhone}>
+                      {phone}
+                    </Text>
+                  ))}
+                </View>
+              )}
             </View>
 
             {loading ? (
@@ -316,6 +340,15 @@ const styles = StyleSheet.create({
   contactEmail: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textSecondary,
+  },
+  phoneNumbersContainer: {
+    marginTop: SPACING.xs,
+    alignItems: 'center',
+  },
+  contactPhone: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.primary,
+    marginTop: SPACING.xs / 2,
   },
   section: {
     paddingHorizontal: SPACING.md,

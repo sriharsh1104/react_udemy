@@ -52,6 +52,64 @@ class ProfileController {
     }
   }
 
+  // Get contact profile by email
+  async getContactProfile(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+      const { email } = req.params;
+      
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is required',
+        });
+      }
+
+      const profile = await userProfileService.getProfileByEmail(email);
+      
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          message: 'Profile not found',
+        });
+      }
+
+      // Return profile with phone numbers (but exclude sensitive data)
+      res.status(200).json({
+        success: true,
+        message: 'Profile retrieved successfully',
+        profile: {
+          email: profile.email,
+          name: profile.name,
+          phoneNumbers: profile.phoneNumbers || [],
+          age: profile.age,
+        },
+      });
+    } catch (error) {
+      console.error('Error in getContactProfile:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+
   // Update user profile
   async updateProfile(req, res) {
     try {

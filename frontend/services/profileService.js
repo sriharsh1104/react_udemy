@@ -97,6 +97,43 @@ class ProfileService {
       return errorResponse;
     }
   }
+
+  async getContactProfile(contactEmail) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/profile/${encodeURIComponent(contactEmail)}?token=${encodeURIComponent(token)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      // Don't show toast for getContactProfile (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Failed to Load Contact Profile',
+          showSuccess: false,
+        });
+      }
+      return data;
+    } catch (error) {
+      console.error('Error getting contact profile:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
 }
 
 export default new ProfileService();
