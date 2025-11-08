@@ -16,21 +16,10 @@ class OTPService {
       // For production, use proper email service like SendGrid, AWS SES, etc.
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // true for 465, false for other ports
         auth: {
           user: process.env.EMAIL_USER || 'your-email@gmail.com',
           pass: process.env.EMAIL_PASS || 'your-app-password',
         },
-        // Timeout configurations to prevent connection timeout
-        connectionTimeout: 10000, // 10 seconds to establish connection
-        socketTimeout: 10000, // 10 seconds for socket operations
-        greetingTimeout: 10000, // 10 seconds to wait for greeting
-        // Retry configuration
-        pool: true,
-        maxConnections: 1,
-        maxMessages: 3,
       });
     }
     return this.transporter;
@@ -96,31 +85,17 @@ class OTPService {
         };
 
           try {
-            // Add timeout wrapper for sendMail to prevent indefinite hanging
-            const sendMailPromise = this.getTransporter().sendMail(mailOptions);
-            const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000);
-            });
-            
-            await Promise.race([sendMailPromise, timeoutPromise]);
-            console.log(`✅ Email sent successfully to ${identifier}`);
+        await this.getTransporter().sendMail(mailOptions);
           } catch (emailError) {
             // Email sending failed - log OTP to console as fallback
             const purposeText = purpose === 'password-reset' ? 'Password Reset' : 'Login';
             console.error('Error sending email:', emailError.message);
-            console.error('Error code:', emailError.code);
             console.log(`\n📧 Email OTP for ${purposeText} - ${identifier}: ${otp}\n`);
             console.log('⚠️  Email sending failed. OTP logged to console.');
             
-            // Check for specific error types
+            // Check if it's an authentication error
             if (emailError.code === 'EAUTH') {
               console.error('Email authentication failed. Please check EMAIL_USER and EMAIL_PASS.');
-            } else if (emailError.message.includes('timeout') || emailError.code === 'ETIMEDOUT' || emailError.code === 'ECONNRESET') {
-              console.error('Connection timeout. This might be due to:');
-              console.error('  1. Gmail blocking connections from Render IP');
-              console.error('  2. Network issues between Render and Gmail');
-              console.error('  3. Firewall restrictions');
-              console.error('Consider using SendGrid, AWS SES, or Mailgun for production.');
             }
           }
         }
@@ -159,13 +134,6 @@ class OTPService {
         return { 
           success: false, 
           message: 'Email configuration error. Please contact support or check server logs for OTP.' 
-        };
-      }
-      
-      if (error.message && error.message.includes('timeout')) {
-        return { 
-          success: false, 
-          message: 'Connection timeout. Please try again. If issue persists, check server logs for OTP.' 
         };
       }
       

@@ -14,6 +14,7 @@ import {
 import { TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
 import Button from '../common/Button';
+import GLoader from '../common/GLoader';
 import contactsService from '../../services/contactsService';
 import groupService from '../../services/groupService';
 import { showToastFromResponse } from '../../utils/toast';
@@ -202,29 +203,32 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
 
   if (!visible || !group) return null;
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
-          <View style={[styles.header, { borderBottomColor: colors.divider }]}>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Group Info</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={[styles.closeButtonText, { color: colors.text }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
+  const isLoading = loading || searching || addingMember || exiting;
+  const loadingMessage = loading ? "Loading group details..." : 
+                        searching ? "Searching..." : 
+                        addingMember ? "Adding member..." : 
+                        exiting ? "Exiting group..." : "Loading...";
 
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading group details...</Text>
+  return (
+    <>
+      <GLoader visible={isLoading} message={loadingMessage} />
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={onClose}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <View style={[styles.header, { borderBottomColor: colors.divider }]}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>Group Info</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Text style={[styles.closeButtonText, { color: colors.text }]}>✕</Text>
+              </TouchableOpacity>
             </View>
-          ) : groupDetails ? (
-            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+
+            {groupDetails ? (
+              <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
               {/* Group Name */}
               <View style={[styles.section, { backgroundColor: colors.receivedMessage }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Group Name</Text>
@@ -318,15 +322,16 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
                   </Text>
                 )}
               </View>
-            </ScrollView>
-          ) : (
-            <View style={styles.loadingContainer}>
-              <Text style={[styles.errorText, { color: colors.textSecondary }]}>Failed to load group details</Text>
-            </View>
-          )}
+              </ScrollView>
+            ) : (
+              <View style={styles.loadingContainer}>
+                <Text style={[styles.errorText, { color: colors.textSecondary }]}>Failed to load group details</Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+    </>
   );
 };
 

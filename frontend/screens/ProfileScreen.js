@@ -9,10 +9,10 @@ import {
   Alert,
   KeyboardAvoidingView,
   ScrollView,
-  ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
+import GLoader from '../components/common/GLoader';
 import profileService from '../services/profileService';
 
 const ProfileScreen = ({ userEmail, onBack, isMandatory = false }) => {
@@ -102,17 +102,9 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false }) => {
     }
   };
 
-  if (initialLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading profile...</Text>
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea}>
+      <GLoader visible={initialLoading} message="Loading profile..." />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -219,12 +211,9 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false }) => {
             disabled={saving}
             activeOpacity={0.8}
           >
-            {saving ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <Text style={styles.saveButtonText}>Save Profile</Text>
-            )}
+            <Text style={styles.saveButtonText}>Save Profile</Text>
           </TouchableOpacity>
+      <GLoader visible={saving} message="Saving profile..." />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

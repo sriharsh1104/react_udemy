@@ -11,6 +11,7 @@ import LoginScreen from './screens/LoginScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import LogoutModal from './components/common/LogoutModal';
+import GLoader from './components/common/GLoader';
 import profileService from './services/profileService';
 import authService from './services/authService';
 
@@ -155,76 +156,71 @@ const AppContent = () => {
     }
   };
 
-  if (isLoading) {
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-    </View>
-  );
-}
-
-  return (
-    <NavigationContainer ref={navigationRef}>
-      <View style={styles.container}>
-        <Stack.Navigator
-          initialRouteName="Login"
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        >
-          <Stack.Screen name="Login">
-            {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
-          </Stack.Screen>
-          <Stack.Screen name="Chat">
-            {(props) => (
-              <ChatScreen
-                {...props}
-                userEmail={userEmail}
-                onLogout={handleLogout}
-                onProfilePress={() => props.navigation.navigate('Profile')}
-                onSettingsPress={() => props.navigation.navigate('Settings')}
-                onLogoutPress={handleLogoutPress}
-              />
-            )}
-          </Stack.Screen>
-          <Stack.Screen name="Profile">
-            {(props) => (
-              <ProfileScreen
-                {...props}
-                userEmail={userEmail}
-                onBack={() => {
-                  handleProfileBack();
-                  if (profile?.isProfileComplete) {
-                    props.navigation.navigate('Chat');
-                  } else {
-                    props.navigation.goBack();
-                  }
-                }}
-                isMandatory={!profile || !profile.isProfileComplete}
-              />
-            )}
-          </Stack.Screen>
-          <Stack.Screen name="Settings">
-            {(props) => (
-              <SettingsScreen
-                {...props}
-                onBack={() => props.navigation.goBack()}
-              />
-            )}
-          </Stack.Screen>
-        </Stack.Navigator>
-        
-        <LogoutModal
-          visible={showLogoutModal}
-          onConfirm={handleLogout}
-          onCancel={() => setShowLogoutModal(false)}
-        />
-        
-        <StatusBar style={isDark ? "light" : "dark"} />
-        <Toast />
-      </View>
-    </NavigationContainer>
+    <>
+      <NavigationContainer ref={navigationRef}>
+        <View style={styles.container}>
+          <Stack.Navigator
+            initialRouteName="Login"
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          >
+            <Stack.Screen name="Login">
+              {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
+            </Stack.Screen>
+            <Stack.Screen name="Chat">
+              {(props) => (
+                <ChatScreen
+                  {...props}
+                  userEmail={userEmail}
+                  onLogout={handleLogout}
+                  onProfilePress={() => props.navigation.navigate('Profile')}
+                  onSettingsPress={() => props.navigation.navigate('Settings')}
+                  onLogoutPress={handleLogoutPress}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Profile">
+              {(props) => (
+                <ProfileScreen
+                  {...props}
+                  userEmail={userEmail}
+                  onBack={() => {
+                    handleProfileBack();
+                    if (profile?.isProfileComplete) {
+                      props.navigation.navigate('Chat');
+                    } else {
+                      props.navigation.goBack();
+                    }
+                  }}
+                  isMandatory={!profile || !profile.isProfileComplete}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Settings">
+              {(props) => (
+                <SettingsScreen
+                  {...props}
+                  onBack={() => props.navigation.goBack()}
+                />
+              )}
+            </Stack.Screen>
+          </Stack.Navigator>
+          
+          <LogoutModal
+            visible={showLogoutModal}
+            onConfirm={handleLogout}
+            onCancel={() => setShowLogoutModal(false)}
+          />
+          
+          <StatusBar style={isDark ? "light" : "dark"} />
+          <Toast />
+        </View>
+      </NavigationContainer>
+      <GLoader visible={isLoading} message="Loading..." />
+    </>
   );
 };
 

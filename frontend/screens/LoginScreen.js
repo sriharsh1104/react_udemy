@@ -8,7 +8,6 @@ import {
   Platform,
   Alert,
   KeyboardAvoidingView,
-  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   Dimensions,
@@ -20,6 +19,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import Button from '../components/common/Button';
 import PasswordInput from '../components/common/PasswordInput';
 import AnimatedBackground from '../components/common/AnimatedBackground';
+import GLoader from '../components/common/GLoader';
 import authService from '../services/authService';
 
 const LoginScreen = ({ onLogin }) => {
@@ -211,6 +211,7 @@ const LoginScreen = ({ onLogin }) => {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <AnimatedBackground />
+      <GLoader visible={loading} message="Please wait..." />
       <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

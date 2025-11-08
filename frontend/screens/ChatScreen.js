@@ -5,7 +5,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Text,
   SafeAreaView,
 } from 'react-native';
@@ -22,6 +21,7 @@ import Sidebar, { InviteModal } from '../components/chat/Sidebar';
 import RecentChats from '../components/chat/RecentChats';
 import CreateGroupModal from '../components/chat/CreateGroupModal';
 import GroupInfoModal from '../components/chat/GroupInfoModal';
+import GLoader from '../components/common/GLoader';
 import contactsService from '../services/contactsService';
 import groupService from '../services/groupService';
 import fileUploadService from '../services/fileUploadService';
@@ -397,12 +397,13 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
   return (
     <SafeAreaView style={styles.safeArea}>
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <GLoader visible={loadingContacts} message="Loading contacts..." />
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <ChatHeader 
+      >
+        <ChatHeader 
         username={chatType === 'group' ? groupName : (contactName || contactEmail)} 
         isOnline={isConnected} 
         onProfilePress={onProfilePress}

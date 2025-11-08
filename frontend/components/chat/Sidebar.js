@@ -16,6 +16,7 @@ import {
 import Toast from 'react-native-toast-message';
 import * as Contacts from 'expo-contacts';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
+import GLoader from '../common/GLoader';
 import contactsService from '../../services/contactsService';
 
 export const InviteModal = ({ visible, onClose, email }) => {
@@ -398,6 +399,7 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
 
   return (
     <>
+      <GLoader visible={loading || loadingPhoneContacts} message={loadingPhoneContacts ? "Loading phone contacts..." : "Loading..."} />
       <Modal
         transparent={true}
         visible={visible}
@@ -459,12 +461,6 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
                           />
                         </View>
 
-                {loading && (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={COLORS.primary} />
-                  </View>
-                )}
-
                 {searchQuery.trim().length >= 2 ? (
                   <FlatList
                     data={searchResults}
@@ -502,12 +498,7 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
 
             {activeTab === 'phone' && (
               <>
-                {loadingPhoneContacts ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={COLORS.primary} />
-                    <Text style={styles.loadingText}>Loading phone contacts...</Text>
-                  </View>
-                ) : (
+                {!loadingPhoneContacts && (
                   <FlatList
                     data={phoneContacts}
                     renderItem={({ item }) => (
