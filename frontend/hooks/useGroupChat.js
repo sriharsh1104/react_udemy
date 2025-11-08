@@ -1,11 +1,46 @@
 import { useState, useEffect } from 'react';
 import socketService from '../services/socketService';
 import { SOCKET_EVENTS } from '../constants';
+import encryptionService from '../services/encryptionService';
 
 export const useGroupChat = (userEmail, groupId) => {
   const [messages, setMessages] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
   const socket = socketService.getSocket();
+  
+  /**
+   * Check if a message is encrypted (contains encrypted and iv fields)
+   */
+  const isEncrypted = (message) => {
+    try {
+      const parsed = JSON.parse(message);
+      return parsed && parsed.encrypted && parsed.iv;
+    } catch {
+      return false;
+    }
+  };
+  
+  /**
+   * Decrypt a message if it's encrypted, otherwise return as-is
+   */
+  const decryptMessageIfNeeded = async (encryptedMessage) => {
+    if (!isEncrypted(encryptedMessage)) {
+      // Legacy unencrypted message
+      return encryptedMessage;
+    }
+    
+    try {
+      const encryptedData = JSON.parse(encryptedMessage);
+      const decrypted = await encryptionService.decryptGroupMessage(
+        encryptedData,
+        groupId
+      );
+      return decrypted;
+    } catch (error) {
+      console.error('Error decrypting group message:', error);
+      return '[Encrypted message - decryption failed]';
+    }
+  };
 
   useEffect(() => {
     if (!socket || !userEmail) return;
@@ -33,7 +68,7 @@ export const useGroupChat = (userEmail, groupId) => {
   useEffect(() => {
     if (!socket || !groupId) return;
 
-    const handleGroupMessage = (data) => {
+    const handleGroupMessage = async (data) => {
       console.log('Received group message:', data, 'Current group:', groupId, 'User:', userEmail);
       
       // Only handle messages from the group (not from ourselves via optimistic update)
@@ -41,22 +76,25 @@ export const useGroupChat = (userEmail, groupId) => {
       const isFromSelf = data.senderEmail === userEmail;
       
       if (isFromGroup && !isFromSelf) {
+        // Decrypt the message
+        const decryptedMessage = await decryptMessageIfNeeded(data.message);
+        
         // Check if message already exists (prevent duplicates)
         setMessages((prev) => {
           const messageExists = prev.some(
-            msg => msg.message === data.message && 
+            msg => msg.message === decryptedMessage && 
                    msg.senderEmail === data.senderEmail && 
                    Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 1000 // Within 1 second
           );
           
           if (messageExists) {
-            console.log('Duplicate group message ignored:', data.message);
+            console.log('Duplicate group message ignored:', decryptedMessage);
             return prev;
           }
           
           return [...prev, {
             senderEmail: data.senderEmail,
-            message: data.message,
+            message: decryptedMessage,
             timestamp: data.timestamp,
             isSent: false, // Always false since this is from another member
           }];
@@ -64,15 +102,21 @@ export const useGroupChat = (userEmail, groupId) => {
       }
     };
 
-    const handleGroupChatHistory = (data) => {
+    const handleGroupChatHistory = async (data) => {
       // Only load history if it's for the current group
       if (data.groupId === groupId) {
-        const formattedMessages = data.messages.map(msg => ({
-          senderEmail: msg.senderEmail,
-          message: msg.message,
-          timestamp: msg.timestamp,
-          isSent: msg.senderEmail === userEmail,
-        }));
+        // Decrypt all messages in history
+        const formattedMessages = await Promise.all(
+          data.messages.map(async (msg) => {
+            const decryptedMessage = await decryptMessageIfNeeded(msg.message);
+            return {
+              senderEmail: msg.senderEmail,
+              message: decryptedMessage,
+              timestamp: msg.timestamp,
+              isSent: msg.senderEmail === userEmail,
+            };
+          })
+        );
         
         console.log(`📬 Received ${formattedMessages.length} message(s) from group chat history for ${groupId}`);
         setMessages(formattedMessages);
@@ -106,11 +150,11 @@ export const useGroupChat = (userEmail, groupId) => {
     };
   }, [socket, userEmail, groupId]);
 
-  const sendMessage = (message) => {
+  const sendMessage = async (message) => {
     if (message.trim() && socket && groupId && userEmail) {
       const messageText = message.trim();
       
-      // Optimistically add message to UI
+      // Optimistically add message to UI (plain text for display)
       const tempMessage = {
         senderEmail: userEmail,
         message: messageText,
@@ -120,16 +164,33 @@ export const useGroupChat = (userEmail, groupId) => {
       
       setMessages((prev) => [...prev, tempMessage]);
       
-      // Send to server
-      socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
-        message: messageText,
-        groupId,
-      });
-      
-      socketService.emit(SOCKET_EVENTS.GROUP_TYPING, {
-        groupId,
-        isTyping: false,
-      });
+      try {
+        // Encrypt the message before sending
+        const encryptedData = await encryptionService.encryptGroupMessage(
+          messageText,
+          groupId
+        );
+        
+        // Convert encrypted data to JSON string for storage
+        const encryptedMessage = JSON.stringify(encryptedData);
+        
+        // Send encrypted message to server
+        socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
+          message: encryptedMessage,
+          groupId,
+        });
+        
+        socketService.emit(SOCKET_EVENTS.GROUP_TYPING, {
+          groupId,
+          isTyping: false,
+        });
+      } catch (error) {
+        console.error('Error encrypting group message:', error);
+        // Remove optimistic message on error
+        setMessages((prev) => prev.filter(msg => 
+          !(msg.message === messageText && msg.senderEmail === userEmail && msg.isSent)
+        ));
+      }
     }
   };
 

@@ -25,7 +25,7 @@ const UsernameInput = ({ onJoin }) => {
           </View>
         </View>
         
-        <Text style={styles.title}>Welcome to Chat</Text>
+        {/* <Text style={styles.title}>Welcome to Chat</Text> */}
         <Text style={styles.subtitle}>Enter your name to start chatting</Text>
         
         <View style={styles.inputContainer}>

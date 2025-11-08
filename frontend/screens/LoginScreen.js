@@ -230,7 +230,7 @@ const LoginScreen = ({ onLogin }) => {
 
         {step === 'identifier' ? (
           <>
-            <Text style={[styles.title, { color: colors.text }]}>Welcome to Chat</Text>
+            {/* <Text style={[styles.title, { color: colors.text }]}>Welcome to Chat</Text> */}
             <View style={styles.mottoContainer}>
               <Text style={[styles.motto, { color: colors.primary }]}>
                 "Connect with Confidence,{"\n"}Privacy by Design"

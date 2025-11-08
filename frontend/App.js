@@ -96,6 +96,10 @@ const AppContent = () => {
         await authService.logout(token);
       }
       
+      // Clear encryption keys
+      const encryptionService = (await import('./services/encryptionService')).default;
+      await encryptionService.clearAllKeys();
+      
       // Clear local storage
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userEmail');
@@ -114,6 +118,12 @@ const AppContent = () => {
     } catch (error) {
       console.error('Error logging out:', error);
       // Even if API fails, clear local storage and logout
+      try {
+        const encryptionService = (await import('./services/encryptionService')).default;
+        await encryptionService.clearAllKeys();
+      } catch (e) {
+        console.error('Error clearing encryption keys:', e);
+      }
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userEmail');
       setIsLoggedIn(false);
