@@ -46,6 +46,20 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// Root route - for health check and server info
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Chat App Backend API is running!',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      docs: 'API endpoints are available under /api',
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Routes
 app.use('/api', routes);
 
