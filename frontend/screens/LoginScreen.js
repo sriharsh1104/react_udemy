@@ -39,6 +39,24 @@ const LoginScreen = ({ onLogin }) => {
 
   const isEmail = (text) => text.includes('@');
   const isValidPhone = (text) => /^\+?[1-9]\d{1,14}$/.test(text.replace(/\s/g, ''));
+  
+  // Determine keyboard type: default to email-address, only use phone-pad if clearly a phone number
+  const getKeyboardType = (text) => {
+    if (!text || text.trim() === '') {
+      return 'email-address'; // Default to email keyboard when empty
+    }
+    const trimmed = text.trim();
+    // If starts with + or is all digits (and no @), use phone-pad
+    if (trimmed.startsWith('+') || (!trimmed.includes('@') && /^\d+$/.test(trimmed))) {
+      return 'phone-pad';
+    }
+    // If contains @, definitely email
+    if (trimmed.includes('@')) {
+      return 'email-address';
+    }
+    // Default to email-address for better UX
+    return 'email-address';
+  };
 
   const handleSendOTP = async () => {
     const trimmedId = identifier.trim();
@@ -309,7 +327,7 @@ const LoginScreen = ({ onLogin }) => {
                 value={identifier}
                 onChangeText={setIdentifier}
                 onSubmitEditing={loginMethod === 'otp' ? handleSendOTP : handleLoginWithPassword}
-                keyboardType={isEmail(identifier) ? 'email-address' : 'phone-pad'}
+                keyboardType={getKeyboardType(identifier)}
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="send"
@@ -448,7 +466,7 @@ const LoginScreen = ({ onLogin }) => {
                 value={identifier}
                 onChangeText={setIdentifier}
                 onSubmitEditing={handleForgetPassword}
-                keyboardType={isEmail(identifier) ? 'email-address' : 'phone-pad'}
+                keyboardType={getKeyboardType(identifier)}
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="send"
