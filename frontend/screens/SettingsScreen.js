@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TYPOGRAPHY, BORDER_RADIUS, SPACING, PLATFORM_CONFIG } from '../constants';
 import { useTheme } from '../contexts/ThemeContext';
 import Button from '../components/common/Button';
+import PasswordInput from '../components/common/PasswordInput';
 import settingsService from '../services/settingsService';
 import { showToastFromResponse } from '../utils/toast';
 
@@ -197,23 +198,19 @@ const SettingsScreen = ({ navigation, onBack }) => {
                 />
               ) : (
                 <View style={styles.passwordForm}>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText, borderColor: colors.divider }]}
+                  <PasswordInput
                     placeholder="Enter new password"
                     placeholderTextColor={colors.inputPlaceholder}
                     value={newPassword}
                     onChangeText={setNewPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
+                    style={styles.passwordInput}
                   />
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText, borderColor: colors.divider }]}
+                  <PasswordInput
                     placeholder="Confirm password"
                     placeholderTextColor={colors.inputPlaceholder}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
+                    style={styles.passwordInput}
                   />
                   <View style={styles.buttonRow}>
                     <Button
@@ -253,32 +250,26 @@ const SettingsScreen = ({ navigation, onBack }) => {
                 />
               ) : (
                 <View style={styles.passwordForm}>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText, borderColor: colors.divider }]}
+                  <PasswordInput
                     placeholder="Current password"
                     placeholderTextColor={colors.inputPlaceholder}
                     value={currentPassword}
                     onChangeText={setCurrentPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
+                    style={styles.passwordInput}
                   />
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText, borderColor: colors.divider }]}
+                  <PasswordInput
                     placeholder="New password"
                     placeholderTextColor={colors.inputPlaceholder}
                     value={newPassword}
                     onChangeText={setNewPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
+                    style={styles.passwordInput}
                   />
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.inputText, borderColor: colors.divider }]}
+                  <PasswordInput
                     placeholder="Confirm new password"
                     placeholderTextColor={colors.inputPlaceholder}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
+                    style={styles.passwordInput}
                   />
                   <View style={styles.buttonRow}>
                     <Button
@@ -503,6 +494,9 @@ const styles = StyleSheet.create({
   },
   passwordForm: {
     marginTop: SPACING.md,
+  },
+  passwordInput: {
+    marginBottom: SPACING.md,
   },
   input: {
     borderRadius: BORDER_RADIUS.lg,

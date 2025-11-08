@@ -18,6 +18,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
 import { useTheme } from '../contexts/ThemeContext';
 import Button from '../components/common/Button';
+import PasswordInput from '../components/common/PasswordInput';
+import AnimatedBackground from '../components/common/AnimatedBackground';
 import authService from '../services/authService';
 
 const LoginScreen = ({ onLogin }) => {
@@ -208,8 +210,9 @@ const LoginScreen = ({ onLogin }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <AnimatedBackground />
       <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: 'transparent' }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
@@ -228,13 +231,18 @@ const LoginScreen = ({ onLogin }) => {
         {step === 'identifier' ? (
           <>
             <Text style={[styles.title, { color: colors.text }]}>Welcome to Chat</Text>
+            <View style={styles.mottoContainer}>
+              <Text style={[styles.motto, { color: colors.primary }]}>
+                "Connect with Confidence,{"\n"}Privacy by Design"
+              </Text>
+            </View>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enter your email or phone number</Text>
 
             <View style={styles.inputContainer}>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                style={[styles.input, { backgroundColor: '#1E3A5F', color: colors.text, borderColor: '#FFFFFF', borderWidth: 1 }]}
                 placeholder="email@example.com or +1234567890"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor="#B0C4DE"
                 value={identifier}
                 onChangeText={setIdentifier}
                 onSubmitEditing={loginMethod === 'otp' ? handleSendOTP : handleLoginWithPassword}
@@ -248,16 +256,12 @@ const LoginScreen = ({ onLogin }) => {
 
             {loginMethod === 'password' && (
               <View style={styles.inputContainer}>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                <PasswordInput
                   placeholder="Password"
-                  placeholderTextColor={colors.inputPlaceholder}
+                  placeholderTextColor="#B0C4DE"
                   value={password}
                   onChangeText={setPassword}
                   onSubmitEditing={handleLoginWithPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
                   returnKeyType="send"
                   editable={!loading}
                 />
@@ -312,9 +316,9 @@ const LoginScreen = ({ onLogin }) => {
 
             <View style={styles.inputContainer}>
               <TextInput
-                style={[styles.input, styles.otpInput, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                style={[styles.input, styles.otpInput, { backgroundColor: '#1E3A5F', color: colors.text, borderColor: '#FFFFFF', borderWidth: 1 }]}
                 placeholder="000000"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor="#B0C4DE"
                 value={otp}
                 onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, '').slice(0, 6))}
                 onSubmitEditing={handleVerifyOTP}
@@ -360,9 +364,9 @@ const LoginScreen = ({ onLogin }) => {
 
             <View style={styles.inputContainer}>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                style={[styles.input, { backgroundColor: '#1E3A5F', color: colors.text, borderColor: '#FFFFFF', borderWidth: 1 }]}
                 placeholder="email@example.com or +1234567890"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor="#B0C4DE"
                 value={identifier}
                 onChangeText={setIdentifier}
                 onSubmitEditing={handleForgetPassword}
@@ -405,9 +409,9 @@ const LoginScreen = ({ onLogin }) => {
 
             <View style={styles.inputContainer}>
               <TextInput
-                style={[styles.input, styles.otpInput, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+                style={[styles.input, styles.otpInput, { backgroundColor: '#1E3A5F', color: colors.text, borderColor: '#FFFFFF', borderWidth: 1 }]}
                 placeholder="000000"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor="#B0C4DE"
                 value={otp}
                 onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, '').slice(0, 6))}
                 keyboardType="number-pad"
@@ -419,30 +423,22 @@ const LoginScreen = ({ onLogin }) => {
             </View>
 
             <View style={styles.inputContainer}>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+              <PasswordInput
                 placeholder="New Password"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor="#B0C4DE"
                 value={newPassword}
                 onChangeText={setNewPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
                 editable={!loading}
               />
             </View>
 
             <View style={styles.inputContainer}>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.receivedMessage, color: colors.text, borderColor: colors.divider }]}
+              <PasswordInput
                 placeholder="Confirm Password"
-                placeholderTextColor={colors.inputPlaceholder}
+                placeholderTextColor="#B0C4DE"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 onSubmitEditing={handleResetPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
                 returnKeyType="done"
                 editable={!loading}
               />
@@ -498,6 +494,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     alignItems: 'center',
     minHeight: Dimensions.get('window').height * 0.7,
+    zIndex: 1,
   },
   iconContainer: {
     marginBottom: SPACING.xl,
@@ -532,6 +529,22 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     marginBottom: SPACING.xl,
     textAlign: 'center',
+  },
+  mottoContainer: {
+    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    alignItems: 'center',
+  },
+  motto: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: 28,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(99, 102, 241, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   emailText: {
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
