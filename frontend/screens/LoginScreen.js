@@ -29,10 +29,13 @@ const LoginScreen = ({ onLogin }) => {
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [step, setStep] = useState('identifier'); // 'identifier', 'otp', 'password', 'forget-password', 'reset-password'
+  const [step, setStep] = useState('identifier'); // 'identifier', 'otp', 'password', 'forget-password', 'reset-password', 'signup'
   const [loginMethod, setLoginMethod] = useState('otp'); // 'otp' or 'password'
   const [loading, setLoading] = useState(false);
   const [loginType, setLoginType] = useState('email'); // 'email' or 'phone'
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [confirmSignupPassword, setConfirmSignupPassword] = useState('');
 
   const isEmail = (text) => text.includes('@');
   const isValidPhone = (text) => /^\+?[1-9]\d{1,14}$/.test(text.replace(/\s/g, ''));
@@ -44,6 +47,8 @@ const LoginScreen = ({ onLogin }) => {
       Alert.alert('Required', 'Please enter your email or phone number');
       return;
     }
+
+    if (loading) return; // Prevent double calls
 
     const isEmailInput = isEmail(trimmedId);
     
@@ -79,6 +84,8 @@ const LoginScreen = ({ onLogin }) => {
       return;
     }
 
+    if (loading) return; // Prevent double calls
+
     setLoading(true);
     const trimmedId = identifier.trim();
     const result = loginType === 'email'
@@ -95,6 +102,8 @@ const LoginScreen = ({ onLogin }) => {
         ? { ...result.profile, isProfileComplete: result.isProfileComplete }
         : null;
       
+      // Stop loader before navigation
+      setLoading(false);
       // Directly login to chat section without alert
       onLogin(result.email, result.token, profileWithComplete, result.isProfileComplete);
     } else {
@@ -124,6 +133,8 @@ const LoginScreen = ({ onLogin }) => {
       return;
     }
 
+    if (loading) return; // Prevent double calls
+
     const isEmailInput = isEmail(trimmedId);
     setLoginType(isEmailInput ? 'email' : 'phone');
     setLoading(true);
@@ -142,6 +153,8 @@ const LoginScreen = ({ onLogin }) => {
         ? { ...result.profile, isProfileComplete: result.isProfileComplete }
         : null;
       
+      // Stop loader before navigation
+      setLoading(false);
       // Directly login to chat section
       onLogin(result.email, result.token, profileWithComplete, result.isProfileComplete);
     } else {
@@ -187,6 +200,8 @@ const LoginScreen = ({ onLogin }) => {
       return;
     }
 
+    if (loading) return; // Prevent double calls
+
     setLoading(true);
     const trimmedId = identifier.trim();
     const result = loginType === 'email'
@@ -203,6 +218,53 @@ const LoginScreen = ({ onLogin }) => {
       Alert.alert('Success', 'Password reset successfully. Please login with your new password.');
     }
     setLoading(false);
+  };
+
+  const handleSignup = async () => {
+    const trimmedEmail = signupEmail.trim();
+    
+    if (!trimmedEmail) {
+      Alert.alert('Required', 'Please enter your email address');
+      return;
+    }
+
+    if (!trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+
+    if (!signupPassword.trim() || signupPassword.length < 6) {
+      Alert.alert('Invalid Password', 'Password must be at least 6 characters');
+      return;
+    }
+
+    if (signupPassword !== confirmSignupPassword) {
+      Alert.alert('Password Mismatch', 'Password and confirm password do not match');
+      return;
+    }
+
+    if (loading) return; // Prevent double calls
+
+    setLoading(true);
+    const result = await authService.register(trimmedEmail, signupPassword);
+
+    if (result.success) {
+      // Store auth token
+      await AsyncStorage.setItem('authToken', result.token);
+      await AsyncStorage.setItem('userEmail', result.email);
+      
+      // Pass profile with isProfileComplete flag
+      const profileWithComplete = result.profile 
+        ? { ...result.profile, isProfileComplete: result.isProfileComplete }
+        : null;
+      
+      // Stop loader before navigation
+      setLoading(false);
+      // Directly login to chat section
+      onLogin(result.email, result.token, profileWithComplete, result.isProfileComplete);
+    } else {
+      setLoading(false);
+    }
   };
 
   const screenHeight = Dimensions.get('window').height;
@@ -306,6 +368,21 @@ const LoginScreen = ({ onLogin }) => {
                 </Text>
               </TouchableOpacity>
             )}
+
+            <View style={styles.signupContainer}>
+              <Text style={[styles.signupText, { color: colors.textSecondary }]}>Don't have an account? </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setStep('signup');
+                  setSignupEmail('');
+                  setSignupPassword('');
+                  setConfirmSignupPassword('');
+                }}
+                disabled={loading}
+              >
+                <Text style={[styles.signupLink, { color: colors.primary }]}>Sign Up</Text>
+              </TouchableOpacity>
+            </View>
           </>
         ) : step === 'otp' ? (
           <>
@@ -468,6 +545,73 @@ const LoginScreen = ({ onLogin }) => {
               <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Back</Text>
             </TouchableOpacity>
           </>
+        ) : step === 'signup' ? (
+          <>
+            <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Enter your email and password to register
+            </Text>
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[styles.input, { backgroundColor: '#1E3A5F', color: colors.text, borderColor: '#FFFFFF', borderWidth: 1 }]}
+                placeholder="email@example.com"
+                placeholderTextColor="#B0C4DE"
+                value={signupEmail}
+                onChangeText={setSignupEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <PasswordInput
+                placeholder="Password (min 6 characters)"
+                placeholderTextColor="#B0C4DE"
+                value={signupPassword}
+                onChangeText={setSignupPassword}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <PasswordInput
+                placeholder="Confirm Password"
+                placeholderTextColor="#B0C4DE"
+                value={confirmSignupPassword}
+                onChangeText={setConfirmSignupPassword}
+                onSubmitEditing={handleSignup}
+                returnKeyType="done"
+                editable={!loading}
+              />
+            </View>
+
+            <Button
+              title="Sign Up"
+              onPress={handleSignup}
+              variant="primary"
+              size="large"
+              loading={loading}
+              disabled={!signupEmail.trim() || !signupPassword.trim() || !confirmSignupPassword.trim() || loading}
+              fullWidth
+            />
+
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                setStep('identifier');
+                setSignupEmail('');
+                setSignupPassword('');
+                setConfirmSignupPassword('');
+              }}
+              disabled={loading}
+            >
+              <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>← Back to Login</Text>
+            </TouchableOpacity>
+          </>
         ) : null}
           </View>
         </ScrollView>
@@ -605,6 +749,19 @@ const styles = StyleSheet.create({
   forgetPasswordText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  signupContainer: {
+    flexDirection: 'row',
+    marginTop: SPACING.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signupText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+  },
+  signupLink: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });
 

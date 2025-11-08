@@ -187,6 +187,7 @@ const AppContent = () => {
                 <ProfileScreen
                   {...props}
                   userEmail={userEmail}
+                  initialProfile={profile}
                   onBack={() => {
                     handleProfileBack();
                     if (profile?.isProfileComplete) {

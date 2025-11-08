@@ -144,6 +144,37 @@ class AuthService {
     }
   }
 
+  async register(email, password) {
+    try {
+      const response = await fetch(`${API_CONFIG.API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      // Don't show toast for register success (handled in LoginScreen)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          successTitle: 'Registration Successful',
+          errorTitle: 'Registration Failed',
+          showSuccess: false,
+        });
+      }
+      return data;
+    } catch (error) {
+      console.error('Error registering:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
   async logout(token) {
     try {
       const response = await fetch(`${API_CONFIG.API_BASE}/auth/logout`, {

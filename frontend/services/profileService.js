@@ -20,7 +20,27 @@ class ProfileService {
         },
       });
 
-      const data = await response.json();
+      // Handle 204 No Content response
+      if (response.status === 204) {
+        return {
+          success: true,
+          profile: null,
+        };
+      }
+
+      // Only parse JSON if response has content
+      const contentType = response.headers.get('content-type');
+      let data;
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // Empty response or non-JSON
+        return {
+          success: true,
+          profile: null,
+        };
+      }
+
       // Don't show toast for getProfile (silent operation)
       if (!data.success) {
         showToastFromResponse(data, { 

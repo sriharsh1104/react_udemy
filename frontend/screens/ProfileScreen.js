@@ -15,17 +15,28 @@ import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
 import GLoader from '../components/common/GLoader';
 import profileService from '../services/profileService';
 
-const ProfileScreen = ({ userEmail, onBack, isMandatory = false }) => {
+const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile = null }) => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [phone1, setPhone1] = useState('');
   const [phone2, setPhone2] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(!initialProfile);
 
   useEffect(() => {
-    loadProfile();
+    // Only load profile if not passed as prop (to avoid double API call)
+    if (initialProfile) {
+      // Use initial profile data
+      setName(initialProfile.name || '');
+      setAge(initialProfile.age ? initialProfile.age.toString() : '');
+      setPhone1(initialProfile.phoneNumbers?.[0] || '');
+      setPhone2(initialProfile.phoneNumbers?.[1] || '');
+      setInitialLoading(false);
+    } else {
+      loadProfile();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProfile = async () => {

@@ -18,6 +18,7 @@ const asyncHandler = (fn) => {
 router.get('/health', healthController.getHealth);
 
 // Auth routes
+router.post('/auth/register', asyncHandler(authController.register.bind(authController)));
 router.post('/auth/send-otp', asyncHandler(authController.sendOTP.bind(authController)));
 router.post('/auth/verify-otp', asyncHandler(authController.verifyOTP.bind(authController)));
 router.post('/auth/login-password', asyncHandler(authController.loginWithPassword.bind(authController)));
@@ -72,6 +73,7 @@ router.get('/files/download/:fileId', fileController.downloadFile);
 router.delete('/files/delete/:fileId', fileController.deleteFile);
 
 console.log('Routes registered:');
+console.log('  POST /api/auth/register');
 console.log('  POST /api/auth/send-otp');
 console.log('  POST /api/auth/verify-otp');
 console.log('  POST /api/auth/login-password');

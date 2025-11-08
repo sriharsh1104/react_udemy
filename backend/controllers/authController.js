@@ -351,6 +351,92 @@ class AuthController {
     }
   }
 
+  // Register new user with email and password
+  async register(req, res) {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email and password are required',
+        });
+      }
+
+      // Validate email format
+      if (!email.includes('@') || !email.includes('.')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email address',
+        });
+      }
+
+      // Validate password length
+      if (password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 6 characters',
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already registered. Please login instead.',
+        });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create new user
+      const newUser = new User({
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await newUser.save();
+
+      // Generate token
+      const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Store user session
+      await userService.addUserSession(newUser.email, token);
+
+      // Get user profile (will be null for new user)
+      const profile = await userProfileService.getProfileByEmail(newUser.email);
+      const isProfileComplete = profile ? await userProfileService.isProfileComplete(newUser.email) : false;
+
+      res.status(201).json({
+        success: true,
+        message: 'Registration successful',
+        token,
+        email: newUser.email,
+        profile: profile || null,
+        isProfileComplete,
+      });
+    } catch (error) {
+      console.error('Error in register:', error);
+      
+      // Handle duplicate key error (MongoDB unique constraint)
+      if (error.code === 11000 || error.message.includes('duplicate')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already registered. Please login instead.',
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
   // Logout user
   async logout(req, res) {
     try {
