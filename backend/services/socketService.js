@@ -380,6 +380,22 @@ class SocketService {
     // Get room ID
     const roomId = `group_${groupId}`;
     
+    // Get group to calculate read status
+    const group = await groupService.getGroupById(groupId);
+    const allMembers = group ? group.members || [] : [];
+    const readBy = savedMessage.readBy || [];
+    const totalMembers = allMembers.length;
+    const readCount = readBy.length;
+    
+    // Calculate status: if all members have read (including sender), status is 'read'
+    // If some have read (more than just sender), status is 'delivered', else 'sent'
+    let calculatedStatus = 'sent';
+    if (readCount >= totalMembers) { // All members including sender
+      calculatedStatus = 'read';
+    } else if (readCount > 1) { // More than just sender has read
+      calculatedStatus = 'delivered';
+    }
+    
     // Send message to all members in the group (including sender for consistency)
     const messagePayload = {
       ...messageData,
@@ -391,6 +407,8 @@ class SocketService {
       replyTo: savedMessage.replyTo || null,
       replyToMessage: savedMessage.replyToMessage || null,
       replyToSender: savedMessage.replyToSender || null,
+      readBy: savedMessage.readBy || [],
+      status: calculatedStatus,
     };
     
     // Emit to all members including sender

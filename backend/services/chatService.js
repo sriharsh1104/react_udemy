@@ -167,7 +167,7 @@ class ChatService {
   // Mark group messages as read for a user
   async markGroupMessagesAsRead(userEmail, groupId) {
     try {
-      await Message.updateMany(
+      const updatedMessages = await Message.updateMany(
         {
           groupId,
           messageType: 'group',
@@ -178,10 +178,27 @@ class ChatService {
           $addToSet: { readBy: userEmail },
         }
       );
-      return true;
+      
+      // Return updated message IDs for socket notification
+      const messages = await Message.find({
+        groupId,
+        messageType: 'group',
+        senderEmail: { $ne: userEmail },
+        readBy: userEmail,
+      }).select('_id readBy').lean();
+      
+      return {
+        success: true,
+        updatedCount: updatedMessages.modifiedCount,
+        messages: messages,
+      };
     } catch (error) {
       console.error('Error marking group messages as read:', error);
-      return false;
+      return {
+        success: false,
+        updatedCount: 0,
+        messages: [],
+      };
     }
   }
 

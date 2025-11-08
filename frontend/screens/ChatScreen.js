@@ -24,6 +24,7 @@ import GroupInfoModal from '../components/chat/GroupInfoModal';
 import ContactInfoModal from '../components/chat/ContactInfoModal';
 import MessageActionMenu from '../components/chat/MessageActionMenu';
 import MessageActionBar from '../components/chat/MessageActionBar';
+import MessageInfoModal from '../components/chat/MessageInfoModal';
 import PinnedMessageBanner from '../components/chat/PinnedMessageBanner';
 import GLoader from '../components/common/GLoader';
 import contactsService from '../services/contactsService';
@@ -69,6 +70,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [replyingTo, setReplyingTo] = useState(null);
   const [pinnedMessage, setPinnedMessage] = useState(null);
   const [loadingPinnedMessage, setLoadingPinnedMessage] = useState(false);
+  const [showMessageInfoModal, setShowMessageInfoModal] = useState(false);
+  const [messageInfoMessageId, setMessageInfoMessageId] = useState(null);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket();
@@ -817,7 +820,22 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   };
 
   const handleActionBarInfo = () => {
-    handleInfoMessage();
+    if (selectedMessages.length === 0) return;
+    const messageToShow = selectedMessages[0];
+    if (messageToShow.messageId) {
+      setMessageInfoMessageId(messageToShow.messageId);
+      setShowMessageInfoModal(true);
+      setSelectedMessages([]);
+    }
+  };
+
+  // Load message info
+  const loadMessageInfo = async (messageId) => {
+    if (chatType === 'group') {
+      return await groupService.getMessageInfo(messageId);
+    } else {
+      return await contactsService.getMessageInfo(messageId);
+    }
   };
 
   const handleActionBarClose = () => {
@@ -839,6 +857,26 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       (msg) => (msg.messageId || msg._id) === (item.messageId || item._id)
     );
     
+    // Calculate status for group messages based on readBy array
+    let messageStatus = item.status || 'sent';
+    if (chatType === 'group' && isSent && currentGroup && item.readBy) {
+      const allMembers = currentGroup.members || [];
+      const readBy = item.readBy || [];
+      const totalMembers = allMembers.length;
+      // Exclude sender from total count (sender doesn't need to read their own message)
+      const expectedReadCount = totalMembers - 1;
+      const readCount = readBy.length;
+      
+      // If all members (except sender) have read, status is 'read'
+      if (readCount >= totalMembers) {
+        messageStatus = 'read';
+      } else if (readCount > 1) { // More than just sender has read
+        messageStatus = 'delivered';
+      } else {
+        messageStatus = 'sent';
+      }
+    }
+    
     return (
       <MessageItem
         key={index}
@@ -847,7 +885,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         timestamp={item.timestamp}
         isSystemMessage={false}
         isSent={isSent}
-        status={item.status || 'sent'}
+        status={messageStatus}
         messageId={item.messageId || item._id || null}
         isPinned={isPinned}
         isCreator={isCreator}
@@ -1083,6 +1121,18 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           messages={privateMessages}
         />
       )}
+
+      <MessageInfoModal
+        visible={showMessageInfoModal}
+        onClose={() => {
+          setShowMessageInfoModal(false);
+          setMessageInfoMessageId(null);
+        }}
+        messageId={messageInfoMessageId}
+        chatType={chatType}
+        userEmail={userEmail}
+        onLoadMessageInfo={loadMessageInfo}
+      />
     </KeyboardAvoidingView>
       </SafeAreaView>
   );

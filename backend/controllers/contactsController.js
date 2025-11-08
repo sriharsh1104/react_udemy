@@ -616,6 +616,125 @@ class ContactsController {
       });
     }
   }
+
+  // Get message info (read receipts, delivery status)
+  async getMessageInfo(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+      const { messageId } = req.params;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!messageId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Message ID is required',
+        });
+      }
+
+      const chatService = require('../services/chatService');
+      const message = await chatService.getMessageById(messageId);
+
+      if (!message) {
+        return res.status(404).json({
+          success: false,
+          message: 'Message not found',
+        });
+      }
+
+      // Check if user has access to this message
+      const hasAccess = message.senderEmail === userEmail || 
+                       message.receiverEmail === userEmail ||
+                       (message.groupId && await groupService.isMember(message.groupId.toString(), userEmail));
+
+      if (!hasAccess) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have access to this message',
+        });
+      }
+
+      // Get read receipts info
+      let readReceipts = [];
+      let notRead = [];
+      let notDelivered = [];
+
+      if (message.messageType === 'group' && message.groupId) {
+        // For group messages, check all members
+        const group = await groupService.getGroupById(message.groupId.toString());
+        if (group) {
+          const allMembers = group.members || [];
+          const readBy = message.readBy || [];
+          
+          allMembers.forEach(memberEmail => {
+            if (memberEmail === message.senderEmail) {
+              // Sender doesn't need to read their own message
+              return;
+            }
+            
+            if (readBy.includes(memberEmail)) {
+              readReceipts.push(memberEmail);
+            } else {
+              // Check if message was delivered (has deliveredAt timestamp)
+              if (message.deliveredAt) {
+                notRead.push(memberEmail);
+              } else {
+                notDelivered.push(memberEmail);
+              }
+            }
+          });
+        }
+      } else {
+        // For private messages
+        if (message.receiverEmail) {
+          const readBy = message.readBy || [];
+          if (readBy.includes(message.receiverEmail)) {
+            readReceipts.push(message.receiverEmail);
+          } else {
+            if (message.deliveredAt) {
+              notRead.push(message.receiverEmail);
+            } else {
+              notDelivered.push(message.receiverEmail);
+            }
+          }
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        messageInfo: {
+          messageId: message._id,
+          senderEmail: message.senderEmail,
+          timestamp: message.timestamp,
+          status: message.status,
+          deliveredAt: message.deliveredAt,
+          readReceipts,
+          notRead,
+          notDelivered,
+          messageType: message.messageType,
+        },
+      });
+    } catch (error) {
+      console.error('Error in getMessageInfo:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
 }
 
 module.exports = new ContactsController();

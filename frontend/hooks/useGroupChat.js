@@ -103,6 +103,8 @@ export const useGroupChat = (userEmail, groupId) => {
             replyTo: data.replyTo || null,
             replyToMessage: data.replyToMessage || null,
             replyToSender: data.replyToSender || null,
+            readBy: data.readBy || [],
+            status: data.status || 'sent',
           }];
         });
       }
@@ -126,6 +128,8 @@ export const useGroupChat = (userEmail, groupId) => {
               replyTo: msg.replyTo || null,
               replyToMessage: msg.replyToMessage || null,
               replyToSender: msg.replyToSender || null,
+              readBy: msg.readBy || [],
+              status: msg.status || 'sent',
             };
           })
         );
@@ -188,12 +192,31 @@ export const useGroupChat = (userEmail, groupId) => {
       }
     };
 
+    // Handle group message read update event
+    const handleGroupMessageReadUpdate = (data) => {
+      if (data.groupId === groupId) {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if ((msg.messageId || msg._id) === data.messageId) {
+              return {
+                ...msg,
+                readBy: data.readBy || [],
+                status: data.status || 'sent',
+              };
+            }
+            return msg;
+          })
+        );
+      }
+    };
+
     socket.on(SOCKET_EVENTS.GROUP_MESSAGE, handleGroupMessage);
     socket.on(SOCKET_EVENTS.GROUP_CHAT_HISTORY, handleGroupChatHistory);
     socket.on(SOCKET_EVENTS.GROUP_TYPING, handleGroupTyping);
     socket.on('messagePinned', handleMessagePinned);
     socket.on('messageUnpinned', handleMessageUnpinned);
     socket.on('messageDeleted', handleMessageDeleted);
+    socket.on('groupMessageReadUpdate', handleGroupMessageReadUpdate);
 
     return () => {
       socket.off(SOCKET_EVENTS.GROUP_MESSAGE, handleGroupMessage);
@@ -202,6 +225,7 @@ export const useGroupChat = (userEmail, groupId) => {
       socket.off('messagePinned', handleMessagePinned);
       socket.off('messageUnpinned', handleMessageUnpinned);
       socket.off('messageDeleted', handleMessageDeleted);
+      socket.off('groupMessageReadUpdate', handleGroupMessageReadUpdate);
     };
   }, [socket, userEmail, groupId]);
 
