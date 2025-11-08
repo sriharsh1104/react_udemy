@@ -3,7 +3,7 @@ import socketService from '../services/socketService';
 import { SOCKET_EVENTS } from '../constants';
 import encryptionService from '../services/encryptionService';
 
-export const useChat = (userEmail, contactEmail) => {
+export const useChat = (userEmail, contactEmail, onMessageReceived) => {
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(null);
   const socket = socketService.getSocket();
@@ -94,6 +94,11 @@ export const useChat = (userEmail, contactEmail) => {
           if (messageExists) {
             console.log('Duplicate message ignored:', decryptedMessage);
             return prev;
+          }
+          
+          // Notify parent component that a new message was received (to refresh contacts)
+          if (onMessageReceived) {
+            onMessageReceived();
           }
           
           return [...prev, {

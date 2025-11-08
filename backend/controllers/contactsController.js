@@ -327,10 +327,47 @@ class ContactsController {
 
       const contactList = await contactsService.getContacts(userEmail);
       const chatService = require('../services/chatService');
+      const Message = require('../models/Message');
+      
+      // Get all users with messages (even if not manually added as contact)
+      const roomsWithMessages = await Message.distinct('roomId', {
+        $or: [
+          { senderEmail: userEmail, messageType: 'private' },
+          { receiverEmail: userEmail, messageType: 'private' }
+        ]
+      });
+      
+      // Extract all unique email addresses from roomIds
+      const usersWithMessages = new Set();
+      roomsWithMessages.forEach(roomId => {
+        // RoomId format: "email1_email2" (sorted)
+        const emails = roomId.split('_');
+        emails.forEach(email => {
+          if (email !== userEmail) {
+            usersWithMessages.add(email);
+          }
+        });
+      });
+      
+      // Combine manually added contacts with users who have messages
+      const allContactEmails = new Set();
+      
+      // Add manually added contacts
+      contactList.forEach(contact => {
+        allContactEmails.add(contact.contactEmail);
+      });
+      
+      // Add users with messages (even if not manually added)
+      usersWithMessages.forEach(email => {
+        allContactEmails.add(email);
+      });
       
       const contacts = await Promise.all(
-        contactList.map(async (contact) => {
-          const email = contact.contactEmail;
+        Array.from(allContactEmails).map(async (email) => {
+          // Check if this is a manually added contact
+          const manualContact = contactList.find(c => c.contactEmail === email);
+          const isManuallyAdded = !!manualContact;
+          
           const profile = await userProfileService.getProfileByEmail(email);
           // Check if contact is online
           const socketId = userService.getSocketByEmail(email);
@@ -344,7 +381,8 @@ class ContactsController {
             exists: !!profile,
             isOnline,
             unreadCount,
-            isFavorite: contact.isFavorite || false,
+            isFavorite: manualContact?.isFavorite || false,
+            isManuallyAdded, // Flag to distinguish manually added vs message-based contacts
           };
         })
       );

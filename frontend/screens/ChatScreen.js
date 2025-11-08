@@ -55,7 +55,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket();
-  const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping } = useChat(userEmail, contactEmail);
+  const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping } = useChat(userEmail, contactEmail, () => {
+    // Refresh contacts when a new message is received
+    loadContacts();
+  });
   const { messages: groupMessages, typingUsers, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping } = useGroupChat(userEmail, groupId);
   
   // Use appropriate messages and functions based on chat type
@@ -69,6 +72,25 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     loadContacts(true); // Show loading only on initial load
     loadGroups();
   }, []);
+
+  // Listen for all private messages to refresh contacts list (even when not viewing that chat)
+  useEffect(() => {
+    if (!socket || !userEmail) return;
+
+    const handleAnyPrivateMessage = async (data) => {
+      // Only handle messages from other users (not from ourselves)
+      if (data.senderEmail && data.senderEmail !== userEmail) {
+        // Refresh contacts list to show new contact or update unread count
+        loadContacts();
+      }
+    };
+
+    socket.on('privateMessage', handleAnyPrivateMessage);
+
+    return () => {
+      socket.off('privateMessage', handleAnyPrivateMessage);
+    };
+  }, [socket, userEmail]);
 
   // Periodically refresh contacts and groups (only when not in active chat)
   useEffect(() => {
@@ -105,13 +127,14 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         loadContacts();
       });
     } else if (chatType === 'group' && groupId) {
+      // Find group from current groups state (but don't include groups in deps to avoid loop)
       const group = groups.find(g => g._id === groupId);
       if (group) {
         setGroupName(group.name);
         setCurrentGroup(group);
         // Mark group messages as read when chat is opened
         groupService.markMessagesAsRead(groupId).then(() => {
-          // Reload groups to update unread count
+          // Reload groups to update unread count (but don't trigger this useEffect)
           loadGroups();
         });
       } else {
@@ -122,13 +145,15 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             setCurrentGroup(result.group);
             // Mark group messages as read when chat is opened
             groupService.markMessagesAsRead(groupId).then(() => {
+              // Reload groups to update unread count (but don't trigger this useEffect)
               loadGroups();
             });
           }
         });
       }
     }
-  }, [contactEmail, groupId, chatType, groups]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactEmail, groupId, chatType]); // Removed 'groups' from deps to prevent infinite loop
 
   const loadContacts = async (showLoading = false) => {
     if (showLoading) {
