@@ -16,6 +16,25 @@ const ContactSchema = new mongoose.Schema({
     default: false,
     index: true,
   },
+  isPinned: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  isArchived: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  isMuted: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  mutedUntil: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

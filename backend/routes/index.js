@@ -56,6 +56,10 @@ router.post('/contacts/mark-read', asyncHandler(contactsController.markMessagesA
 router.get('/contacts/invite-link', asyncHandler(contactsController.generateInviteLink.bind(contactsController)));
 router.post('/contacts/delete-message', asyncHandler(contactsController.deleteMessage.bind(contactsController)));
 router.get('/contacts/message-info/:messageId', asyncHandler(contactsController.getMessageInfo.bind(contactsController)));
+router.post('/contacts/toggle-pin', asyncHandler(contactsController.togglePin.bind(contactsController)));
+router.post('/contacts/toggle-archive', asyncHandler(contactsController.toggleArchive.bind(contactsController)));
+router.post('/contacts/toggle-mute', asyncHandler(contactsController.toggleMute.bind(contactsController)));
+router.post('/contacts/delete', asyncHandler(contactsController.deleteContact.bind(contactsController)));
 
 // Settings routes
 router.post('/settings/set-password', asyncHandler(settingsController.setPassword.bind(settingsController)));
@@ -81,6 +85,9 @@ router.post('/groups/unpin-message', asyncHandler(groupController.unpinMessage.b
 router.get('/groups/:groupId/pinned-messages', asyncHandler(groupController.getPinnedMessages.bind(groupController)));
 router.post('/groups/delete-message', asyncHandler(groupController.deleteMessage.bind(groupController)));
 router.get('/groups/message-info/:messageId', asyncHandler(groupController.getMessageInfo.bind(groupController)));
+router.post('/groups/toggle-pin', asyncHandler(groupController.togglePin.bind(groupController)));
+router.post('/groups/toggle-archive', asyncHandler(groupController.toggleArchive.bind(groupController)));
+router.post('/groups/toggle-mute', asyncHandler(groupController.toggleMute.bind(groupController)));
 
 // File routes
 router.post('/files/upload', fileController.uploadFile);

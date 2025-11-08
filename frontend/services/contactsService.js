@@ -460,6 +460,114 @@ class ContactsService {
       return errorResponse;
     }
   }
+
+  async togglePin(contactEmail) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return { success: false, message: 'No token found' };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-pin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ contactEmail, token }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data);
+      return data;
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      const errorResponse = { success: false, message: 'Network error' };
+      showToastFromResponse(errorResponse, { errorTitle: 'Error' });
+      return errorResponse;
+    }
+  }
+
+  async toggleArchive(contactEmail) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return { success: false, message: 'No token found' };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-archive`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ contactEmail, token }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data);
+      return data;
+    } catch (error) {
+      console.error('Error toggling archive:', error);
+      const errorResponse = { success: false, message: 'Network error' };
+      showToastFromResponse(errorResponse, { errorTitle: 'Error' });
+      return errorResponse;
+    }
+  }
+
+  async toggleMute(contactEmail, mutedUntil = null) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return { success: false, message: 'No token found' };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-mute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ contactEmail, mutedUntil, token }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data);
+      return data;
+    } catch (error) {
+      console.error('Error toggling mute:', error);
+      const errorResponse = { success: false, message: 'Network error' };
+      showToastFromResponse(errorResponse, { errorTitle: 'Error' });
+      return errorResponse;
+    }
+  }
+
+  async deleteContact(contactEmail) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return { success: false, message: 'No token found' };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ contactEmail, token }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data);
+      return data;
+    } catch (error) {
+      console.error('Error deleting contact:', error);
+      const errorResponse = { success: false, message: 'Network error' };
+      showToastFromResponse(errorResponse, { errorTitle: 'Error' });
+      return errorResponse;
+    }
+  }
 }
 
 export default new ContactsService();

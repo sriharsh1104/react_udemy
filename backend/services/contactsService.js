@@ -4,18 +4,26 @@ class ContactsService {
   // Add a contact for a user
   async addContact(userEmail, contactEmail) {
     try {
-      const contact = await Contact.findOneAndUpdate(
-        { userEmail, contactEmail },
-        {
+      // Check if contact already exists to preserve existing fields
+      const existingContact = await Contact.findOne({ userEmail, contactEmail });
+      
+      if (existingContact) {
+        // Contact already exists, just update createdAt if needed
+        existingContact.createdAt = existingContact.createdAt || new Date();
+        await existingContact.save();
+      } else {
+        // Create new contact, preserving default values for isMuted, isPinned, etc.
+        const contact = new Contact({
           userEmail,
           contactEmail,
           createdAt: new Date(),
-        },
-        {
-          upsert: true,
-          new: true,
-        }
-      );
+          isFavorite: false,
+          isPinned: false,
+          isArchived: false,
+          isMuted: false,
+        });
+        await contact.save();
+      }
       
       const contacts = await this.getContacts(userEmail);
       return contacts;

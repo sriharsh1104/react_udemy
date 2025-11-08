@@ -654,6 +654,87 @@ class GroupService {
       return errorResponse;
     }
   }
+
+  async togglePin(groupId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return { success: false, message: 'No token found' };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/toggle-pin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ groupId, token }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data);
+      return data;
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      const errorResponse = { success: false, message: 'Network error' };
+      showToastFromResponse(errorResponse, { errorTitle: 'Error' });
+      return errorResponse;
+    }
+  }
+
+  async toggleArchive(groupId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return { success: false, message: 'No token found' };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/toggle-archive`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ groupId, token }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data);
+      return data;
+    } catch (error) {
+      console.error('Error toggling archive:', error);
+      const errorResponse = { success: false, message: 'Network error' };
+      showToastFromResponse(errorResponse, { errorTitle: 'Error' });
+      return errorResponse;
+    }
+  }
+
+  async toggleMute(groupId, mutedUntil = null) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return { success: false, message: 'No token found' };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/toggle-mute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ groupId, mutedUntil, token }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data);
+      return data;
+    } catch (error) {
+      console.error('Error toggling mute:', error);
+      const errorResponse = { success: false, message: 'Network error' };
+      showToastFromResponse(errorResponse, { errorTitle: 'Error' });
+      return errorResponse;
+    }
+  }
 }
 
 export default new GroupService();

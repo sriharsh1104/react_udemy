@@ -6,17 +6,20 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
 import contactsService from '../../services/contactsService';
 import groupService from '../../services/groupService';
+import ChatActionBar from './ChatActionBar';
 
 const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, onNewChat, onCreateGroup, onSaveContact, onInvite, onContactsUpdate, onGroupsUpdate }) => {
   const { colors } = useTheme();
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'favorites'
   const [togglingFavorite, setTogglingFavorite] = useState(null);
   const [togglingGroupFavorite, setTogglingGroupFavorite] = useState(null);
+  const [selectedChats, setSelectedChats] = useState([]); // Array of { type: 'contact' | 'group', id: string }
 
   const getUsernameFromEmail = (email) => {
     if (!email) return '';
@@ -76,19 +79,142 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     setTogglingGroupFavorite(null);
   }, [onGroupsUpdate]);
 
+  // Handle chat selection (long press)
+  const handleChatLongPress = useCallback((type, id) => {
+    const chatKey = `${type}-${id}`;
+    setSelectedChats(prev => {
+      const exists = prev.some(c => `${c.type}-${c.id}` === chatKey);
+      if (exists) {
+        return prev.filter(c => `${c.type}-${c.id}` !== chatKey);
+      } else {
+        return [...prev, { type, id }];
+      }
+    });
+  }, []);
+
+  // Handle chat press (normal press)
+  const handleChatPress = useCallback((type, id, email) => {
+    if (selectedChats.length > 0) {
+      // If in selection mode, toggle selection
+      handleChatLongPress(type, id);
+    } else {
+      // Normal press - open chat
+      if (type === 'contact' && email && onSelectContact) {
+        onSelectContact(email);
+      } else if (type === 'group' && id && onSelectGroup) {
+        onSelectGroup(id);
+      }
+    }
+  }, [selectedChats, handleChatLongPress, onSelectContact, onSelectGroup]);
+
+  // Check if chat is selected
+  const isChatSelected = useCallback((type, id) => {
+    return selectedChats.some(c => c.type === type && c.id === id);
+  }, [selectedChats]);
+
+  // Action handlers
+  const handleDelete = useCallback(async () => {
+    if (selectedChats.length === 0) return;
+    
+    Alert.alert(
+      'Delete Chat',
+      `Are you sure you want to delete ${selectedChats.length} chat(s)?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            for (const chat of selectedChats) {
+              if (chat.type === 'contact') {
+                await contactsService.deleteContact(chat.id);
+              } else if (chat.type === 'group') {
+                // Groups are deleted by creator only, so we'll just exit
+                // This can be enhanced later
+              }
+            }
+            setSelectedChats([]);
+            if (onContactsUpdate) await onContactsUpdate();
+            if (onGroupsUpdate) await onGroupsUpdate();
+          },
+        },
+      ]
+    );
+  }, [selectedChats, onContactsUpdate, onGroupsUpdate]);
+
+  const handlePin = useCallback(async () => {
+    if (selectedChats.length === 0) return;
+    
+    for (const chat of selectedChats) {
+      if (chat.type === 'contact') {
+        await contactsService.togglePin(chat.id);
+      } else if (chat.type === 'group') {
+        await groupService.togglePin(chat.id);
+      }
+    }
+    setSelectedChats([]);
+    if (onContactsUpdate) await onContactsUpdate();
+    if (onGroupsUpdate) await onGroupsUpdate();
+  }, [selectedChats, onContactsUpdate, onGroupsUpdate]);
+
+  const handleArchive = useCallback(async () => {
+    if (selectedChats.length === 0) return;
+    
+    for (const chat of selectedChats) {
+      if (chat.type === 'contact') {
+        await contactsService.toggleArchive(chat.id);
+      } else if (chat.type === 'group') {
+        await groupService.toggleArchive(chat.id);
+      }
+    }
+    setSelectedChats([]);
+    if (onContactsUpdate) await onContactsUpdate();
+    if (onGroupsUpdate) await onGroupsUpdate();
+  }, [selectedChats, onContactsUpdate, onGroupsUpdate]);
+
+  const handleMute = useCallback(async () => {
+    if (selectedChats.length === 0) return;
+    
+    for (const chat of selectedChats) {
+      if (chat.type === 'contact') {
+        await contactsService.toggleMute(chat.id);
+      } else if (chat.type === 'group') {
+        await groupService.toggleMute(chat.id);
+      }
+    }
+    setSelectedChats([]);
+    if (onContactsUpdate) await onContactsUpdate();
+    if (onGroupsUpdate) await onGroupsUpdate();
+  }, [selectedChats, onContactsUpdate, onGroupsUpdate]);
+
+  const handleCloseSelection = useCallback(() => {
+    setSelectedChats([]);
+  }, []);
+
   const renderContactItem = useCallback(({ item }) => {
     const name = item.name || getUsernameFromEmail(item.email);
     const isOnline = item.isOnline || false;
     const unreadCount = item.unreadCount || 0;
     const isFavorite = item.isFavorite || false;
+    const isMuted = item.isMuted === true; // Explicitly check for true
     const isToggling = togglingFavorite === item.email;
+    const isSelected = isChatSelected('contact', item.email);
     
     return (
       <TouchableOpacity
-        style={[styles.contactItem, { borderBottomColor: colors.divider }]}
+        style={[
+          styles.contactItem,
+          { borderBottomColor: colors.divider },
+          isSelected && { backgroundColor: colors.primaryLight + '40' }
+        ]}
         onPress={() => {
           if (item.exists) {
-            onSelectContact(item.email);
+            handleChatPress('contact', item.email, item.email);
+          }
+        }}
+        onLongPress={() => {
+          if (item.exists) {
+            handleChatLongPress('contact', item.email);
           }
         }}
       >
@@ -101,11 +227,14 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
           <View style={styles.contactNameRow}>
             <Text style={[styles.contactName, { color: colors.text }]}>{name}</Text>
             {isFavorite && <Text style={styles.favoriteIcon}>⭐</Text>}
+            {isMuted && <Text style={styles.muteIcon}>🔇</Text>}
           </View>
           <Text style={[styles.contactEmail, { color: colors.textSecondary }]} numberOfLines={1}>{item.email}</Text>
         </View>
         {item.exists ? (
           <View style={styles.statusContainer}>
+            {!isSelected && (
+              <>
             <TouchableOpacity
               style={styles.favoriteButton}
               onPress={(e) => handleToggleFavorite(item.email, e)}
@@ -120,14 +249,18 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
               )}
             </TouchableOpacity>
             <View style={[styles.statusDot, { backgroundColor: isOnline ? colors.online : colors.offline }]} />
-            <Text style={[styles.statusText, { color: isOnline ? colors.online : colors.textSecondary }]}>
-              {isOnline ? 'Online' : 'Offline'}
-            </Text>
             {unreadCount > 0 && (
               <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.unreadBadgeText, { color: colors.white }]}>
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </Text>
+                  </View>
+                )}
+              </>
+            )}
+            {isSelected && (
+              <View style={[styles.selectedIndicator, { backgroundColor: colors.primary }]}>
+                <Text style={styles.selectedCheckmark}>✓</Text>
               </View>
             )}
           </View>
@@ -149,10 +282,32 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
         )}
       </TouchableOpacity>
     );
-  }, [colors, handleToggleFavorite, togglingFavorite, onSelectContact, onSaveContact, onInvite]);
+  }, [colors, handleToggleFavorite, togglingFavorite, onSelectContact, onSaveContact, onInvite, isChatSelected, handleChatPress, handleChatLongPress]);
+
+  // Get status for action bar
+  const getActionBarStatus = useCallback(() => {
+    if (selectedChats.length === 0) return { isPinned: false, isArchived: false, isMuted: false };
+    
+    // For now, return false for all - can be enhanced to check actual status
+    return { isPinned: false, isArchived: false, isMuted: false };
+  }, [selectedChats]);
+
+  const actionBarStatus = getActionBarStatus();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ChatActionBar
+        visible={selectedChats.length > 0}
+        selectedCount={selectedChats.length}
+        onDelete={handleDelete}
+        onPin={handlePin}
+        onArchive={handleArchive}
+        onMute={handleMute}
+        onClose={handleCloseSelection}
+        isPinned={actionBarStatus.isPinned}
+        isArchived={actionBarStatus.isArchived}
+        isMuted={actionBarStatus.isMuted}
+      />
       <View style={[styles.header, { borderBottomColor: colors.divider }]}>
         <Text style={[styles.title, { color: colors.text }]}>Recent Chats</Text>
         <View style={styles.headerButtons}>
@@ -270,12 +425,19 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
             if (item.type === 'group') {
               const isFavorite = item.isFavorite || false;
               const unreadCount = item.unreadCount || 0;
+              const isMuted = item.isMuted === true; // Explicitly check for true
               const isToggling = togglingGroupFavorite === item._id;
+              const isSelected = isChatSelected('group', item._id);
               
               return (
                 <TouchableOpacity
-                  style={[styles.contactItem, { borderBottomColor: colors.divider }]}
-                  onPress={() => onSelectGroup && onSelectGroup(item._id)}
+                  style={[
+                    styles.contactItem,
+                    { borderBottomColor: colors.divider },
+                    isSelected && { backgroundColor: colors.primaryLight + '40' }
+                  ]}
+                  onPress={() => handleChatPress('group', item._id)}
+                  onLongPress={() => handleChatLongPress('group', item._id)}
                 >
                   <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
                     <Text style={[styles.avatarText, { color: colors.white, fontSize: TYPOGRAPHY.fontSize.xl }]}>
@@ -286,12 +448,15 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
                     <View style={styles.contactNameRow}>
                       <Text style={[styles.contactName, { color: colors.text }]}>{item.name}</Text>
                       {isFavorite && <Text style={styles.favoriteIcon}>⭐</Text>}
+                      {isMuted && <Text style={styles.muteIcon}>🔇</Text>}
                     </View>
                     <Text style={[styles.contactEmail, { color: colors.textSecondary }]}>
                       {item.members?.length || 0} members
                     </Text>
                   </View>
                   <View style={styles.statusContainer}>
+                    {!isSelected && (
+                      <>
                     <TouchableOpacity
                       style={styles.favoriteButton}
                       onPress={(e) => handleToggleGroupFavorite(item._id, e)}
@@ -310,6 +475,13 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
                         <Text style={[styles.unreadBadgeText, { color: colors.white }]}>
                           {unreadCount > 99 ? '99+' : unreadCount}
                         </Text>
+                          </View>
+                        )}
+                      </>
+                    )}
+                    {isSelected && (
+                      <View style={[styles.selectedIndicator, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.selectedCheckmark}>✓</Text>
                       </View>
                     )}
                   </View>
@@ -442,9 +614,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  statusText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginRight: SPACING.xs,
   },
   unreadBadge: {
     borderRadius: 10,
@@ -521,6 +691,23 @@ const styles = StyleSheet.create({
   emptyButtons: {
     flexDirection: 'row',
     marginTop: SPACING.md,
+  },
+  selectedIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.xs,
+  },
+  selectedCheckmark: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  muteIcon: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginLeft: SPACING.xs,
   },
 });
 

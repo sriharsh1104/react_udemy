@@ -110,7 +110,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
         />
       );
     };
-
+    
     return (
       <TouchableOpacity
         style={[
@@ -259,7 +259,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
       </TouchableOpacity>
     );
   }
-
+  
   // Render regular text message
   return (
     <TouchableOpacity

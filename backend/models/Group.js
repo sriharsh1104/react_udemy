@@ -19,6 +19,28 @@ const GroupSchema = new mongoose.Schema({
     type: String, // Array of user emails who favorited this group
     index: true,
   }],
+  pinnedBy: [{
+    type: String, // Array of user emails who pinned this group
+    index: true,
+  }],
+  archivedBy: [{
+    type: String, // Array of user emails who archived this group
+    index: true,
+  }],
+  mutedBy: [{
+    type: String, // Array of user emails who muted this group
+    index: true,
+  }],
+  muteSettings: [{
+    userEmail: {
+      type: String,
+      required: true,
+    },
+    mutedUntil: {
+      type: Date,
+      default: null,
+    },
+  }],
   inviteLink: {
     type: String,
     default: null,

@@ -111,12 +111,21 @@ class GroupController {
           
           // Check if user has favorited this group
           const isFavorite = group.favorites && group.favorites.includes(userEmail);
+          // Check if user has pinned this group
+          const isPinned = group.pinnedBy && group.pinnedBy.includes(userEmail);
+          // Check if user has archived this group
+          const isArchived = group.archivedBy && group.archivedBy.includes(userEmail);
+          // Check if user has muted this group
+          const isMuted = group.mutedBy && group.mutedBy.includes(userEmail);
 
           return {
             ...group,
             members: memberProfiles,
             unreadCount,
             isFavorite: isFavorite || false,
+            isPinned: isPinned || false,
+            isArchived: isArchived || false,
+            isMuted: isMuted || false,
           };
         })
       );
@@ -1035,6 +1044,239 @@ class GroupController {
       });
     } catch (error) {
       console.error('Error in getMessageInfo:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Pin/Unpin a group chat
+  async togglePin(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { groupId } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Group ID is required',
+        });
+      }
+
+      const group = await groupService.getGroupById(groupId);
+      if (!group) {
+        return res.status(404).json({
+          success: false,
+          message: 'Group not found',
+        });
+      }
+
+      const isMember = await groupService.isMember(groupId, userEmail);
+      if (!isMember) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not a member of this group',
+        });
+      }
+
+      const isPinned = group.pinnedBy && group.pinnedBy.includes(userEmail);
+      if (isPinned) {
+        group.pinnedBy = group.pinnedBy.filter(email => email !== userEmail);
+      } else {
+        if (!group.pinnedBy) {
+          group.pinnedBy = [];
+        }
+        group.pinnedBy.push(userEmail);
+      }
+      await group.save();
+
+      res.status(200).json({
+        success: true,
+        message: !isPinned ? 'Group pinned' : 'Group unpinned',
+        group: {
+          _id: group._id,
+          isPinned: !isPinned,
+        },
+      });
+    } catch (error) {
+      console.error('Error in togglePin:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Archive/Unarchive a group chat
+  async toggleArchive(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { groupId } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Group ID is required',
+        });
+      }
+
+      const group = await groupService.getGroupById(groupId);
+      if (!group) {
+        return res.status(404).json({
+          success: false,
+          message: 'Group not found',
+        });
+      }
+
+      const isMember = await groupService.isMember(groupId, userEmail);
+      if (!isMember) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not a member of this group',
+        });
+      }
+
+      const isArchived = group.archivedBy && group.archivedBy.includes(userEmail);
+      if (isArchived) {
+        group.archivedBy = group.archivedBy.filter(email => email !== userEmail);
+      } else {
+        if (!group.archivedBy) {
+          group.archivedBy = [];
+        }
+        group.archivedBy.push(userEmail);
+      }
+      await group.save();
+
+      res.status(200).json({
+        success: true,
+        message: !isArchived ? 'Group archived' : 'Group unarchived',
+        group: {
+          _id: group._id,
+          isArchived: !isArchived,
+        },
+      });
+    } catch (error) {
+      console.error('Error in toggleArchive:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Mute/Unmute a group chat
+  async toggleMute(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { groupId, mutedUntil } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Group ID is required',
+        });
+      }
+
+      const group = await groupService.getGroupById(groupId);
+      if (!group) {
+        return res.status(404).json({
+          success: false,
+          message: 'Group not found',
+        });
+      }
+
+      const isMember = await groupService.isMember(groupId, userEmail);
+      if (!isMember) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not a member of this group',
+        });
+      }
+
+      const isMuted = group.mutedBy && group.mutedBy.includes(userEmail);
+      if (isMuted) {
+        group.mutedBy = group.mutedBy.filter(email => email !== userEmail);
+        // Remove from muteSettings
+        if (group.muteSettings) {
+          group.muteSettings = group.muteSettings.filter(setting => setting.userEmail !== userEmail);
+        }
+      } else {
+        if (!group.mutedBy) {
+          group.mutedBy = [];
+        }
+        if (!group.muteSettings) {
+          group.muteSettings = [];
+        }
+        group.mutedBy.push(userEmail);
+        // Update or add muteSettings
+        const existingSetting = group.muteSettings.find(s => s.userEmail === userEmail);
+        if (existingSetting) {
+          existingSetting.mutedUntil = mutedUntil ? new Date(mutedUntil) : null;
+        } else {
+          group.muteSettings.push({
+            userEmail,
+            mutedUntil: mutedUntil ? new Date(mutedUntil) : null,
+          });
+        }
+      }
+      await group.save();
+
+      res.status(200).json({
+        success: true,
+        message: !isMuted ? 'Group muted' : 'Group unmuted',
+        group: {
+          _id: group._id,
+          isMuted: !isMuted,
+        },
+      });
+    } catch (error) {
+      console.error('Error in toggleMute:', error);
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error',

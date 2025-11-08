@@ -382,6 +382,9 @@ class ContactsController {
             isOnline,
             unreadCount,
             isFavorite: manualContact?.isFavorite || false,
+            isPinned: manualContact?.isPinned || false,
+            isArchived: manualContact?.isArchived || false,
+            isMuted: manualContact?.isMuted || false,
             isManuallyAdded, // Flag to distinguish manually added vs message-based contacts
           };
         })
@@ -441,6 +444,238 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in toggleFavorite:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Pin/Unpin a contact chat
+  async togglePin(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { contactEmail } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!contactEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Contact email is required',
+        });
+      }
+
+      const Contact = require('../models/Contact');
+      let contact = await Contact.findOne({ userEmail, contactEmail });
+      
+      // If contact doesn't exist (message-based contact), create it
+      if (!contact) {
+        contact = new Contact({
+          userEmail,
+          contactEmail,
+          isPinned: true, // Setting to pinned
+        });
+        await contact.save();
+      } else {
+        // Toggle pin status for existing contact
+        contact.isPinned = !contact.isPinned;
+        await contact.save();
+      }
+
+      res.status(200).json({
+        success: true,
+        message: contact.isPinned ? 'Chat pinned' : 'Chat unpinned',
+        contact: {
+          email: contact.contactEmail,
+          isPinned: contact.isPinned,
+        },
+      });
+    } catch (error) {
+      console.error('Error in togglePin:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Archive/Unarchive a contact chat
+  async toggleArchive(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { contactEmail } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!contactEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Contact email is required',
+        });
+      }
+
+      const Contact = require('../models/Contact');
+      let contact = await Contact.findOne({ userEmail, contactEmail });
+      
+      // If contact doesn't exist (message-based contact), create it
+      if (!contact) {
+        contact = new Contact({
+          userEmail,
+          contactEmail,
+          isArchived: true, // Setting to archived
+        });
+        await contact.save();
+      } else {
+        // Toggle archive status for existing contact
+        contact.isArchived = !contact.isArchived;
+        await contact.save();
+      }
+
+      res.status(200).json({
+        success: true,
+        message: contact.isArchived ? 'Chat archived' : 'Chat unarchived',
+        contact: {
+          email: contact.contactEmail,
+          isArchived: contact.isArchived,
+        },
+      });
+    } catch (error) {
+      console.error('Error in toggleArchive:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Mute/Unmute a contact chat
+  async toggleMute(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { contactEmail, mutedUntil } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!contactEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Contact email is required',
+        });
+      }
+
+      const Contact = require('../models/Contact');
+      let contact = await Contact.findOne({ userEmail, contactEmail });
+      
+      // If contact doesn't exist (message-based contact), create it
+      if (!contact) {
+        contact = new Contact({
+          userEmail,
+          contactEmail,
+          isMuted: true, // Setting to muted
+          mutedUntil: mutedUntil ? new Date(mutedUntil) : null,
+        });
+        await contact.save();
+      } else {
+        // Toggle mute status for existing contact
+        contact.isMuted = !contact.isMuted;
+        contact.mutedUntil = contact.isMuted ? (mutedUntil ? new Date(mutedUntil) : null) : null;
+        await contact.save();
+      }
+
+      res.status(200).json({
+        success: true,
+        message: contact.isMuted ? 'Chat muted' : 'Chat unmuted',
+        contact: {
+          email: contact.contactEmail,
+          isMuted: contact.isMuted,
+          mutedUntil: contact.mutedUntil,
+        },
+      });
+    } catch (error) {
+      console.error('Error in toggleMute:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Delete a contact chat (remove contact)
+  async deleteContact(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { contactEmail } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!contactEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Contact email is required',
+        });
+      }
+
+      const result = await contactsService.removeContact(userEmail, contactEmail);
+
+      res.status(200).json({
+        success: true,
+        message: 'Contact deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error in deleteContact:', error);
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error',
