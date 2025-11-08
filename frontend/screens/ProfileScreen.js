@@ -34,7 +34,7 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       setPhone2(initialProfile.phoneNumbers?.[1] || '');
       setInitialLoading(false);
     } else {
-      loadProfile();
+    loadProfile();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
