@@ -2,11 +2,11 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chatapp';
+    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatapp';
     
     if (!mongoURI || mongoURI === 'mongodb://localhost:27017/chatapp') {
-      console.warn('⚠️  MONGODB_URI not set. Using default local MongoDB.');
-      console.warn('💡 For Render deployment, set MONGODB_URI environment variable.');
+      console.warn('⚠️  MONGO_URI not set. Using default local MongoDB.');
+      console.warn('💡 For Render deployment, set MONGO_URI environment variable.');
       console.warn('   Options: MongoDB Atlas (free) or Render MongoDB Service');
     }
     
@@ -24,12 +24,12 @@ const connectDB = async () => {
     if (error.message.includes('ECONNREFUSED')) {
       console.error('💡 Connection refused. Possible issues:');
       console.error('   1. MongoDB service not running (for local)');
-      console.error('   2. MONGODB_URI not set correctly (for Render)');
+      console.error('   2. MONGO_URI not set correctly (for Render)');
       console.error('   3. Network access not allowed (for MongoDB Atlas)');
       console.error('');
       console.error('📖 Setup Guide: See MONGODB_FREE_SETUP.md');
     } else {
-      console.error('💡 Make sure MongoDB is running or check MONGODB_URI in environment variables');
+      console.error('💡 Make sure MongoDB is running or check MONGO_URI in environment variables');
     }
     
     // Don't exit in development - allow app to run without DB for testing

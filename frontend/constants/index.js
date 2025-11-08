@@ -1,16 +1,34 @@
 // API Configuration
 // Use environment variables if available, otherwise use defaults
 const getApiUrl = () => {
-  // Check for environment variable (for production builds)
-  if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
+  // Check for Expo environment variable (EXPO_PUBLIC_*)
+  if (typeof process !== 'undefined' && process.env) {
+    // Expo uses EXPO_PUBLIC_ prefix for public env vars
+    if (process.env.EXPO_PUBLIC_API_URL) {
+      return process.env.EXPO_PUBLIC_API_URL;
+    }
+    // React Native/Web standard
+    if (process.env.REACT_APP_API_URL) {
+      return process.env.REACT_APP_API_URL;
+    }
   }
-  // Check for __DEV__ (React Native/Expo)
+  
+  // Check for staging environment
+  const isStaging = typeof process !== 'undefined' && process.env && 
+    (process.env.EXPO_PUBLIC_ENV === 'staging' || process.env.NODE_ENV === 'staging');
+  
+  if (isStaging) {
+    // Staging URL - same as production for now
+    return 'https://react-udemy-yaks.onrender.com';
+  }
+  
+  // Check for __DEV__ (React Native/Expo development mode)
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
     return 'http://localhost:3001';
   }
-  // Default production URL (update this with your Render URL)
-  return 'https://your-backend.onrender.com';
+  
+  // Production URL - Render backend
+  return 'https://react-udemy-yaks.onrender.com';
 };
 
 const API_URL = getApiUrl();

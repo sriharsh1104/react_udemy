@@ -65,7 +65,7 @@ mongodb+srv://chatapp:yourpassword@cluster0.xxxxx.mongodb.net/chatapp?retryWrite
 ### Step 7: Set in Render
 1. Go to Render dashboard → Your Web Service
 2. Go to "Environment" tab
-3. Add/Update `MONGODB_URI`:
+3. Add/Update `MONGO_URI`:
    ```
    mongodb+srv://chatapp:yourpassword@cluster0.xxxxx.mongodb.net/chatapp?retryWrites=true&w=majority&appName=chat-app
    ```
@@ -87,9 +87,9 @@ mongodb+srv://chatapp:yourpassword@cluster0.xxxxx.mongodb.net/chatapp?retryWrite
 1. Go to your Web Service
 2. Click "Connections" tab
 3. Click "Connect" next to MongoDB service
-4. Render automatically sets `MONGODB_URI`
+4. Render automatically sets `MONGO_URI`
 
-**Note**: `MONGODB_URI` automatically set hoga, manually set mat karein!
+**Note**: `MONGO_URI` automatically set hoga, manually set mat karein!
 
 ---
 

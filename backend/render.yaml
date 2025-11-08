@@ -9,7 +9,7 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: MONGODB_URI
+      - key: MONGO_URI
         # This will be automatically set by Render when you add MongoDB service
         # Format: mongodb://render-mongodb-service-uri
         # You'll get this from Render MongoDB service connection string

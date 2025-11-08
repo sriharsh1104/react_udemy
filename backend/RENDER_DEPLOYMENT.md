@@ -9,7 +9,7 @@ Create a `.env` file in `backend/` directory (for local development):
 ```env
 PORT=3001
 NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/chatapp
+MONGO_URI=mongodb://localhost:27017/chatapp
 FRONTEND_URL=http://localhost:8081
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
@@ -52,7 +52,7 @@ We'll use Render's MongoDB Service (Recommended):
 1. In your Web Service settings, go to "Connections" tab
 2. Click "Connect" next to your MongoDB service
 3. Render will automatically:
-   - Add `MONGODB_URI` environment variable
+   - Add `MONGO_URI` environment variable
    - Use the Internal Database URI (faster, more secure)
 
 ### 2.4 Set Other Environment Variables
@@ -63,13 +63,13 @@ In Render dashboard, go to Environment tab and add:
 |-----|-------|-------------|
 | `NODE_ENV` | `production` | Environment mode |
 | `PORT` | `10000` | Port (Render uses 10000) |
-| `MONGODB_URI` | *(Auto-set by MongoDB connection)* | Automatically set when MongoDB service is connected |
+| `MONGO_URI` | *(Auto-set by MongoDB connection)* | Automatically set when MongoDB service is connected |
 | `FRONTEND_URL` | `http://localhost:8081` | Frontend URL (update after frontend deploy) |
 | `EMAIL_USER` | `your-email@gmail.com` | (Optional) Email for OTP |
 | `EMAIL_PASS` | `your-app-password` | (Optional) Email password |
 
 **Important Notes**:
-- `MONGODB_URI` is automatically set when you connect MongoDB service - don't set it manually
+- `MONGO_URI` is automatically set when you connect MongoDB service - don't set it manually
 - Render automatically provides `RENDER_EXTERNAL_URL` - you don't need to set it
 - Make sure MongoDB service and Web Service are in the same region for best performance
 
