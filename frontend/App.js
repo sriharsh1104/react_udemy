@@ -1,30 +1,76 @@
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
-import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import ChatScreen from './screens/ChatScreen';
 import LoginScreen from './screens/LoginScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import LogoutModal from './components/common/LogoutModal';
 import GLoader from './components/common/GLoader';
+import NotificationContainer from './components/common/Notification';
 import profileService from './services/profileService';
 import authService from './services/authService';
 
 const Stack = createNativeStackNavigator();
 
-const AppContent = () => {
+const AppContentWithNotifications = () => {
+  const { notifications, removeNotification, markAsRead } = useNotifications();
+  const navigationRef = React.useRef(null);
+  
+  const handleNotificationPress = (notification) => {
+    // Call the notification's onPress handler if it exists
+    if (notification.onPress) {
+      notification.onPress();
+    }
+    removeNotification(notification.id);
+  };
+
+  const handleNotificationMarkAsRead = (notification) => {
+    if (notification.onMarkAsRead) {
+      notification.onMarkAsRead();
+    }
+    markAsRead(notification.senderEmail, notification.onMarkAsRead);
+  };
+
+  const handleNotificationReply = (notification) => {
+    // Reply input will be shown inline in notification
+  };
+
+  const handleSendReply = (notification, message) => {
+    if (notification && notification.onReply) {
+      notification.onReply(message);
+    }
+  };
+
+  return (
+    <>
+      <NotificationContainer
+        notifications={notifications}
+        onDismiss={removeNotification}
+        onPress={handleNotificationPress}
+        onMarkAsRead={handleNotificationMarkAsRead}
+        onReply={handleNotificationReply}
+        onSendReply={handleSendReply}
+      />
+      <AppContent navigationRef={navigationRef} />
+    </>
+  );
+};
+
+const AppContent = ({ navigationRef: externalNavRef }) => {
   const { colors, isDark } = useTheme();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userEmail, setUserEmail] = useState(null);
   const [profile, setProfile] = useState(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const navigationRef = useRef(null);
+  const navigationRef = externalNavRef || useRef(null);
 
   useEffect(() => {
     checkAuthStatus();
@@ -234,7 +280,9 @@ const styles = StyleSheet.create({
 export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <NotificationProvider>
+        <AppContentWithNotifications />
+      </NotificationProvider>
     </ThemeProvider>
   );
 }

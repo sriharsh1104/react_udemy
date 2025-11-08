@@ -28,9 +28,12 @@ import groupService from '../services/groupService';
 import fileUploadService from '../services/fileUploadService';
 import { Alert } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import { useNotifications } from '../contexts/NotificationContext';
+import encryptionService from '../services/encryptionService';
 
 const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLogoutPress, navigation }) => {
   const { colors } = useTheme();
+  const { addNotification, clearNotification } = useNotifications();
   
   // Extract username from email (part before @)
   const getUsernameFromEmail = (email) => {
@@ -76,7 +79,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     loadGroups();
   }, []);
 
-  // Listen for all private messages to refresh contacts list (even when not viewing that chat)
+  // Listen for all private messages to refresh contacts list and show notifications
   useEffect(() => {
     if (!socket || !userEmail) return;
 
@@ -85,6 +88,89 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       if (data.senderEmail && data.senderEmail !== userEmail) {
         // Refresh contacts list to show new contact or update unread count
         loadContacts();
+
+        // Show notification only if not viewing this chat
+        const isViewingThisChat = contactEmail === data.senderEmail && chatType === 'private';
+        
+        if (!isViewingThisChat) {
+          // Decrypt message for notification
+          let messageText = data.message;
+          try {
+            // Check if encrypted
+            const parsed = JSON.parse(data.message);
+            if (parsed && parsed.encrypted && parsed.iv) {
+              messageText = await encryptionService.decryptPrivateMessage(
+                parsed,
+                userEmail,
+                data.senderEmail
+              );
+            }
+          } catch (error) {
+            // Not encrypted or parse error, use as-is
+            console.log('Message not encrypted or parse error:', error);
+          }
+
+          // Get sender name - try from current contacts, fallback to email
+          const senderContact = contacts.find(c => c.email === data.senderEmail);
+          let senderName = senderContact?.name;
+          
+          // If not found in contacts, try to get from profile or use email
+          if (!senderName) {
+            senderName = data.senderEmail?.split('@')[0] || 'Unknown';
+          }
+
+          // Add notification
+          addNotification({
+            senderEmail: data.senderEmail,
+            senderName: senderName,
+            message: messageText,
+            timestamp: data.timestamp || new Date(),
+            type: 'private',
+            onPress: () => {
+              // Navigate to chat
+              setContactEmail(data.senderEmail);
+              setChatType('private');
+              setContactName(senderName);
+              clearNotification(data.senderEmail);
+            },
+            onMarkAsRead: async () => {
+              // Mark messages as read
+              await contactsService.markMessagesAsRead(data.senderEmail);
+              loadContacts();
+            },
+            onReply: async (replyMessage) => {
+              // Send reply message directly
+              if (replyMessage && replyMessage.trim()) {
+                try {
+                  // Encrypt the reply message
+                  const encryptedData = await encryptionService.encryptPrivateMessage(
+                    replyMessage,
+                    userEmail,
+                    data.senderEmail
+                  );
+                  
+                  // Convert encrypted data to JSON string for storage
+                  const encryptedMessage = JSON.stringify(encryptedData);
+                  
+                  // Send encrypted message to server
+                  socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+                    message: encryptedMessage,
+                    contactEmail: data.senderEmail,
+                    senderEmail: userEmail,
+                  });
+                  
+                  // Refresh contacts to update last message
+                  loadContacts();
+                  
+                  // Clear notification after sending
+                  clearNotification(data.senderEmail);
+                } catch (error) {
+                  console.error('Error sending reply:', error);
+                }
+              }
+            },
+          });
+        }
       }
     };
 
@@ -93,7 +179,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     return () => {
       socket.off('privateMessage', handleAnyPrivateMessage);
     };
-  }, [socket, userEmail]);
+  }, [socket, userEmail, contactEmail, chatType, contacts, addNotification, clearNotification]);
 
   // Periodically refresh contacts and groups
   useEffect(() => {
@@ -362,8 +448,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     if (contactEmail && chatType === 'private' && markPrivateMessagesAsRead) {
       // Reset flag when contact changes
       hasMarkedAsRead.current = false;
+      // Clear notification when opening chat
+      clearNotification(contactEmail);
     }
-  }, [contactEmail, chatType]);
+  }, [contactEmail, chatType, clearNotification]);
   
   useEffect(() => {
     if (contactEmail && chatType === 'private' && markPrivateMessagesAsRead && !hasMarkedAsRead.current) {

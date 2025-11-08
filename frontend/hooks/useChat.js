@@ -34,15 +34,27 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     
     try {
       const encryptedData = JSON.parse(encryptedMessage);
-      // Determine which user is the sender to get the right key
+      
+      // For your own messages, use contactEmail as the other party
+      // For messages from contact, use senderEmail as the other party
+      const otherPartyEmail = senderEmail === userEmail ? contactEmail : senderEmail;
+      
+      if (!otherPartyEmail) {
+        console.error('Cannot decrypt: missing other party email');
+        return '[Encrypted message - decryption failed]';
+      }
+      
+      // Decrypt using the shared key between userEmail and otherPartyEmail
       const decrypted = await encryptionService.decryptPrivateMessage(
         encryptedData,
         userEmail,
-        senderEmail
+        otherPartyEmail
       );
       return decrypted;
     } catch (error) {
       console.error('Error decrypting message:', error);
+      console.error('Message:', encryptedMessage);
+      console.error('Sender:', senderEmail, 'User:', userEmail, 'Contact:', contactEmail);
       return '[Encrypted message - decryption failed]';
     }
   };
