@@ -350,6 +350,122 @@ class GroupService {
       return errorResponse;
     }
   }
+
+  async generateInviteLink(groupId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/generate-invite-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          groupId,
+          token,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Failed to Generate Invite Link',
+          showSuccess: false,
+        });
+      }
+      return data;
+    } catch (error) {
+      console.error('Error generating invite link:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
+  async resetInviteLink(groupId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/reset-invite-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          groupId,
+          token,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Invite Link Reset',
+        errorTitle: 'Failed to Reset Invite Link',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error resetting invite link:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
+  async joinGroupViaLink(inviteToken) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/join-via-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inviteToken,
+          token,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Joined Group',
+        errorTitle: 'Failed to Join Group',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error joining group via link:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
 }
 
 export default new GroupService();

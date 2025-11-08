@@ -207,6 +207,150 @@ class GroupService {
       throw error;
     }
   }
+
+  // Generate or get invite link for a group
+  async generateInviteLink(groupId, userEmail, frontendUrl) {
+    try {
+      const group = await Group.findById(groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+
+      // Check if user is a member
+      if (!group.members.includes(userEmail)) {
+        throw new Error('Only group members can generate invite links');
+      }
+
+      // If link exists and is not expired, return existing link
+      if (group.inviteLink && group.inviteLinkExpiry && group.inviteLinkExpiry > new Date()) {
+        const fullLink = `${frontendUrl}/group-invite/${group.inviteLink}`;
+        return {
+          inviteLink: fullLink,
+          expiresAt: group.inviteLinkExpiry,
+        };
+      }
+
+      // Generate new invite link token (using crypto for secure random token)
+      const crypto = require('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+
+      // Set expiry to 30 days from now
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 30);
+
+      // Store only the token in database
+      group.inviteLink = token;
+      group.inviteLinkExpiry = expiryDate;
+      group.updatedAt = new Date();
+      await group.save();
+
+      const fullLink = `${frontendUrl}/group-invite/${token}`;
+      return {
+        inviteLink: fullLink,
+        expiresAt: group.inviteLinkExpiry,
+      };
+    } catch (error) {
+      console.error('Error generating invite link:', error);
+      throw error;
+    }
+  }
+
+  // Reset invite link (expires old one and generates new)
+  async resetInviteLink(groupId, userEmail, frontendUrl) {
+    try {
+      const group = await Group.findById(groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+
+      // Check if user is a member
+      if (!group.members.includes(userEmail)) {
+        throw new Error('Only group members can reset invite links');
+      }
+
+      // Generate new invite link token
+      const crypto = require('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+
+      // Set expiry to 30 days from now
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 30);
+
+      // Old link is automatically expired by setting new token
+      group.inviteLink = token;
+      group.inviteLinkExpiry = expiryDate;
+      group.updatedAt = new Date();
+      await group.save();
+
+      const fullLink = `${frontendUrl}/group-invite/${token}`;
+      return {
+        inviteLink: fullLink,
+        expiresAt: group.inviteLinkExpiry,
+      };
+    } catch (error) {
+      console.error('Error resetting invite link:', error);
+      throw error;
+    }
+  }
+
+  // Join group via invite link
+  async joinGroupViaLink(inviteToken, userEmail) {
+    try {
+      // Find group by invite token (stored in inviteLink field)
+      const group = await Group.findOne({ inviteLink: inviteToken });
+      
+      if (!group) {
+        throw new Error('Invalid invite link');
+      }
+
+      // Check if link is expired
+      if (group.inviteLinkExpiry && group.inviteLinkExpiry < new Date()) {
+        throw new Error('Invite link has expired');
+      }
+
+      // Check if user is already a member
+      if (group.members.includes(userEmail)) {
+        return {
+          group: group.toObject(),
+          alreadyMember: true,
+        };
+      }
+
+      // Add user to group
+      group.members.push(userEmail);
+      group.updatedAt = new Date();
+      await group.save();
+
+      return {
+        group: group.toObject(),
+        alreadyMember: false,
+      };
+    } catch (error) {
+      console.error('Error joining group via link:', error);
+      throw error;
+    }
+  }
+
+  // Get group by invite token
+  async getGroupByInviteToken(inviteToken) {
+    try {
+      const group = await Group.findOne({ inviteLink: inviteToken }).lean();
+      
+      if (!group) {
+        return null;
+      }
+
+      // Check if link is expired
+      if (group.inviteLinkExpiry && group.inviteLinkExpiry < new Date()) {
+        return null;
+      }
+
+      return group;
+    } catch (error) {
+      console.error('Error getting group by invite token:', error);
+      return null;
+    }
+  }
 }
 
 module.exports = new GroupService();

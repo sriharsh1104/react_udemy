@@ -10,7 +10,11 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  Share,
+  Linking,
+  Platform,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
 import Button from '../common/Button';
@@ -18,6 +22,7 @@ import GLoader from '../common/GLoader';
 import contactsService from '../../services/contactsService';
 import groupService from '../../services/groupService';
 import { showToastFromResponse } from '../../utils/toast';
+import Toast from 'react-native-toast-message';
 
 const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, onExitGroup }) => {
   const { colors } = useTheme();
@@ -29,15 +34,20 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
   const [searching, setSearching] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
+  const [loadingInviteLink, setLoadingInviteLink] = useState(false);
+  const [resettingLink, setResettingLink] = useState(false);
 
   useEffect(() => {
     if (visible && group) {
       loadGroupDetails();
+      loadInviteLink();
     } else {
       setGroupDetails(null);
       setShowAddMember(false);
       setSearchQuery('');
       setSearchResults([]);
+      setInviteLink('');
     }
   }, [visible, group]);
 
@@ -123,6 +133,190 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
     );
   };
 
+  const loadInviteLink = async () => {
+    if (!group || !group._id) return;
+    setLoadingInviteLink(true);
+    const result = await groupService.generateInviteLink(group._id);
+    if (result.success && result.inviteLink) {
+      setInviteLink(result.inviteLink);
+    }
+    setLoadingInviteLink(false);
+  };
+
+  const handleResetLink = async () => {
+    if (!group || !group._id) return;
+    
+    Alert.alert(
+      'Reset Invite Link',
+      'This will expire the current link and generate a new one. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            setResettingLink(true);
+            const result = await groupService.resetInviteLink(group._id);
+            setResettingLink(false);
+            if (result.success && result.inviteLink) {
+              setInviteLink(result.inviteLink);
+              Toast.show({
+                type: 'success',
+                text1: 'Link Reset',
+                text2: 'New invite link generated',
+                position: 'top',
+                topOffset: 60,
+                visibilityTime: 2000,
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCopyLink = async () => {
+    if (!inviteLink) {
+      Toast.show({
+        type: 'error',
+        text1: 'No Link',
+        text2: 'Invite link not available',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 2000,
+      });
+      return;
+    }
+
+    try {
+      // Copy to clipboard using expo-clipboard
+      await Clipboard.setStringAsync(inviteLink);
+      Toast.show({
+        type: 'success',
+        text1: 'Copied!',
+        text2: 'Link copied to clipboard',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 2000,
+      });
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to Copy',
+        text2: 'Could not copy link to clipboard',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 2000,
+      });
+    }
+  };
+
+  const handleShareViaEmail = async () => {
+    if (!inviteLink) {
+      Toast.show({
+        type: 'error',
+        text1: 'No Link',
+        text2: 'Invite link not available',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 2000,
+      });
+      return;
+    }
+
+    const subject = encodeURIComponent(`Join ${groupDetails?.name || 'this group'} on Chat App`);
+    const emailBody = `Join me in the group "${groupDetails?.name || 'this group'}" on Chat App!\n\nClick this link to join:\n${inviteLink}`;
+    const body = encodeURIComponent(emailBody);
+
+    // Try Gmail app first (Android and iOS)
+    const gmailUrlAndroid = `googlegmail://co?to=&subject=${subject}&body=${body}`;
+    const gmailUrlIOS = `googlegmail://co?subject=${subject}&body=${body}`;
+    const gmailUrl = Platform.OS === 'android' ? gmailUrlAndroid : gmailUrlIOS;
+    
+    try {
+      // First try to open Gmail app
+      const canOpenGmail = await Linking.canOpenURL('googlegmail://');
+      
+      if (canOpenGmail) {
+        // Open Gmail app with compose
+        await Linking.openURL(gmailUrl);
+        return;
+      }
+    } catch (gmailError) {
+      console.log('Gmail app not available, trying default email app');
+    }
+
+    // Fallback to default mailto (will open default email app - Gmail if set as default)
+    try {
+      const mailtoUrl = `mailto:?subject=${subject}&body=${body}`;
+      await Linking.openURL(mailtoUrl);
+    } catch (error) {
+      console.error('Error opening email app:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Email Not Available',
+        text2: 'Please install Gmail or an email app',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 2000,
+      });
+    }
+  };
+
+  const handleShareViaSMS = () => {
+    if (!inviteLink) {
+      Toast.show({
+        type: 'error',
+        text1: 'No Link',
+        text2: 'Invite link not available',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 2000,
+      });
+      return;
+    }
+
+    // SMS message with referral link
+    const smsMessage = `Join me in the group "${groupDetails?.name || 'this group'}" on Chat App!\n\nClick this link to join:\n${inviteLink}`;
+    const message = encodeURIComponent(smsMessage);
+    const smsUrl = `sms:?body=${message}`;
+    
+    Linking.openURL(smsUrl).catch(() => {
+      Toast.show({
+        type: 'error',
+        text1: 'SMS Not Available',
+        text2: 'Could not open SMS app',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 2000,
+      });
+    });
+  };
+
+  const handleNativeShare = async () => {
+    if (!inviteLink) {
+      Toast.show({
+        type: 'error',
+        text1: 'No Link',
+        text2: 'Invite link not available',
+        position: 'top',
+        topOffset: 60,
+        visibilityTime: 2000,
+      });
+      return;
+    }
+
+    try {
+      await Share.share({
+        message: `Join me in the group "${groupDetails?.name || 'this group'}" on Chat App! ${inviteLink}`,
+        title: `Join ${groupDetails?.name || 'this group'}`,
+      });
+    } catch (error) {
+      // User cancelled share
+    }
+  };
+
   const getUsernameFromEmail = (email) => {
     if (!email) return '';
     return email.split('@')[0];
@@ -203,11 +397,12 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
 
   if (!visible || !group) return null;
 
-  const isLoading = loading || searching || addingMember || exiting;
+  const isLoading = loading || searching || addingMember || exiting || loadingInviteLink;
   const loadingMessage = loading ? "Loading group details..." : 
                         searching ? "Searching..." : 
                         addingMember ? "Adding member..." : 
-                        exiting ? "Exiting group..." : "Loading...";
+                        exiting ? "Exiting group..." :
+                        loadingInviteLink ? "Loading invite link..." : "Loading...";
 
   return (
     <>
@@ -304,6 +499,77 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
                   </View>
                 </View>
               )}
+
+              {/* Share Group Section */}
+              <View style={[styles.section, { backgroundColor: colors.receivedMessage }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Share Group</Text>
+                
+                {loadingInviteLink ? (
+                  <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
+                ) : (
+                  <>
+                    {inviteLink ? (
+                      <View style={[styles.linkContainer, { backgroundColor: colors.inputBackground, borderColor: colors.divider }]}>
+                        <Text style={[styles.linkText, { color: colors.text }]} numberOfLines={2}>
+                          {inviteLink}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={[styles.noLinkText, { color: colors.textSecondary }]}>
+                        Generate invite link to share
+                      </Text>
+                    )}
+
+                    <View style={styles.shareButtonsContainer}>
+                      <TouchableOpacity
+                        style={[styles.shareButton, { backgroundColor: colors.primary }]}
+                        onPress={handleCopyLink}
+                        disabled={!inviteLink}
+                      >
+                        <Text style={[styles.shareButtonText, { color: colors.white }]}>📋 Copy Link</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.shareButton, { backgroundColor: '#34C759' }]}
+                        onPress={handleShareViaEmail}
+                        disabled={!inviteLink}
+                      >
+                        <Text style={[styles.shareButtonText, { color: colors.white }]}>📧 Email</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.shareButton, { backgroundColor: '#007AFF' }]}
+                        onPress={handleShareViaSMS}
+                        disabled={!inviteLink}
+                      >
+                        <Text style={[styles.shareButtonText, { color: colors.white }]}>💬 SMS</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.shareButton, { backgroundColor: colors.primary }]}
+                        onPress={handleNativeShare}
+                        disabled={!inviteLink}
+                      >
+                        <Text style={[styles.shareButtonText, { color: colors.white }]}>📤 Share</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.resetLinkButton, { borderColor: colors.divider }]}
+                      onPress={handleResetLink}
+                      disabled={!inviteLink || resettingLink}
+                    >
+                      {resettingLink ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Text style={[styles.resetLinkText, { color: colors.primary }]}>
+                          🔄 Reset Link
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
 
               {/* Exit Group Button */}
               <View style={styles.section}>
@@ -488,6 +754,53 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  linkContainer: {
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+  },
+  linkText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  noLinkText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontStyle: 'italic',
+    marginBottom: SPACING.md,
+    textAlign: 'center',
+  },
+  shareButtonsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  shareButton: {
+    flex: 1,
+    minWidth: '45%',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  resetLinkButton: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resetLinkText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
 });
 

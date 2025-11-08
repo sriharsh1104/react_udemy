@@ -70,6 +70,10 @@ router.put('/groups/update-name', asyncHandler(groupController.updateGroupName.b
 router.post('/groups/toggle-favorite', asyncHandler(groupController.toggleFavorite.bind(groupController)));
 router.post('/groups/mark-read', asyncHandler(groupController.markGroupMessagesAsRead.bind(groupController)));
 router.delete('/groups', asyncHandler(groupController.deleteGroup.bind(groupController)));
+router.post('/groups/generate-invite-link', asyncHandler(groupController.generateInviteLink.bind(groupController)));
+router.post('/groups/reset-invite-link', asyncHandler(groupController.resetInviteLink.bind(groupController)));
+router.post('/groups/join-via-link', asyncHandler(groupController.joinGroupViaLink.bind(groupController)));
+router.get('/groups/invite/:inviteToken', asyncHandler(groupController.getGroupByInviteToken.bind(groupController)));
 
 // File routes
 router.post('/files/upload', fileController.uploadFile);

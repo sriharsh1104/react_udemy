@@ -477,6 +477,188 @@ class GroupController {
       });
     }
   }
+
+  // Generate or get invite link for a group
+  async generateInviteLink(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { groupId } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Group ID is required',
+        });
+      }
+
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:19006';
+      const result = await groupService.generateInviteLink(groupId, userEmail, frontendUrl);
+
+      res.status(200).json({
+        success: true,
+        inviteLink: result.inviteLink,
+        expiresAt: result.expiresAt,
+      });
+    } catch (error) {
+      console.error('Error in generateInviteLink:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Reset invite link for a group
+  async resetInviteLink(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { groupId } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Group ID is required',
+        });
+      }
+
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:19006';
+      const result = await groupService.resetInviteLink(groupId, userEmail, frontendUrl);
+
+      res.status(200).json({
+        success: true,
+        message: 'Invite link reset successfully',
+        inviteLink: result.inviteLink,
+        expiresAt: result.expiresAt,
+      });
+    } catch (error) {
+      console.error('Error in resetInviteLink:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Join group via invite link
+  async joinGroupViaLink(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { inviteToken } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!inviteToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invite token is required',
+        });
+      }
+
+      const result = await groupService.joinGroupViaLink(inviteToken, userEmail);
+
+      if (result.alreadyMember) {
+        return res.status(200).json({
+          success: true,
+          message: 'You are already a member of this group',
+          group: result.group,
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Successfully joined the group',
+        group: result.group,
+      });
+    } catch (error) {
+      console.error('Error in joinGroupViaLink:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Get group info by invite token (for preview before joining)
+  async getGroupByInviteToken(req, res) {
+    try {
+      const { inviteToken } = req.params;
+
+      if (!inviteToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invite token is required',
+        });
+      }
+
+      const group = await groupService.getGroupByInviteToken(inviteToken);
+
+      if (!group) {
+        return res.status(404).json({
+          success: false,
+          message: 'Invalid or expired invite link',
+        });
+      }
+
+      // Return only basic info (name, member count) without member emails for privacy
+      res.status(200).json({
+        success: true,
+        group: {
+          _id: group._id,
+          name: group.name,
+          memberCount: group.members?.length || 0,
+        },
+      });
+    } catch (error) {
+      console.error('Error in getGroupByInviteToken:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
 }
 
 module.exports = new GroupController();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -281,7 +281,62 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
           />
           
           <StatusBar style={isDark ? "light" : "dark"} />
-          <Toast />
+          <Toast 
+            position="top"
+            topOffset={60}
+            config={{
+              success: (props) => (
+                <View style={{
+                  backgroundColor: '#34C759',
+                  padding: 12,
+                  borderRadius: 8,
+                  marginHorizontal: 16,
+                  marginTop: 8,
+                  alignSelf: 'flex-end',
+                  maxWidth: '80%',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                  elevation: 5,
+                }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>
+                    {props.text1}
+                  </Text>
+                  {props.text2 && (
+                    <Text style={{ color: '#fff', fontSize: 12, marginTop: 4 }}>
+                      {props.text2}
+                    </Text>
+                  )}
+                </View>
+              ),
+              error: (props) => (
+                <View style={{
+                  backgroundColor: '#FF3B30',
+                  padding: 12,
+                  borderRadius: 8,
+                  marginHorizontal: 16,
+                  marginTop: 8,
+                  alignSelf: 'flex-end',
+                  maxWidth: '80%',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                  elevation: 5,
+                }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>
+                    {props.text1}
+                  </Text>
+                  {props.text2 && (
+                    <Text style={{ color: '#fff', fontSize: 12, marginTop: 4 }}>
+                      {props.text2}
+                    </Text>
+                  )}
+                </View>
+              ),
+            }}
+          />
         </View>
       </NavigationContainer>
       <GLoader visible={isLoading} message="Loading..." />

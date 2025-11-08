@@ -19,6 +19,15 @@ const GroupSchema = new mongoose.Schema({
     type: String, // Array of user emails who favorited this group
     index: true,
   }],
+  inviteLink: {
+    type: String,
+    default: null,
+    index: true,
+  },
+  inviteLinkExpiry: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
