@@ -56,36 +56,36 @@ class OTPService {
           console.log('   To enable email sending, set EMAIL_USER and EMAIL_PASS environment variables.');
         } else {
           // Email config is set - try to send email
-          const isPasswordReset = purpose === 'password-reset';
-          const subject = isPasswordReset 
-            ? 'Password Reset OTP - Chat App'
-            : 'Your OTP for Chat App Login';
-          const title = isPasswordReset 
-            ? 'Chat App - Password Reset'
-            : 'Chat App - Login OTP';
-          const description = isPasswordReset
-            ? 'Your OTP to reset your password is:'
-            : 'Your OTP for login is:';
-          
-          const mailOptions = {
+        const isPasswordReset = purpose === 'password-reset';
+        const subject = isPasswordReset 
+          ? 'Password Reset OTP - Chat App'
+          : 'Your OTP for Chat App Login';
+        const title = isPasswordReset 
+          ? 'Chat App - Password Reset'
+          : 'Chat App - Login OTP';
+        const description = isPasswordReset
+          ? 'Your OTP to reset your password is:'
+          : 'Your OTP for login is:';
+        
+        const mailOptions = {
             from: process.env.EMAIL_USER,
-            to: identifier,
-            subject: subject,
-            html: `
-              <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #6366F1;">${title}</h2>
-                <p>${description}</p>
-                <div style="background-color: #1E293B; color: #F1F5F9; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; border-radius: 8px; margin: 20px 0;">
-                  ${otp}
-                </div>
-                <p style="color: #64748B; font-size: 12px;">This OTP will expire in 5 minutes.</p>
-                <p style="color: #64748B; font-size: 12px;">If you didn't request this ${isPasswordReset ? 'password reset' : 'OTP'}, please ignore this email.</p>
+          to: identifier,
+          subject: subject,
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #6366F1;">${title}</h2>
+              <p>${description}</p>
+              <div style="background-color: #1E293B; color: #F1F5F9; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; border-radius: 8px; margin: 20px 0;">
+                ${otp}
               </div>
-            `,
-          };
+              <p style="color: #64748B; font-size: 12px;">This OTP will expire in 5 minutes.</p>
+              <p style="color: #64748B; font-size: 12px;">If you didn't request this ${isPasswordReset ? 'password reset' : 'OTP'}, please ignore this email.</p>
+            </div>
+          `,
+        };
 
           try {
-            await this.getTransporter().sendMail(mailOptions);
+        await this.getTransporter().sendMail(mailOptions);
           } catch (emailError) {
             // Email sending failed - log OTP to console as fallback
             const purposeText = purpose === 'password-reset' ? 'Password Reset' : 'Login';

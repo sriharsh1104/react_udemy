@@ -14,7 +14,29 @@ const server = http.createServer(app);
 connectDB();
 
 // Middleware
-app.use(cors());
+// CORS configuration - allow frontend URL from environment
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      config.cors.origin,
+      process.env.FRONTEND_URL,
+      'http://localhost:8081',
+      'http://localhost:3000',
+    ].filter(Boolean);
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 // Note: express.json() doesn't parse multipart/form-data, so multer can handle it
 

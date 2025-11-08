@@ -119,10 +119,10 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           data.messages.map(async (msg) => {
             const decryptedMessage = await decryptMessageIfNeeded(msg.message, msg.senderEmail);
             return {
-              senderEmail: msg.senderEmail,
+          senderEmail: msg.senderEmail,
               message: decryptedMessage,
-              timestamp: msg.timestamp,
-              isSent: msg.senderEmail === userEmail,
+          timestamp: msg.timestamp,
+          isSent: msg.senderEmail === userEmail,
             };
           })
         );
@@ -192,16 +192,16 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         const encryptedMessage = JSON.stringify(encryptedData);
         
         // Send encrypted message to server
-        socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+      socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
           message: encryptedMessage,
-          contactEmail,
+        contactEmail,
           senderEmail: userEmail, // Include senderEmail for reliability
-        });
-        
-        socketService.emit(SOCKET_EVENTS.TYPING, {
-          contactEmail,
-          isTyping: false,
-        });
+      });
+      
+      socketService.emit(SOCKET_EVENTS.TYPING, {
+        contactEmail,
+        isTyping: false,
+      });
       } catch (error) {
         console.error('Error encrypting message:', error);
         // Remove optimistic message on error

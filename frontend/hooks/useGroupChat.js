@@ -110,10 +110,10 @@ export const useGroupChat = (userEmail, groupId) => {
           data.messages.map(async (msg) => {
             const decryptedMessage = await decryptMessageIfNeeded(msg.message);
             return {
-              senderEmail: msg.senderEmail,
+          senderEmail: msg.senderEmail,
               message: decryptedMessage,
-              timestamp: msg.timestamp,
-              isSent: msg.senderEmail === userEmail,
+          timestamp: msg.timestamp,
+          isSent: msg.senderEmail === userEmail,
             };
           })
         );
@@ -187,16 +187,16 @@ export const useGroupChat = (userEmail, groupId) => {
         const encryptedMessage = JSON.stringify(encryptedData);
         
         // Send encrypted message to server
-        socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
+      socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
           message: encryptedMessage,
-          groupId,
+        groupId,
           senderEmail: userEmail, // Include senderEmail for reliability
-        });
-        
-        socketService.emit(SOCKET_EVENTS.GROUP_TYPING, {
-          groupId,
-          isTyping: false,
-        });
+      });
+      
+      socketService.emit(SOCKET_EVENTS.GROUP_TYPING, {
+        groupId,
+        isTyping: false,
+      });
       } catch (error) {
         console.error('Error encrypting group message:', error);
         // Remove optimistic message on error

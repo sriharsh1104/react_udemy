@@ -70,7 +70,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent }) 
       </View>
     );
   }
-  
+
   // Render file message
   if (fileData) {
     // Video player component

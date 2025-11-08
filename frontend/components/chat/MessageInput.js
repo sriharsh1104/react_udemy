@@ -5,7 +5,7 @@ import fileUploadService from '../../services/fileUploadService';
 
 const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail }) => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
-  
+
   const handleSend = () => {
     if (value.trim()) {
       onSend();

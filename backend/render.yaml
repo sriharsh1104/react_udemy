@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: chat-app-backend
+    env: node
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        # This will be automatically set by Render when you add MongoDB service
+        # Format: mongodb://render-mongodb-service-uri
+        # You'll get this from Render MongoDB service connection string
+      - key: FRONTEND_URL
+        value: http://localhost:8081
+        # Update this with your frontend URL after deployment
+      - key: EMAIL_USER
+        value: your-email@gmail.com
+        # Optional: Set your email for OTP
+      - key: EMAIL_PASS
+        value: your-app-password
+        # Optional: Set your app password for OTP
+

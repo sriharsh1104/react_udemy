@@ -1,14 +1,24 @@
 // API Configuration
+// Use environment variables if available, otherwise use defaults
+const getApiUrl = () => {
+  // Check for environment variable (for production builds)
+  if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  // Check for __DEV__ (React Native/Expo)
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    return 'http://localhost:3001';
+  }
+  // Default production URL (update this with your Render URL)
+  return 'https://your-backend.onrender.com';
+};
+
+const API_URL = getApiUrl();
+
 export const API_CONFIG = {
-  BASE_URL: __DEV__ 
-    ? 'http://localhost:3001' 
-    : 'http://your-production-server.com:3001',
-  SOCKET_URL: __DEV__ 
-    ? 'http://localhost:3001' 
-    : 'http://your-production-server.com:3001',
-  API_BASE: __DEV__ 
-    ? 'http://localhost:3001/api' 
-    : 'http://your-production-server.com:3001/api',
+  BASE_URL: API_URL,
+  SOCKET_URL: API_URL,
+  API_BASE: `${API_URL}/api`,
 };
 
 // Socket Events
