@@ -16,6 +16,7 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Note: express.json() doesn't parse multipart/form-data, so multer can handle it
 
 // Debug: Log all API requests
 app.use('/api', (req, res, next) => {

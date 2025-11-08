@@ -1,10 +1,67 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Platform, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
+import fileUploadService from '../../services/fileUploadService';
 
 const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent }) => {
+  const [fileData, setFileData] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+  const [localFileUri, setLocalFileUri] = useState(null);
+  
   // Determine if message is sent by current user (for WhatsApp-like alignment)
   const isMyMessage = isSent !== undefined ? isSent : false;
+  
+  // Check if message is a file message
+  useEffect(() => {
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed && parsed.type === 'file') {
+        setFileData(parsed);
+        // Check if file is already downloaded locally
+        checkLocalFile(parsed.fileId, parsed.fileName);
+      }
+    } catch {
+      // Not a JSON message, treat as regular text
+    }
+  }, [message]);
+  
+  const checkLocalFile = async (fileId, fileName) => {
+    try {
+      const localUri = `${FileSystem.documentDirectory}${fileId}_${fileName}`;
+      const fileInfo = await FileSystem.getInfoAsync(localUri);
+      if (fileInfo.exists) {
+        setLocalFileUri(localUri);
+      }
+    } catch (error) {
+      console.error('Error checking local file:', error);
+    }
+  };
+  
+  const handleDownload = async () => {
+    if (!fileData || downloading) return;
+    
+    setDownloading(true);
+    try {
+      const result = await fileUploadService.downloadFile(
+        fileData.fileId,
+        fileData.fileName,
+        fileData.fileType
+      );
+      
+      setLocalFileUri(result.localUri);
+      
+      // Delete file from server after download
+      await fileUploadService.deleteFileFromServer(fileData.fileId);
+      
+      Alert.alert('Success', 'File downloaded successfully');
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to download file');
+    } finally {
+      setDownloading(false);
+    }
+  };
   
   if (isSystemMessage) {
     return (
@@ -13,7 +70,125 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent }) 
       </View>
     );
   }
-
+  
+  // Render file message
+  if (fileData) {
+    // Video player component
+    const VideoPlayer = ({ uri }) => {
+      const player = useVideoPlayer(uri, (player) => {
+        player.loop = false;
+        player.muted = false;
+      });
+      
+      return (
+        <VideoView
+          player={player}
+          style={styles.fileVideo}
+          nativeControls
+          contentFit="contain"
+        />
+      );
+    };
+    
+    return (
+      <View style={[styles.container, isMyMessage ? styles.sentContainer : styles.receivedContainer]}>
+        {!isMyMessage && (
+          <Text style={styles.username} numberOfLines={1}>{username}</Text>
+        )}
+        <View style={[styles.bubble, isMyMessage ? styles.sentBubble : styles.receivedBubble]}>
+          {/* Display image if downloaded */}
+          {fileData.fileType === 'image' && localFileUri && (
+            <View style={styles.imageContainer}>
+              <Image source={{ uri: localFileUri }} style={styles.fileImage} resizeMode="cover" />
+              <TouchableOpacity 
+                style={styles.downloadButtonOverlay}
+                onPress={handleDownload}
+                disabled={downloading}
+              >
+                {downloading ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.downloadIcon}>⬇️</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          {/* Display video if downloaded */}
+          {fileData.fileType === 'video' && localFileUri && (
+            <View style={styles.videoContainer}>
+              <VideoPlayer uri={localFileUri} />
+              <TouchableOpacity 
+                style={styles.downloadButtonOverlay}
+                onPress={handleDownload}
+                disabled={downloading}
+              >
+                {downloading ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.downloadIcon}>⬇️</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+          
+          {/* Show file info and download button for non-image/video files or when not downloaded */}
+          {(!localFileUri || (fileData.fileType !== 'image' && fileData.fileType !== 'video')) && (
+            <TouchableOpacity 
+              style={styles.fileContainer}
+              onPress={handleDownload}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <ActivityIndicator size="small" color={isMyMessage ? COLORS.white : COLORS.primary} />
+              ) : (
+                <>
+                  <Text style={styles.fileIcon}>
+                    {fileData.fileType === 'image' ? '🖼️' : 
+                     fileData.fileType === 'video' ? '🎥' : 
+                     fileData.fileType === 'audio' ? '🎵' : '📄'}
+                  </Text>
+                  <Text style={[styles.fileName, isMyMessage ? styles.sentText : styles.receivedText]}>
+                    {fileData.fileName}
+                  </Text>
+                  <Text style={[styles.fileSize, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
+                    {(fileData.fileSize / 1024 / 1024).toFixed(2)} MB
+                  </Text>
+                  <Text style={[styles.downloadText, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
+                    Tap to download
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+          
+          {/* Show download option for images/videos that are displayed but can be re-downloaded */}
+          {(fileData.fileType === 'image' || fileData.fileType === 'video') && localFileUri && (
+            <View style={styles.fileInfoContainer}>
+              <Text style={[styles.fileName, isMyMessage ? styles.sentText : styles.receivedText]}>
+                {fileData.fileName}
+              </Text>
+              <Text style={[styles.fileSize, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
+                {(fileData.fileSize / 1024 / 1024).toFixed(2)} MB
+              </Text>
+            </View>
+          )}
+          
+          <View style={styles.timestampContainer}>
+            <Text style={[styles.timestamp, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
+              {new Date(timestamp).toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+              })}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  
+  // Render regular text message
   return (
     <View style={[styles.container, isMyMessage ? styles.sentContainer : styles.receivedContainer]}>
       {!isMyMessage && (
@@ -124,6 +299,70 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  fileContainer: {
+    alignItems: 'center',
+    padding: SPACING.md,
+    minWidth: 200,
+  },
+  fileIcon: {
+    fontSize: 48,
+    marginBottom: SPACING.sm,
+  },
+  fileName: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
+  fileSize: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginBottom: SPACING.xs,
+  },
+  downloadText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontStyle: 'italic',
+    marginTop: SPACING.xs,
+  },
+  fileImage: {
+    width: 250,
+    height: 250,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.sm,
+  },
+  fileVideo: {
+    width: 250,
+    height: 200,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.sm,
+  },
+  imageContainer: {
+    position: 'relative',
+    marginBottom: SPACING.sm,
+  },
+  videoContainer: {
+    position: 'relative',
+    marginBottom: SPACING.sm,
+  },
+  downloadButtonOverlay: {
+    position: 'absolute',
+    top: SPACING.xs,
+    right: SPACING.xs,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: BORDER_RADIUS.full,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  downloadIcon: {
+    fontSize: 18,
+    color: COLORS.white,
+  },
+  fileInfoContainer: {
+    alignItems: 'center',
+    marginTop: SPACING.xs,
   },
 });
 

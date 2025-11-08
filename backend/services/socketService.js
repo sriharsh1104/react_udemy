@@ -120,12 +120,21 @@ class SocketService {
   }
 
   async handlePrivateMessage(socket, data) {
-    const { message, contactEmail } = data;
-    const senderEmail = this.getEmailFromSocket(socket.id);
+    const { message, contactEmail, senderEmail: providedSenderEmail } = data;
+    // Try to get senderEmail from data first, fallback to socket lookup
+    let senderEmail = providedSenderEmail || this.getEmailFromSocket(socket.id);
     
     if (!senderEmail || !contactEmail) {
-      console.log('Missing senderEmail or contactEmail:', { senderEmail, contactEmail });
+      console.log('Missing senderEmail or contactEmail:', { senderEmail, contactEmail, socketId: socket.id });
       return;
+    }
+    
+    // Verify senderEmail matches the socket (security check)
+    const socketEmail = this.getEmailFromSocket(socket.id);
+    if (socketEmail && socketEmail !== senderEmail) {
+      console.log('SenderEmail mismatch:', { provided: senderEmail, socket: socketEmail });
+      // Use socket email if available, otherwise use provided
+      senderEmail = socketEmail;
     }
 
     // Add message to MongoDB (STORED PERMANENTLY - will be delivered when user comes online)
@@ -254,12 +263,21 @@ class SocketService {
   }
 
   async handleGroupMessage(socket, data) {
-    const { message, groupId } = data;
-    const senderEmail = this.getEmailFromSocket(socket.id);
+    const { message, groupId, senderEmail: providedSenderEmail } = data;
+    // Try to get senderEmail from data first, fallback to socket lookup
+    let senderEmail = providedSenderEmail || this.getEmailFromSocket(socket.id);
     
     if (!senderEmail || !groupId) {
-      console.log('Missing senderEmail or groupId:', { senderEmail, groupId });
+      console.log('Missing senderEmail or groupId:', { senderEmail, groupId, socketId: socket.id });
       return;
+    }
+    
+    // Verify senderEmail matches the socket (security check)
+    const socketEmail = this.getEmailFromSocket(socket.id);
+    if (socketEmail && socketEmail !== senderEmail) {
+      console.log('SenderEmail mismatch:', { provided: senderEmail, socket: socketEmail });
+      // Use socket email if available, otherwise use provided
+      senderEmail = socketEmail;
     }
 
     // Check if user is a member

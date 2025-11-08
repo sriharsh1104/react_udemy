@@ -154,10 +154,22 @@ export const useGroupChat = (userEmail, groupId) => {
     if (message.trim() && socket && groupId && userEmail) {
       const messageText = message.trim();
       
-      // Optimistically add message to UI (plain text for display)
+      // Check if message is a file message (JSON string with type: 'file')
+      let displayMessage = messageText;
+      try {
+        const parsed = JSON.parse(messageText);
+        if (parsed && parsed.type === 'file') {
+          // Keep the JSON string for file messages so MessageItem can parse it
+          displayMessage = messageText;
+        }
+      } catch {
+        // Not a JSON message, use as-is
+      }
+      
+      // Optimistically add message to UI
       const tempMessage = {
         senderEmail: userEmail,
-        message: messageText,
+        message: displayMessage,
         timestamp: new Date().toISOString(),
         isSent: true,
       };
@@ -165,7 +177,7 @@ export const useGroupChat = (userEmail, groupId) => {
       setMessages((prev) => [...prev, tempMessage]);
       
       try {
-        // Encrypt the message before sending
+        // Encrypt the message before sending (file messages are encrypted as JSON strings)
         const encryptedData = await encryptionService.encryptGroupMessage(
           messageText,
           groupId
@@ -178,6 +190,7 @@ export const useGroupChat = (userEmail, groupId) => {
         socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
           message: encryptedMessage,
           groupId,
+          senderEmail: userEmail, // Include senderEmail for reliability
         });
         
         socketService.emit(SOCKET_EVENTS.GROUP_TYPING, {
@@ -188,7 +201,7 @@ export const useGroupChat = (userEmail, groupId) => {
         console.error('Error encrypting group message:', error);
         // Remove optimistic message on error
         setMessages((prev) => prev.filter(msg => 
-          !(msg.message === messageText && msg.senderEmail === userEmail && msg.isSent)
+          !(msg.message === displayMessage && msg.senderEmail === userEmail && msg.isSent)
         ));
       }
     }

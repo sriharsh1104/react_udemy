@@ -24,6 +24,7 @@ import CreateGroupModal from '../components/chat/CreateGroupModal';
 import GroupInfoModal from '../components/chat/GroupInfoModal';
 import contactsService from '../services/contactsService';
 import groupService from '../services/groupService';
+import fileUploadService from '../services/fileUploadService';
 import { Alert } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -165,6 +166,53 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     if (inputMessage.trim()) {
       sendMessage(inputMessage);
       setInputMessage('');
+    }
+  };
+  
+  const handleFileSelect = async (file) => {
+    try {
+      // Show upload progress with time estimate
+      const fileSizeMB = ((file.size || 0) / 1024 / 1024).toFixed(2);
+      const estimatedTimeSeconds = Math.ceil((file.size || 0) / (1024 * 1024));
+      const estimatedTimeMinutes = Math.floor(estimatedTimeSeconds / 60);
+      const estimatedTimeSecondsRemainder = estimatedTimeSeconds % 60;
+      
+      let estimatedTimeText = '';
+      if (estimatedTimeMinutes > 0) {
+        estimatedTimeText = `${estimatedTimeMinutes} min ${estimatedTimeSecondsRemainder} sec`;
+      } else {
+        estimatedTimeText = `${estimatedTimeSeconds} sec`;
+      }
+      
+      Alert.alert(
+        'Uploading File',
+        `File size: ${fileSizeMB} MB\nEstimated time: ${estimatedTimeText}`,
+        [{ text: 'OK' }]
+      );
+      
+      // Upload file
+      const uploadResult = await fileUploadService.uploadFile(file, userEmail);
+      
+      if (uploadResult.success && uploadResult.fileId) {
+        // Send file message
+        const fileMessage = JSON.stringify({
+          type: 'file',
+          fileId: uploadResult.fileId,
+          fileName: uploadResult.fileName || file.name,
+          fileType: uploadResult.fileType || file.type,
+          fileSize: uploadResult.fileSize || file.size || 0,
+        });
+        
+        sendMessage(fileMessage);
+        
+        // Show success with actual time
+        Alert.alert(
+          'Upload Complete',
+          `File uploaded successfully in ${uploadResult.actualTime || estimatedTimeSeconds} seconds`
+        );
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to upload file');
     }
   };
 
@@ -382,6 +430,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         value={inputMessage}
         onChangeText={handleTyping}
         onSend={handleSendMessage}
+        onFileSelect={handleFileSelect}
+        userEmail={userEmail}
       />
 
       {currentGroup && (

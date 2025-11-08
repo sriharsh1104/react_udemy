@@ -4,6 +4,7 @@ const profileController = require('../controllers/profileController');
 const contactsController = require('../controllers/contactsController');
 const settingsController = require('../controllers/settingsController');
 const groupController = require('../controllers/groupController');
+const fileController = require('../controllers/fileController');
 
 const router = require('express').Router();
 
@@ -64,6 +65,11 @@ router.put('/groups/update-name', asyncHandler(groupController.updateGroupName.b
 router.post('/groups/toggle-favorite', asyncHandler(groupController.toggleFavorite.bind(groupController)));
 router.post('/groups/mark-read', asyncHandler(groupController.markGroupMessagesAsRead.bind(groupController)));
 router.delete('/groups', asyncHandler(groupController.deleteGroup.bind(groupController)));
+
+// File routes
+router.post('/files/upload', fileController.uploadFile);
+router.get('/files/download/:fileId', fileController.downloadFile);
+router.delete('/files/delete/:fileId', fileController.deleteFile);
 
 console.log('Routes registered:');
 console.log('  POST /api/auth/send-otp');
