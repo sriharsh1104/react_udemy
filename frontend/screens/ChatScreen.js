@@ -7,12 +7,13 @@ import {
   Platform,
   Text,
   SafeAreaView,
+  TouchableOpacity,
 } from 'react-native';
 import { useSocket } from '../hooks/useSocket';
 import { useChat } from '../hooks/useChat';
 import { useGroupChat } from '../hooks/useGroupChat';
 import socketService from '../services/socketService';
-import { SOCKET_EVENTS, COLORS, SPACING } from '../constants';
+import { SOCKET_EVENTS, COLORS, SPACING, TYPOGRAPHY } from '../constants';
 import ChatHeader from '../components/chat/ChatHeader';
 import MessageItem from '../components/chat/MessageItem';
 import MessageInput from '../components/chat/MessageInput';
@@ -72,6 +73,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [loadingPinnedMessage, setLoadingPinnedMessage] = useState(false);
   const [showMessageInfoModal, setShowMessageInfoModal] = useState(false);
   const [messageInfoMessageId, setMessageInfoMessageId] = useState(null);
+  const [activeBottomTab, setActiveBottomTab] = useState('chat'); // 'chat', 'feed', 'status', 'call'
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket();
@@ -959,59 +961,261 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
   }, [contactEmail, chatType, markPrivateMessagesAsRead, messages.length]); // Also depend on messages.length to ensure messages are loaded
 
+  // Render content based on active bottom tab
+  const renderTabContent = () => {
+    if (activeBottomTab === 'chat') {
+      // Show recent chats if no contact or group selected
+      if (!contactEmail && !groupId) {
+        return (
+          <>
+            <RecentChats
+              contacts={contacts}
+              groups={groups}
+              onSelectContact={handleSelectContact}
+              onSelectGroup={handleSelectGroup}
+              onNewChat={handleNewChat}
+              onCreateGroup={handleCreateGroup}
+              onSaveContact={handleSaveContact}
+              onInvite={handleInvite}
+              onContactsUpdate={loadContacts}
+              onGroupsUpdate={loadGroups}
+              userEmail={userEmail}
+            />
+
+            {showInviteModal && (
+              <InviteModal
+                visible={showInviteModal}
+                onClose={() => {
+                  setShowInviteModal(false);
+                  setInviteEmail(null);
+                }}
+                email={inviteEmail}
+              />
+            )}
+
+            <CreateGroupModal
+              visible={showCreateGroupModal}
+              onClose={() => setShowCreateGroupModal(false)}
+              onGroupCreated={handleGroupCreated}
+            />
+          </>
+        );
+      }
+
+      // Show chat interface when contact or group is selected
+      return (
+        <>
+          {/* Message Action Bar - WhatsApp style */}
+          <MessageActionBar
+            visible={selectedMessages.length > 0}
+            selectedCount={selectedMessages.length}
+            isCreator={chatType === 'group' && currentGroup && currentGroup.createdBy === userEmail}
+            isGroup={chatType === 'group'}
+            isPinned={selectedMessages.length > 0 && selectedMessages[0].isPinned}
+            onCopy={handleActionBarCopy}
+            onReply={handleActionBarReply}
+            onForward={handleActionBarForward}
+            onPin={handleActionBarPin}
+            onUnpin={handleActionBarUnpin}
+            onDelete={handleActionBarDelete}
+            onInfo={handleActionBarInfo}
+            onClose={handleActionBarClose}
+          />
+
+          {/* Pinned Message Banner - Only for groups */}
+          {chatType === 'group' && pinnedMessage && (
+            <PinnedMessageBanner
+              pinnedMessage={pinnedMessage}
+              onPress={handlePinnedMessagePress}
+              onClose={handleUnpinFromBanner}
+              isCreator={currentGroup && currentGroup.createdBy === userEmail}
+            />
+          )}
+          
+          <View style={styles.chatBackground}>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item, index) => `message-${index}-${item.timestamp}-${item.senderEmail}-${item.message?.substring(0, 10)}`}
+              style={styles.messagesList}
+              contentContainerStyle={styles.messagesContent}
+              onContentSizeChange={() => {
+                setTimeout(() => {
+                  flatListRef.current?.scrollToEnd({ animated: false });
+                }, 50);
+              }}
+              showsVerticalScrollIndicator={false}
+              inverted={false}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={15}
+              updateCellsBatchingPeriod={50}
+              initialNumToRender={15}
+              windowSize={10}
+            />
+          </View>
+
+          <TypingIndicator typingUsers={currentTypingUser ? [currentTypingUser] : []} />
+
+          <MessageInput
+            value={inputMessage}
+            onChangeText={handleTyping}
+            onSend={handleSendMessage}
+            onFileSelect={handleFileSelect}
+            userEmail={userEmail}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+          />
+
+          <MessageActionMenu
+            visible={showMessageMenu}
+            onClose={() => {
+              setShowMessageMenu(false);
+              setSelectedMessage(null);
+            }}
+            message={selectedMessage?.message || ''}
+            messageId={selectedMessage?.messageId || null}
+            isSent={selectedMessage?.isSent || false}
+            isPinned={selectedMessage?.isPinned || false}
+            isCreator={selectedMessage?.isCreator || false}
+            isGroup={selectedMessage?.isGroup || false}
+            onDelete={handleDeleteMessage}
+            onForward={handleForwardMessage}
+            onReply={handleReplyMessage}
+            onPin={() => selectedMessage?.messageId && handlePinMessage(selectedMessage.messageId)}
+            onUnpin={() => selectedMessage?.messageId && handleUnpinMessage(selectedMessage.messageId)}
+            onCopy={handleCopyMessage}
+            onInfo={handleInfoMessage}
+          />
+
+          {currentGroup && (
+            <GroupInfoModal
+              visible={showGroupInfoModal}
+              onClose={() => setShowGroupInfoModal(false)}
+              group={currentGroup}
+              userEmail={userEmail}
+              onGroupUpdated={handleGroupUpdated}
+              onExitGroup={handleExitGroup}
+            />
+          )}
+
+          {chatType === 'private' && contactEmail && (
+            <ContactInfoModal
+              visible={showContactInfoModal}
+              onClose={() => setShowContactInfoModal(false)}
+              contactEmail={contactEmail}
+              userEmail={userEmail}
+              contactName={contactName}
+              onSelectGroup={handleSelectGroup}
+              messages={privateMessages}
+            />
+          )}
+
+          <MessageInfoModal
+            visible={showMessageInfoModal}
+            onClose={() => {
+              setShowMessageInfoModal(false);
+              setMessageInfoMessageId(null);
+            }}
+            messageId={messageInfoMessageId}
+            chatType={chatType}
+            userEmail={userEmail}
+            onLoadMessageInfo={loadMessageInfo}
+          />
+        </>
+      );
+    } else if (activeBottomTab === 'feed') {
+      return (
+        <View style={styles.comingSoonContainer}>
+          <Text style={styles.comingSoonText}>Coming Soon</Text>
+          <Text style={styles.comingSoonSubtext}>Feed feature is under development</Text>
+        </View>
+      );
+    } else if (activeBottomTab === 'status') {
+      return (
+        <View style={styles.comingSoonContainer}>
+          <Text style={styles.comingSoonText}>Coming Soon</Text>
+          <Text style={styles.comingSoonSubtext}>Status Feed feature is under development</Text>
+        </View>
+      );
+    } else if (activeBottomTab === 'call') {
+      return (
+        <View style={styles.comingSoonContainer}>
+          <Text style={styles.comingSoonText}>Coming Soon</Text>
+          <Text style={styles.comingSoonSubtext}>Call feature is under development</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
   // Show recent chats if no contact or group selected
   if (!contactEmail && !groupId) {
     return (
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ChatHeader 
-          username={getUsernameFromEmail(userEmail)} 
-          isOnline={isConnected} 
-          onProfilePress={onProfilePress}
-          onSettingsPress={onSettingsPress}
-          onLogoutPress={onLogoutPress}
-          onSidebarPress={() => setShowSidebar(true)}
-        />
-        
-      <Sidebar
-        visible={showSidebar}
-        onClose={() => setShowSidebar(false)}
-        onSelectContact={handleSelectContact}
-      />
-      
-                  <RecentChats
-                    contacts={contacts}
-                    groups={groups}
-                    onSelectContact={handleSelectContact}
-                    onSelectGroup={handleSelectGroup}
-                    onNewChat={handleNewChat}
-                    onCreateGroup={handleCreateGroup}
-                    onSaveContact={handleSaveContact}
-                    onInvite={handleInvite}
-                    onContactsUpdate={loadContacts}
-                    onGroupsUpdate={loadGroups}
-                    userEmail={userEmail}
-                  />
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ChatHeader 
+            username={getUsernameFromEmail(userEmail)} 
+            isOnline={isConnected} 
+            onProfilePress={onProfilePress}
+            onSettingsPress={onSettingsPress}
+            onLogoutPress={onLogoutPress}
+            onSidebarPress={() => setShowSidebar(true)}
+          />
+          
+          <Sidebar
+            visible={showSidebar}
+            onClose={() => setShowSidebar(false)}
+            onSelectContact={handleSelectContact}
+          />
+          
+          <View style={styles.contentContainer}>
+            {renderTabContent()}
+          </View>
 
-      {showInviteModal && (
-        <InviteModal
-          visible={showInviteModal}
-          onClose={() => {
-            setShowInviteModal(false);
-            setInviteEmail(null);
-          }}
-          email={inviteEmail}
-        />
-      )}
+          {/* Bottom Tab Bar */}
+          <View style={[styles.bottomTabBar, { borderTopColor: colors.divider, backgroundColor: colors.background }]}>
+            <TouchableOpacity
+              style={[styles.tabButton, activeBottomTab === 'chat' && styles.activeTabButton]}
+              onPress={() => setActiveBottomTab('chat')}
+            >
+              <Text style={[styles.tabIcon, activeBottomTab === 'chat' && styles.activeTabIcon]}>💬</Text>
+              <Text style={[styles.tabLabel, activeBottomTab === 'chat' && styles.activeTabLabel]}>Chat</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, activeBottomTab === 'feed' && styles.activeTabButton]}
+              onPress={() => setActiveBottomTab('feed')}
+            >
+              <Text style={[styles.tabIcon, activeBottomTab === 'feed' && styles.activeTabIcon]}>📰</Text>
+              <Text style={[styles.tabLabel, activeBottomTab === 'feed' && styles.activeTabLabel]}>Feed</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, activeBottomTab === 'status' && styles.activeTabButton]}
+              onPress={() => setActiveBottomTab('status')}
+            >
+              <Text style={[styles.tabIcon, activeBottomTab === 'status' && styles.activeTabIcon]}>📱</Text>
+              <Text style={[styles.tabLabel, activeBottomTab === 'status' && styles.activeTabLabel]}>Status</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, activeBottomTab === 'call' && styles.activeTabButton]}
+              onPress={() => setActiveBottomTab('call')}
+            >
+              <Text style={[styles.tabIcon, activeBottomTab === 'call' && styles.activeTabIcon]}>📞</Text>
+              <Text style={[styles.tabLabel, activeBottomTab === 'call' && styles.activeTabLabel]}>Call</Text>
+            </TouchableOpacity>
+          </View>
 
-      <CreateGroupModal
-        visible={showCreateGroupModal}
-        onClose={() => setShowCreateGroupModal(false)}
-        onGroupCreated={handleGroupCreated}
-      />
-      </KeyboardAvoidingView>
+          {/* Footer */}
+          <View style={[styles.footer, { borderTopColor: colors.divider }]}>
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+              Powered by onlygossips247
+            </Text>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     );
   }
 
@@ -1048,124 +1252,42 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onSelectContact={handleSelectContact}
       />
       
-      {/* Message Action Bar - WhatsApp style */}
-      <MessageActionBar
-        visible={selectedMessages.length > 0}
-        selectedCount={selectedMessages.length}
-        isCreator={chatType === 'group' && currentGroup && currentGroup.createdBy === userEmail}
-        isGroup={chatType === 'group'}
-        isPinned={selectedMessages.length > 0 && selectedMessages[0].isPinned}
-        onCopy={handleActionBarCopy}
-        onReply={handleActionBarReply}
-        onForward={handleActionBarForward}
-        onPin={handleActionBarPin}
-        onUnpin={handleActionBarUnpin}
-        onDelete={handleActionBarDelete}
-        onInfo={handleActionBarInfo}
-        onClose={handleActionBarClose}
-      />
-
-      {/* Pinned Message Banner - Only for groups */}
-      {chatType === 'group' && pinnedMessage && (
-        <PinnedMessageBanner
-          pinnedMessage={pinnedMessage}
-          onPress={handlePinnedMessagePress}
-          onClose={handleUnpinFromBanner}
-          isCreator={currentGroup && currentGroup.createdBy === userEmail}
-        />
-      )}
-      
-      <View style={styles.chatBackground}>
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item, index) => `message-${index}-${item.timestamp}-${item.senderEmail}-${item.message?.substring(0, 10)}`}
-          style={styles.messagesList}
-          contentContainerStyle={styles.messagesContent}
-          onContentSizeChange={() => {
-            setTimeout(() => {
-              flatListRef.current?.scrollToEnd({ animated: false });
-            }, 50);
-          }}
-          showsVerticalScrollIndicator={false}
-          inverted={false}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={15}
-          updateCellsBatchingPeriod={50}
-          initialNumToRender={15}
-          windowSize={10}
-        />
+      <View style={styles.contentContainer}>
+        {renderTabContent()}
       </View>
 
-      <TypingIndicator typingUsers={currentTypingUser ? [currentTypingUser] : []} />
+      {/* Bottom Tab Bar */}
+      <View style={[styles.bottomTabBar, { borderTopColor: colors.divider, backgroundColor: colors.background }]}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeBottomTab === 'chat' && styles.activeTabButton]}
+          onPress={() => setActiveBottomTab('chat')}
+        >
+          <Text style={[styles.tabIcon, activeBottomTab === 'chat' && styles.activeTabIcon]}>💬</Text>
+          <Text style={[styles.tabLabel, activeBottomTab === 'chat' && styles.activeTabLabel]}>Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeBottomTab === 'feed' && styles.activeTabButton]}
+          onPress={() => setActiveBottomTab('feed')}
+        >
+          <Text style={[styles.tabIcon, activeBottomTab === 'feed' && styles.activeTabIcon]}>📰</Text>
+          <Text style={[styles.tabLabel, activeBottomTab === 'feed' && styles.activeTabLabel]}>Feed</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeBottomTab === 'status' && styles.activeTabButton]}
+          onPress={() => setActiveBottomTab('status')}
+        >
+          <Text style={[styles.tabIcon, activeBottomTab === 'status' && styles.activeTabIcon]}>📱</Text>
+          <Text style={[styles.tabLabel, activeBottomTab === 'status' && styles.activeTabLabel]}>Status</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeBottomTab === 'call' && styles.activeTabButton]}
+          onPress={() => setActiveBottomTab('call')}
+        >
+          <Text style={[styles.tabIcon, activeBottomTab === 'call' && styles.activeTabIcon]}>📞</Text>
+          <Text style={[styles.tabLabel, activeBottomTab === 'call' && styles.activeTabLabel]}>Call</Text>
+        </TouchableOpacity>
+      </View>
 
-      <MessageInput
-        value={inputMessage}
-        onChangeText={handleTyping}
-        onSend={handleSendMessage}
-        onFileSelect={handleFileSelect}
-        userEmail={userEmail}
-        replyingTo={replyingTo}
-        onCancelReply={() => setReplyingTo(null)}
-      />
-
-      <MessageActionMenu
-        visible={showMessageMenu}
-        onClose={() => {
-          setShowMessageMenu(false);
-          setSelectedMessage(null);
-        }}
-        message={selectedMessage?.message || ''}
-        messageId={selectedMessage?.messageId || null}
-        isSent={selectedMessage?.isSent || false}
-        isPinned={selectedMessage?.isPinned || false}
-        isCreator={selectedMessage?.isCreator || false}
-        isGroup={selectedMessage?.isGroup || false}
-        onDelete={handleDeleteMessage}
-        onForward={handleForwardMessage}
-        onReply={handleReplyMessage}
-        onPin={() => selectedMessage?.messageId && handlePinMessage(selectedMessage.messageId)}
-        onUnpin={() => selectedMessage?.messageId && handleUnpinMessage(selectedMessage.messageId)}
-        onCopy={handleCopyMessage}
-        onInfo={handleInfoMessage}
-      />
-
-      {currentGroup && (
-        <GroupInfoModal
-          visible={showGroupInfoModal}
-          onClose={() => setShowGroupInfoModal(false)}
-          group={currentGroup}
-          userEmail={userEmail}
-          onGroupUpdated={handleGroupUpdated}
-          onExitGroup={handleExitGroup}
-        />
-      )}
-
-      {chatType === 'private' && contactEmail && (
-        <ContactInfoModal
-          visible={showContactInfoModal}
-          onClose={() => setShowContactInfoModal(false)}
-          contactEmail={contactEmail}
-          userEmail={userEmail}
-          contactName={contactName}
-          onSelectGroup={handleSelectGroup}
-          messages={privateMessages}
-        />
-      )}
-
-      <MessageInfoModal
-        visible={showMessageInfoModal}
-        onClose={() => {
-          setShowMessageInfoModal(false);
-          setMessageInfoMessageId(null);
-        }}
-        messageId={messageInfoMessageId}
-        chatType={chatType}
-        userEmail={userEmail}
-        onLoadMessageInfo={loadMessageInfo}
-      />
-      
       {/* Footer */}
       <View style={[styles.footer, { borderTopColor: colors.divider }]}>
         <Text style={[styles.footerText, { color: colors.textSecondary }]}>
@@ -1226,6 +1348,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     textAlign: 'center',
+  },
+  contentContainer: {
+    flex: 1,
+  },
+  comingSoonContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  comingSoonText: {
+    fontSize: TYPOGRAPHY.fontSize.xxl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.text,
+    marginBottom: SPACING.md,
+  },
+  comingSoonSubtext: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  bottomTabBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    paddingVertical: SPACING.sm,
+    paddingBottom: Platform.OS === 'ios' ? SPACING.md : SPACING.sm,
+    backgroundColor: COLORS.background,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xs,
+  },
+  activeTabButton: {
+    // Active state styling handled by icon and label colors
+  },
+  tabIcon: {
+    fontSize: 24,
+    marginBottom: SPACING.xs / 2,
+  },
+  activeTabIcon: {
+    // Icon color stays the same, but you can add transform or other effects
+  },
+  tabLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.textSecondary,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  activeTabLabel: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   footer: {
     paddingVertical: SPACING.sm,
