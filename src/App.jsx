@@ -77,6 +77,17 @@ function AppContent() {
     setActiveTab(getActiveTab())
   }, [location.pathname])
 
+  // Auto-activate game mode when accessing /games route directly
+  useEffect(() => {
+    if (location.pathname === '/games' && !gameMode) {
+      setGameMode(true)
+      localStorage.setItem('gameMode', 'true')
+    }
+    // Note: We keep game mode active even when navigating away from /games
+    // so users can easily return to games
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]) // gameMode intentionally excluded to prevent loops
+
   // Update document title based on route
   useEffect(() => {
     if (location.pathname === '/games') {

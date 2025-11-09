@@ -7,7 +7,7 @@ const Header = ({ activeTab, onTabChange, gameMode, onGameModeToggle }) => {
       <PingDisplay />
       <div className="header-content">
         <div className="header-top">
-        <h1 className="header-title">All in One Toolbox</h1>
+        <h1 className="header-title">{gameMode ? 'Priyanka Smart Class' : 'All in One Toolbox'}</h1>
           <div className="game-mode-toggle">
             <label className="toggle-label">
               <span className="toggle-text">Game Mode</span>

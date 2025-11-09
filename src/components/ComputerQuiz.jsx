@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './AnimalQuiz.css'
 
 const ComputerQuiz = () => {
@@ -50,31 +50,59 @@ const ComputerQuiz = () => {
     { name: 'Smartphone', image: '📱', hint: 'Phone that works like computer' }
   ]
 
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const saved = localStorage.getItem('computer_quiz_index')
+    return saved ? parseInt(saved, 10) : 0
+  })
   const [userAnswer, setUserAnswer] = useState('')
   const [showResult, setShowResult] = useState(false)
-  const [score, setScore] = useState(0)
-  const [totalQuestions, setTotalQuestions] = useState(0)
+  const [score, setScore] = useState(() => {
+    const saved = localStorage.getItem('computer_quiz_score')
+    return saved ? parseInt(saved, 10) : 0
+  })
+  const [totalQuestions, setTotalQuestions] = useState(() => {
+    const saved = localStorage.getItem('computer_quiz_total')
+    return saved ? parseInt(saved, 10) : 0
+  })
   const [showHint, setShowHint] = useState(false)
+  const [answeredQuestions, setAnsweredQuestions] = useState(() => {
+    const saved = localStorage.getItem('computer_quiz_answered')
+    return saved ? JSON.parse(saved) : {}
+  })
+
+  // Save progress to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('computer_quiz_index', currentIndex.toString())
+    localStorage.setItem('computer_quiz_score', score.toString())
+    localStorage.setItem('computer_quiz_total', totalQuestions.toString())
+    localStorage.setItem('computer_quiz_answered', JSON.stringify(answeredQuestions))
+  }, [currentIndex, score, totalQuestions, answeredQuestions])
 
   const currentTerm = computerTerms[currentIndex]
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    setTotalQuestions(totalQuestions + 1)
+    const newTotal = totalQuestions + 1
+    setTotalQuestions(newTotal)
     
-    if (userAnswer.trim().toLowerCase() === currentTerm.name.toLowerCase()) {
-      setScore(score + 1)
-      setShowResult(true)
-      setTimeout(() => {
-        nextQuestion()
-      }, 2000)
-    } else {
-      setShowResult(true)
-      setTimeout(() => {
-        nextQuestion()
-      }, 2000)
-    }
+    const isCorrect = userAnswer.trim().toLowerCase() === currentTerm.name.toLowerCase()
+    const newScore = isCorrect ? score + 1 : score
+    
+    // Save answer
+    setAnsweredQuestions({
+      ...answeredQuestions,
+      [currentIndex]: {
+        answer: userAnswer.trim(),
+        correct: isCorrect,
+        correctAnswer: currentTerm.name
+      }
+    })
+    
+    setScore(newScore)
+    setShowResult(true)
+    setTimeout(() => {
+      nextQuestion()
+    }, 2000)
   }
 
   const nextQuestion = () => {
@@ -87,6 +115,22 @@ const ComputerQuiz = () => {
   const handleSkip = () => {
     setTotalQuestions(totalQuestions + 1)
     nextQuestion()
+  }
+
+  const handleReset = () => {
+    if (window.confirm('क्या आप game reset करना चाहते हैं? सभी progress हट जाएगी।')) {
+      setCurrentIndex(0)
+      setUserAnswer('')
+      setShowResult(false)
+      setScore(0)
+      setTotalQuestions(0)
+      setShowHint(false)
+      setAnsweredQuestions({})
+      localStorage.removeItem('computer_quiz_index')
+      localStorage.removeItem('computer_quiz_score')
+      localStorage.removeItem('computer_quiz_total')
+      localStorage.removeItem('computer_quiz_answered')
+    }
   }
 
   return (
@@ -156,6 +200,14 @@ const ComputerQuiz = () => {
               style={{ fontSize: '1.1rem', padding: '14px 28px', minWidth: '140px' }}
             >
               ✓ Submit
+            </button>
+            <button 
+              type="button" 
+              onClick={handleReset}
+              className="skip-button"
+              style={{ fontSize: '1.1rem', padding: '14px 28px', minWidth: '140px', backgroundColor: '#dc3545' }}
+            >
+              🔄 Reset
             </button>
           </div>
         </form>

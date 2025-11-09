@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './AnimalQuiz.css'
 
 const ComputerBasicsQuiz = () => {
@@ -125,24 +125,56 @@ const ComputerBasicsQuiz = () => {
     }
   ]
 
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const saved = localStorage.getItem('computer_basics_quiz_index')
+    return saved ? parseInt(saved, 10) : 0
+  })
   const [selectedOption, setSelectedOption] = useState(null)
   const [showResult, setShowResult] = useState(false)
-  const [score, setScore] = useState(0)
-  const [totalQuestions, setTotalQuestions] = useState(0)
+  const [score, setScore] = useState(() => {
+    const saved = localStorage.getItem('computer_basics_quiz_score')
+    return saved ? parseInt(saved, 10) : 0
+  })
+  const [totalQuestions, setTotalQuestions] = useState(() => {
+    const saved = localStorage.getItem('computer_basics_quiz_total')
+    return saved ? parseInt(saved, 10) : 0
+  })
+  const [answeredQuestions, setAnsweredQuestions] = useState(() => {
+    const saved = localStorage.getItem('computer_basics_quiz_answered')
+    return saved ? JSON.parse(saved) : {}
+  })
+
+  // Save progress to localStorage
+  useEffect(() => {
+    localStorage.setItem('computer_basics_quiz_index', currentIndex.toString())
+    localStorage.setItem('computer_basics_quiz_score', score.toString())
+    localStorage.setItem('computer_basics_quiz_total', totalQuestions.toString())
+    localStorage.setItem('computer_basics_quiz_answered', JSON.stringify(answeredQuestions))
+  }, [currentIndex, score, totalQuestions, answeredQuestions])
 
   const currentQuestion = questions[currentIndex]
 
   const handleOptionClick = (optionIndex) => {
     if (showResult) return
     
+    const newTotal = totalQuestions + 1
+    const isCorrect = optionIndex === currentQuestion.correct
+    const newScore = isCorrect ? score + 1 : score
+    
     setSelectedOption(optionIndex)
-    setTotalQuestions(totalQuestions + 1)
+    setTotalQuestions(newTotal)
+    setScore(newScore)
     setShowResult(true)
     
-    if (optionIndex === currentQuestion.correct) {
-      setScore(score + 1)
-    }
+    // Save answer
+    setAnsweredQuestions({
+      ...answeredQuestions,
+      [currentIndex]: {
+        selected: optionIndex,
+        correct: isCorrect,
+        correctAnswer: currentQuestion.correct
+      }
+    })
     
     setTimeout(() => {
       nextQuestion()
@@ -166,11 +198,18 @@ const ComputerBasicsQuiz = () => {
   }
 
   const resetQuiz = () => {
-    setCurrentIndex(0)
-    setSelectedOption(null)
-    setShowResult(false)
-    setScore(0)
-    setTotalQuestions(0)
+    if (window.confirm('क्या आप quiz reset करना चाहते हैं? सभी progress हट जाएगी।')) {
+      setCurrentIndex(0)
+      setSelectedOption(null)
+      setShowResult(false)
+      setScore(0)
+      setTotalQuestions(0)
+      setAnsweredQuestions({})
+      localStorage.removeItem('computer_basics_quiz_index')
+      localStorage.removeItem('computer_basics_quiz_score')
+      localStorage.removeItem('computer_basics_quiz_total')
+      localStorage.removeItem('computer_basics_quiz_answered')
+    }
   }
 
   const isCorrect = selectedOption === currentQuestion.correct

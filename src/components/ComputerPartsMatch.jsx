@@ -6,9 +6,18 @@ const ComputerPartsMatch = () => {
   const [descriptions, setDescriptions] = useState([])
   const [selectedPart, setSelectedPart] = useState(null)
   const [selectedDesc, setSelectedDesc] = useState(null)
-  const [matchedPairs, setMatchedPairs] = useState([])
-  const [score, setScore] = useState(0)
-  const [totalMatches, setTotalMatches] = useState(0)
+  const [matchedPairs, setMatchedPairs] = useState(() => {
+    const saved = localStorage.getItem('computer_parts_match_matched')
+    return saved ? JSON.parse(saved) : []
+  })
+  const [score, setScore] = useState(() => {
+    const saved = localStorage.getItem('computer_parts_match_score')
+    return saved ? parseInt(saved, 10) : 0
+  })
+  const [totalMatches, setTotalMatches] = useState(() => {
+    const saved = localStorage.getItem('computer_parts_match_total')
+    return saved ? parseInt(saved, 10) : 0
+  })
 
   const computerParts = [
     { part: 'Keyboard', description: 'Used to type letters and numbers', emoji: '⌨️' },
@@ -25,13 +34,29 @@ const ComputerPartsMatch = () => {
     { part: 'Headphones', description: 'Wear to hear sound privately', emoji: '🎧' }
   ]
 
+  // Save progress to localStorage
   useEffect(() => {
-    // Shuffle parts and descriptions
-    const shuffledParts = [...computerParts].sort(() => Math.random() - 0.5)
-    const shuffledDescs = [...computerParts].map(p => p.description).sort(() => Math.random() - 0.5)
+    localStorage.setItem('computer_parts_match_score', score.toString())
+    localStorage.setItem('computer_parts_match_total', totalMatches.toString())
+    localStorage.setItem('computer_parts_match_matched', JSON.stringify(matchedPairs))
+  }, [score, totalMatches, matchedPairs])
+
+  useEffect(() => {
+    // Load saved parts/descriptions or shuffle new ones
+    const savedParts = localStorage.getItem('computer_parts_match_parts')
+    const savedDescs = localStorage.getItem('computer_parts_match_descs')
     
-    setParts(shuffledParts)
-    setDescriptions(shuffledDescs)
+    if (savedParts && savedDescs) {
+      setParts(JSON.parse(savedParts))
+      setDescriptions(JSON.parse(savedDescs))
+    } else {
+      const shuffledParts = [...computerParts].sort(() => Math.random() - 0.5)
+      const shuffledDescs = [...computerParts].map(p => p.description).sort(() => Math.random() - 0.5)
+      setParts(shuffledParts)
+      setDescriptions(shuffledDescs)
+      localStorage.setItem('computer_parts_match_parts', JSON.stringify(shuffledParts))
+      localStorage.setItem('computer_parts_match_descs', JSON.stringify(shuffledDescs))
+    }
   }, [])
 
   const handlePartClick = (index) => {
@@ -89,16 +114,25 @@ const ComputerPartsMatch = () => {
   }
 
   const resetGame = () => {
-    const shuffledParts = [...computerParts].sort(() => Math.random() - 0.5)
-    const shuffledDescs = [...computerParts].map(p => p.description).sort(() => Math.random() - 0.5)
-    
-    setParts(shuffledParts)
-    setDescriptions(shuffledDescs)
-    setSelectedPart(null)
-    setSelectedDesc(null)
-    setMatchedPairs([])
-    setScore(0)
-    setTotalMatches(0)
+    if (window.confirm('क्या आप game reset करना चाहते हैं? सभी progress हट जाएगी।')) {
+      const shuffledParts = [...computerParts].sort(() => Math.random() - 0.5)
+      const shuffledDescs = [...computerParts].map(p => p.description).sort(() => Math.random() - 0.5)
+      
+      setParts(shuffledParts)
+      setDescriptions(shuffledDescs)
+      setSelectedPart(null)
+      setSelectedDesc(null)
+      setMatchedPairs([])
+      setScore(0)
+      setTotalMatches(0)
+      localStorage.removeItem('computer_parts_match_score')
+      localStorage.removeItem('computer_parts_match_total')
+      localStorage.removeItem('computer_parts_match_matched')
+      localStorage.removeItem('computer_parts_match_parts')
+      localStorage.removeItem('computer_parts_match_descs')
+      localStorage.setItem('computer_parts_match_parts', JSON.stringify(shuffledParts))
+      localStorage.setItem('computer_parts_match_descs', JSON.stringify(shuffledDescs))
+    }
   }
 
   const allMatched = matchedPairs.length === computerParts.length
@@ -217,7 +251,7 @@ const ComputerPartsMatch = () => {
             style={{
               padding: '15px 30px',
               fontSize: '1.2rem',
-              backgroundColor: '#667eea',
+              backgroundColor: '#dc3545',
               color: 'white',
               border: 'none',
               borderRadius: '10px',
@@ -225,7 +259,7 @@ const ComputerPartsMatch = () => {
               fontWeight: 'bold'
             }}
           >
-            🔄 Play Again
+            🔄 Reset Game
           </button>
         </div>
       </div>
