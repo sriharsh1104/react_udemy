@@ -2,7 +2,7 @@ import { useState } from 'react'
 import './AnimalQuiz.css'
 
 const ComputerQuiz = () => {
-  // Computer-related terms for class 5 or lower
+  // Computer-related terms for class 5 or lower - 30+ questions
   const computerTerms = [
     { name: 'Keyboard', image: '⌨️', hint: 'Used to type letters and numbers' },
     { name: 'Mouse', image: '🖱️', hint: 'Used to click and move cursor' },
@@ -13,7 +13,7 @@ const ComputerQuiz = () => {
     { name: 'USB', image: '🔌', hint: 'Used to connect devices (USB port/cable)' },
     { name: 'Internet', image: '🌐', hint: 'Connects computers worldwide' },
     { name: 'Email', image: '📧', hint: 'Send messages through computer' },
-    { name: 'Browser', image: '🌍', hint: 'Used to visit websites' },
+    { name: 'Browser', image: '🌍', hint: 'Used to visit websites (Chrome, Firefox, Edge)' },
     { name: 'File', image: '📄', hint: 'Stores information on computer' },
     { name: 'Folder', image: '📁', hint: 'Keeps files organized' },
     { name: 'Password', image: '🔒', hint: 'Secret code to protect account' },
@@ -23,7 +23,31 @@ const ComputerQuiz = () => {
     { name: 'Hardware', image: '🔧', hint: 'Physical parts of computer' },
     { name: 'Desktop', image: '🖼️', hint: 'Main screen of computer' },
     { name: 'Icon', image: '🖼️', hint: 'Small picture that opens program' },
-    { name: 'Window', image: '🪟', hint: 'Box that shows program on screen' }
+    { name: 'Window', image: '🪟', hint: 'Box that shows program on screen' },
+    { name: 'Laptop', image: '💻', hint: 'Portable computer that you can carry' },
+    { name: 'Desktop Computer', image: '🖥️', hint: 'Computer that stays on desk (not portable)' },
+    { name: 'Start Button', image: '🪟', hint: 'Button to open menu in Windows' },
+    { name: 'Power Off', image: '⏻', hint: 'To turn off the computer' },
+    { name: 'Restart', image: '🔄', hint: 'To turn off and on computer again' },
+    { name: 'Windows', image: '🪟', hint: 'Operating system by Microsoft' },
+    { name: 'Oldest Window', image: '🪟', hint: 'First version of Windows (Windows 1.0)' },
+    { name: 'Latest Window', image: '🪟', hint: 'Newest version of Windows (Windows 11)' },
+    { name: 'Chrome', image: '🌐', hint: 'Google browser (most popular)' },
+    { name: 'Firefox', image: '🦊', hint: 'Mozilla browser' },
+    { name: 'Edge', image: '🌐', hint: 'Microsoft browser' },
+    { name: 'Safari', image: '🌐', hint: 'Apple browser' },
+    { name: 'RAM', image: '💾', hint: 'Memory that stores temporary data' },
+    { name: 'Hard Drive', image: '💿', hint: 'Stores all files permanently' },
+    { name: 'Motherboard', image: '🔌', hint: 'Main circuit board of computer' },
+    { name: 'Graphics Card', image: '🎮', hint: 'Makes pictures and videos look good' },
+    { name: 'Webcam', image: '📹', hint: 'Camera on computer for video calls' },
+    { name: 'Microphone', image: '🎤', hint: 'Records sound on computer' },
+    { name: 'Headphones', image: '🎧', hint: 'Wear to hear sound privately' },
+    { name: 'WiFi', image: '📶', hint: 'Wireless internet connection' },
+    { name: 'Bluetooth', image: '📱', hint: 'Wireless connection for devices' },
+    { name: 'Touchscreen', image: '👆', hint: 'Screen you can touch to control' },
+    { name: 'Tablet', image: '📱', hint: 'Flat computer with touchscreen' },
+    { name: 'Smartphone', image: '📱', hint: 'Phone that works like computer' }
   ]
 
   const [currentIndex, setCurrentIndex] = useState(0)
