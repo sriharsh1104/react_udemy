@@ -16,10 +16,12 @@ const ChatActionBar = ({
   onPin,
   onArchive,
   onMute,
+  onFavorite,
   onClose,
   isPinned = false,
   isArchived = false,
   isMuted = false,
+  isFavorite = false,
 }) => {
   const { colors } = useTheme();
 
@@ -68,6 +70,19 @@ const ChatActionBar = ({
           >
             <Text style={styles.actionIcon}>{isMuted ? '🔊' : '🔇'}</Text>
           </TouchableOpacity>
+
+          {/* Favorite/Unfavorite */}
+          {onFavorite && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: colors.receivedMessage }]}
+              onPress={onFavorite}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.actionIcon}>
+                {isFavorite ? '⭐' : '☆'}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Close */}
           <TouchableOpacity

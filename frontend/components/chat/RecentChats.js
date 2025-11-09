@@ -187,6 +187,21 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     if (onGroupsUpdate) await onGroupsUpdate();
   }, [selectedChats, onContactsUpdate, onGroupsUpdate]);
 
+  const handleToggleFavoriteFromSelection = useCallback(async () => {
+    if (selectedChats.length === 0) return;
+    
+    for (const chat of selectedChats) {
+      if (chat.type === 'contact') {
+        await contactsService.toggleFavorite(chat.id);
+      } else if (chat.type === 'group') {
+        await groupService.toggleFavorite(chat.id);
+      }
+    }
+    setSelectedChats([]);
+    if (onContactsUpdate) await onContactsUpdate();
+    if (onGroupsUpdate) await onGroupsUpdate();
+  }, [selectedChats, onContactsUpdate, onGroupsUpdate]);
+
   const handleCloseSelection = useCallback(() => {
     setSelectedChats([]);
   }, []);
@@ -226,7 +241,6 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
         <View style={styles.contactInfo}>
           <View style={styles.contactNameRow}>
             <Text style={[styles.contactName, { color: colors.text }]}>{name}</Text>
-            {isFavorite && <Text style={styles.favoriteIcon}>⭐</Text>}
             {isMuted && <Text style={styles.muteIcon}>🔇</Text>}
           </View>
           <Text style={[styles.contactEmail, { color: colors.textSecondary }]} numberOfLines={1}>{item.email}</Text>
@@ -235,19 +249,21 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
           <View style={styles.statusContainer}>
             {!isSelected && (
               <>
-            <TouchableOpacity
-              style={styles.favoriteButton}
-              onPress={(e) => handleToggleFavorite(item.email, e)}
-              disabled={isToggling}
-            >
-              {isToggling ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={[styles.favoriteButtonText, { color: isFavorite ? '#FFD700' : colors.textSecondary }]}>
-                  ⭐
-                </Text>
-              )}
-            </TouchableOpacity>
+            {isFavorite && (
+              <TouchableOpacity
+                style={styles.favoriteButton}
+                onPress={(e) => handleToggleFavorite(item.email, e)}
+                disabled={isToggling}
+              >
+                {isToggling ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={[styles.favoriteButtonText, { color: '#FFD700' }]}>
+                    ⭐
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
             <View style={[styles.statusDot, { backgroundColor: isOnline ? colors.online : colors.offline }]} />
             {unreadCount > 0 && (
               <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
@@ -286,11 +302,22 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
 
   // Get status for action bar
   const getActionBarStatus = useCallback(() => {
-    if (selectedChats.length === 0) return { isPinned: false, isArchived: false, isMuted: false };
+    if (selectedChats.length === 0) return { isPinned: false, isArchived: false, isMuted: false, isFavorite: false };
     
-    // For now, return false for all - can be enhanced to check actual status
-    return { isPinned: false, isArchived: false, isMuted: false };
-  }, [selectedChats]);
+    // Check if all selected chats are favorited
+    const allFavorited = selectedChats.every(chat => {
+      if (chat.type === 'contact') {
+        const contact = contacts.find(c => c.email === chat.id);
+        return contact?.isFavorite === true;
+      } else if (chat.type === 'group') {
+        const group = groups.find(g => g._id === chat.id);
+        return group?.isFavorite === true;
+      }
+      return false;
+    });
+    
+    return { isPinned: false, isArchived: false, isMuted: false, isFavorite: allFavorited };
+  }, [selectedChats, contacts, groups]);
 
   const actionBarStatus = getActionBarStatus();
 
@@ -303,10 +330,12 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
         onPin={handlePin}
         onArchive={handleArchive}
         onMute={handleMute}
+        onFavorite={handleToggleFavoriteFromSelection}
         onClose={handleCloseSelection}
         isPinned={actionBarStatus.isPinned}
         isArchived={actionBarStatus.isArchived}
         isMuted={actionBarStatus.isMuted}
+        isFavorite={actionBarStatus.isFavorite}
       />
       <View style={[styles.header, { borderBottomColor: colors.divider }]}>
         <Text style={[styles.title, { color: colors.text }]}>Recent Chats</Text>
@@ -447,7 +476,6 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
                   <View style={styles.contactInfo}>
                     <View style={styles.contactNameRow}>
                       <Text style={[styles.contactName, { color: colors.text }]}>{item.name}</Text>
-                      {isFavorite && <Text style={styles.favoriteIcon}>⭐</Text>}
                       {isMuted && <Text style={styles.muteIcon}>🔇</Text>}
                     </View>
                     <Text style={[styles.contactEmail, { color: colors.textSecondary }]}>
@@ -457,19 +485,21 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
                   <View style={styles.statusContainer}>
                     {!isSelected && (
                       <>
-                    <TouchableOpacity
-                      style={styles.favoriteButton}
-                      onPress={(e) => handleToggleGroupFavorite(item._id, e)}
-                      disabled={isToggling}
-                    >
-                      {isToggling ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <Text style={[styles.favoriteButtonText, { color: isFavorite ? '#FFD700' : colors.textSecondary }]}>
-                          ⭐
-                        </Text>
-                      )}
-                    </TouchableOpacity>
+                    {isFavorite && (
+                      <TouchableOpacity
+                        style={styles.favoriteButton}
+                        onPress={(e) => handleToggleGroupFavorite(item._id, e)}
+                        disabled={isToggling}
+                      >
+                        {isToggling ? (
+                          <ActivityIndicator size="small" color={colors.primary} />
+                        ) : (
+                          <Text style={[styles.favoriteButtonText, { color: '#FFD700' }]}>
+                            ⭐
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
                     {unreadCount > 0 && (
                       <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
                         <Text style={[styles.unreadBadgeText, { color: colors.white }]}>
