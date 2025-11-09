@@ -17,6 +17,7 @@ import ChatActionBar from './ChatActionBar';
 const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, onNewChat, onCreateGroup, onSaveContact, onInvite, onContactsUpdate, onGroupsUpdate, userEmail }) => {
   const { colors } = useTheme();
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'favorites', 'archived'
+  const [isArchivedExpanded, setIsArchivedExpanded] = useState(false); // Track if archived section is expanded
   const [togglingFavorite, setTogglingFavorite] = useState(null);
   const [togglingGroupFavorite, setTogglingGroupFavorite] = useState(null);
   const [selectedChats, setSelectedChats] = useState([]); // Array of { type: 'contact' | 'group', id: string }
@@ -69,14 +70,49 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     return nonArchivedGroups;
   }, [groups, filter, userEmail]);
 
+  // Get archived chats separately for "All" filter
+  const archivedContacts = useMemo(() => {
+    return contacts.filter(contact => contact.isArchived === true);
+  }, [contacts]);
+
+  const archivedGroups = useMemo(() => {
+    const groupsList = groups || [];
+    const isGroupArchived = (group) => {
+      if (!group.archivedBy || !Array.isArray(group.archivedBy)) return false;
+      return userEmail && group.archivedBy.includes(userEmail);
+    };
+    return groupsList.filter(group => isGroupArchived(group));
+  }, [groups, userEmail]);
+
   // Combined data for display (groups + filtered contacts)
   const combinedData = useMemo(() => {
+    // If archived section is expanded, show only archived chats
+    if (isArchivedExpanded && filter === 'all' && (archivedContacts.length > 0 || archivedGroups.length > 0)) {
+      const archivedGroupsData = archivedGroups.map(g => ({ ...g, type: 'group', isArchived: true }));
+      const archivedContactsData = archivedContacts.map(c => ({ ...c, type: 'contact', isArchived: true }));
+      return [
+        { type: 'section-header', id: 'archived-header' }, // Section header at top
+        ...archivedGroupsData,
+        ...archivedContactsData,
+      ];
+    }
+    
     // Always include filtered groups (they handle their own filtering)
     const groupsData = filteredGroups.map(g => ({ ...g, type: 'group' }));
     // Include filtered contacts
     const contactsData = (filteredContacts || []).map(c => ({ ...c, type: 'contact' }));
+    
+    // If filter is 'all' and there are archived chats, add header at top (but don't show archived chats)
+    if (filter === 'all' && (archivedContacts.length > 0 || archivedGroups.length > 0)) {
+      return [
+        { type: 'section-header', id: 'archived-header' }, // Section header at top
+        ...groupsData,
+        ...contactsData,
+      ];
+    }
+    
     return [...groupsData, ...contactsData];
-  }, [filteredGroups, filteredContacts]);
+  }, [filteredGroups, filteredContacts, filter, archivedContacts, archivedGroups, isArchivedExpanded]);
 
   const handleToggleFavorite = useCallback(async (contactEmail, e) => {
     e?.stopPropagation(); // Prevent triggering onSelectContact
@@ -447,28 +483,6 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
             </View>
           )}
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            { borderColor: filter === 'archived' ? colors.primary : colors.divider },
-            filter === 'archived' && { backgroundColor: colors.primary }
-          ]}
-          onPress={() => setFilter('archived')}
-        >
-          <Text style={[
-            styles.filterTabText,
-            { color: filter === 'archived' ? colors.white : colors.textSecondary }
-          ]}>
-            Archived
-          </Text>
-          {(contacts.filter(c => c.isArchived === true).length + (groups || []).filter(g => userEmail && g.archivedBy && g.archivedBy.includes(userEmail)).length) > 0 && (
-            <View style={[styles.filterBadge, { backgroundColor: filter === 'archived' ? colors.white : colors.primary }]}>
-              <Text style={[styles.filterBadgeText, { color: filter === 'archived' ? colors.primary : colors.white }]}>
-                {contacts.filter(c => c.isArchived === true).length + (groups || []).filter(g => userEmail && g.archivedBy && g.archivedBy.includes(userEmail)).length}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
       </View>
 
       {combinedData.length === 0 ? (
@@ -509,6 +523,23 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
         <FlatList
           data={combinedData}
           renderItem={({ item }) => {
+            // Render section header for Archived
+            if (item.type === 'section-header' && item.id === 'archived-header') {
+              return (
+                <TouchableOpacity
+                  style={[styles.sectionHeader, { borderTopColor: colors.divider, borderBottomColor: colors.divider }]}
+                  onPress={() => setIsArchivedExpanded(!isArchivedExpanded)}
+                >
+                  <View style={[styles.sectionHeaderIconContainer, { borderColor: colors.textSecondary }]}>
+                    <Text style={[styles.sectionHeaderIcon, { color: colors.textSecondary }]}>
+                      {isArchivedExpanded ? '⬇' : '▶'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.sectionHeaderText, { color: colors.text }]}>Archived</Text>
+                </TouchableOpacity>
+              );
+            }
+            
             if (item.type === 'group') {
               const isFavorite = item.isFavorite || false;
               const unreadCount = item.unreadCount || 0;
@@ -579,7 +610,10 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
               return renderContactItem({ item });
             }
           }}
-          keyExtractor={(item) => item.type === 'group' ? `group-${item._id}` : `contact-${item.email}`}
+          keyExtractor={(item) => {
+            if (item.type === 'section-header') return item.id;
+            return item.type === 'group' ? `group-${item._id}` : `contact-${item.email}`;
+          }}
           style={styles.list}
           removeClippedSubviews={true}
           maxToRenderPerBatch={10}
@@ -796,6 +830,31 @@ const styles = StyleSheet.create({
   muteIcon: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     marginLeft: SPACING.xs,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    gap: SPACING.sm,
+  },
+  sectionHeaderIconContainer: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionHeaderIcon: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  sectionHeaderText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });
 
