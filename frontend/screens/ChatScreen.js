@@ -408,6 +408,17 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   
   const handleFileSelect = async (file) => {
     try {
+      // Capture current chat context to ensure file is sent to the correct chat
+      const currentChatType = chatType;
+      const currentContactEmail = contactEmail;
+      const currentGroupId = groupId;
+      
+      // Verify that we have a valid chat context
+      if (!currentChatType || (currentChatType === 'private' && !currentContactEmail) || (currentChatType === 'group' && !currentGroupId)) {
+        Alert.alert('Error', 'Please select a chat to send the file');
+        return;
+      }
+      
       // Show upload progress with time estimate
       const fileSizeMB = ((file.size || 0) / 1024 / 1024).toFixed(2);
       const estimatedTimeSeconds = Math.ceil((file.size || 0) / (1024 * 1024));
@@ -431,7 +442,21 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       const uploadResult = await fileUploadService.uploadFile(file, userEmail);
       
       if (uploadResult.success && uploadResult.fileId) {
-        // Send file message
+        // Verify chat context hasn't changed during upload
+        const chatContextChanged = 
+          (currentChatType !== chatType) ||
+          (currentChatType === 'private' && currentContactEmail !== contactEmail) ||
+          (currentChatType === 'group' && currentGroupId !== groupId);
+        
+        if (chatContextChanged) {
+          Alert.alert(
+            'Chat Changed',
+            'The chat was changed while uploading. File will not be sent to prevent sending to wrong chat.'
+          );
+          return;
+        }
+        
+        // Send file message to the correct chat
         const fileMessage = JSON.stringify({
           type: 'file',
           fileId: uploadResult.fileId,
@@ -440,7 +465,12 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           fileSize: uploadResult.fileSize || file.size || 0,
         });
         
-        sendMessage(fileMessage);
+        // Use the appropriate sendMessage function based on chat type
+        if (currentChatType === 'private' && currentContactEmail) {
+          sendPrivateMessage(fileMessage);
+        } else if (currentChatType === 'group' && currentGroupId) {
+          sendGroupMessage(fileMessage);
+        }
         
         // Show success with actual time
         Alert.alert(

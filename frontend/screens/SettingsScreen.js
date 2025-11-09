@@ -2,40 +2,34 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Platform,
   ScrollView,
   ActivityIndicator,
-  Switch,
-  Share,
-  Linking,
   SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { TYPOGRAPHY, BORDER_RADIUS, SPACING, PLATFORM_CONFIG } from '../constants';
+import { TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
 import { useTheme } from '../contexts/ThemeContext';
 import Button from '../components/common/Button';
 import PasswordInput from '../components/common/PasswordInput';
 import settingsService from '../services/settingsService';
 import { showToastFromResponse } from '../utils/toast';
+import { InviteModal } from '../components/chat/Sidebar';
 
 const SettingsScreen = ({ navigation, onBack }) => {
   const { colors, themeMode, setTheme, isDark } = useTheme();
   const [hasPassword, setHasPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   
   // Password states
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswordFields, setShowPasswordFields] = useState(false);
-  
-  // Static platform invite link
-  const inviteLink = PLATFORM_CONFIG.INVITE_LINK;
 
   useEffect(() => {
     loadSettings();
@@ -126,33 +120,6 @@ const SettingsScreen = ({ navigation, onBack }) => {
       success: true,
       message: `Theme set to ${mode === 'auto' ? 'Auto (System)' : mode}`,
     }, { successTitle: 'Theme Updated' });
-  };
-
-  const handleShareInviteLink = async (platform) => {
-    const message = `Join me on Chat App! ${inviteLink}`;
-
-    try {
-      if (platform === 'whatsapp') {
-        const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
-        await Linking.openURL(url);
-      } else if (platform === 'telegram') {
-        const url = `tg://msg?text=${encodeURIComponent(message)}`;
-        await Linking.openURL(url);
-      } else if (platform === 'share') {
-        await Share.share({
-          message,
-        });
-      } else if (platform === 'copy') {
-        await Share.share({
-          message: inviteLink,
-        });
-      }
-    } catch (error) {
-      showToastFromResponse({
-        success: false,
-        message: `Failed to share via ${platform}`,
-      }, { errorTitle: 'Share Failed' });
-    }
   };
 
   if (loading) {
@@ -371,54 +338,24 @@ const SettingsScreen = ({ navigation, onBack }) => {
             Share the app with your friends
           </Text>
           
-          <View style={[styles.linkContainer, { backgroundColor: colors.background }]}>
-            <Text style={[styles.linkText, { color: colors.text }]} numberOfLines={2}>
-              {inviteLink}
-            </Text>
-          </View>
-          
-          <View style={styles.shareButtons}>
-            <Button
-              title="WhatsApp"
-              icon="📱"
-              onPress={() => handleShareInviteLink('whatsapp')}
-              variant="primary"
-              size="small"
-              style={[styles.shareButton, { backgroundColor: '#25D366' }]}
-              textStyle={{ color: colors.white }}
-            />
-            
-            <Button
-              title="Telegram"
-              icon="✈️"
-              onPress={() => handleShareInviteLink('telegram')}
-              variant="primary"
-              size="small"
-              style={[styles.shareButton, { backgroundColor: '#0088cc' }]}
-              textStyle={{ color: colors.white }}
-            />
-            
-            <Button
-              title="Share"
-              icon="📤"
-              onPress={() => handleShareInviteLink('share')}
-              variant="primary"
-              size="small"
-              style={styles.shareButton}
-            />
-            
-            <Button
-              title="Copy Link"
-              icon="📋"
-              onPress={() => handleShareInviteLink('copy')}
-              variant="secondary"
-              size="small"
-              style={styles.shareButton}
-            />
-          </View>
+          <Button
+            title="Invite User"
+            icon="📤"
+            onPress={() => setShowInviteModal(true)}
+            variant="primary"
+            fullWidth
+            style={styles.inviteButton}
+          />
         </View>
       </ScrollView>
       </View>
+
+      {/* Invite Modal */}
+      <InviteModal
+        visible={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        email={null}
+      />
     </SafeAreaView>
   );
 };
@@ -554,6 +491,9 @@ const styles = StyleSheet.create({
   shareButton: {
     flex: 1,
     minWidth: '45%',
+  },
+  inviteButton: {
+    marginTop: SPACING.md,
   },
 });
 

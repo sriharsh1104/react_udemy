@@ -47,6 +47,17 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
     }
   };
 
+  const handleTakePhoto = async () => {
+    try {
+      const file = await fileUploadService.takePhoto();
+      if (file && onFileSelect) {
+        onFileSelect(file);
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to take photo');
+    }
+  };
+
   // Extract message text from replyingTo (handle JSON file messages)
   const getReplyMessageText = () => {
     if (!replyingTo || !replyingTo.message) return '';
@@ -89,6 +100,14 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
         </View>
       )}
       <View style={styles.inputWrapper}>
+        <TouchableOpacity 
+          style={styles.cameraButton}
+          onPress={handleTakePhoto}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.cameraIcon}>📷</Text>
+        </TouchableOpacity>
+        
         <TouchableOpacity 
           style={styles.attachmentButton}
           onPress={handleAttachmentPress}
@@ -198,6 +217,18 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? SPACING.sm : SPACING.xs,
     minHeight: 44,
     maxHeight: 100,
+  },
+  cameraButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.xs,
+  },
+  cameraIcon: {
+    fontSize: 20,
+    color: COLORS.text,
   },
   attachmentButton: {
     width: 36,

@@ -25,6 +25,16 @@ class FileUploadService {
       throw new Error('Permission to access media library is required!');
     }
   }
+
+  /**
+   * Request camera permissions
+   */
+  async requestCameraPermissions() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      throw new Error('Permission to access camera is required!');
+    }
+  }
   
   /**
    * Check image size (no compression, just validation)
@@ -161,6 +171,42 @@ class FileUploadService {
       };
     } catch (error) {
       console.error('Error picking image:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Take photo with camera (with size validation)
+   */
+  async takePhoto() {
+    try {
+      await this.requestCameraPermissions();
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+      });
+      
+      if (result.canceled) {
+        return null;
+      }
+      
+      const asset = result.assets[0];
+      const fileSize = asset.fileSize || asset.size || 0;
+      
+      // Check size (no compression) - pass fileSize for web compatibility
+      await this.checkImageSize(asset.uri, fileSize);
+      
+      return {
+        uri: asset.uri,
+        type: 'image',
+        name: `photo_${Date.now()}.jpg`,
+        mimeType: asset.mimeType || 'image/jpeg',
+        size: fileSize,
+      };
+    } catch (error) {
+      console.error('Error taking photo:', error);
       throw error;
     }
   }
