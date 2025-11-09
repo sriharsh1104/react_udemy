@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Contacts from 'expo-contacts';
+import * as Clipboard from 'expo-clipboard';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import GLoader from '../common/GLoader';
 import contactsService from '../../services/contactsService';
@@ -22,6 +23,7 @@ import contactsService from '../../services/contactsService';
 export const InviteModal = ({ visible, onClose, email }) => {
   const [inviteLink, setInviteLink] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -38,16 +40,95 @@ export const InviteModal = ({ visible, onClose, email }) => {
     setLoading(false);
   };
 
-  const handleCopyLink = async () => {
-    if (inviteLink) {
-      try {
-        await Share.share({
-          message: `Join me on Chat App! ${inviteLink}`,
-        });
-      } catch (error) {
-        Alert.alert('Error', 'Failed to share invite link');
-      }
+  const handleShare = () => {
+    if (!inviteLink) return;
+    setShowShareModal(true);
+  };
+
+  const shareMessage = `Join me on Chat App! ${inviteLink}`;
+
+  const handlePlatformShare = (platform) => {
+    if (!inviteLink) return;
+    
+    const message = shareMessage;
+    let url = '';
+
+    switch (platform) {
+      case 'whatsapp':
+        // Try mobile app first, then web
+        if (Platform.OS !== 'web') {
+          url = `whatsapp://send?text=${encodeURIComponent(message)}`;
+        } else {
+          url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        }
+        break;
+      case 'facebook':
+        if (Platform.OS !== 'web') {
+          // Try Facebook app, fallback to web
+          url = `fb://share?text=${encodeURIComponent(message)}`;
+        } else {
+          url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}&quote=${encodeURIComponent(message)}`;
+        }
+        break;
+      case 'twitter':
+        if (Platform.OS !== 'web') {
+          // Try Twitter app
+          url = `twitter://post?message=${encodeURIComponent(message)}`;
+        } else {
+          url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(inviteLink)}`;
+        }
+        break;
+      case 'telegram':
+        if (Platform.OS !== 'web') {
+          // Try Telegram app
+          url = `tg://msg?text=${encodeURIComponent(message)}`;
+        } else {
+          url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(message)}`;
+        }
+        break;
+      case 'sms':
+        url = `sms:?body=${encodeURIComponent(message)}`;
+        break;
+      case 'email':
+        url = `mailto:?subject=${encodeURIComponent('Join me on Chat App!')}&body=${encodeURIComponent(message)}`;
+        break;
+      case 'native':
+        Share.share({
+          message,
+        }).catch(() => {});
+        setShowShareModal(false);
+        return;
+      default:
+        return;
     }
+
+    Linking.openURL(url).catch(() => {
+      // If mobile app fails, try web URL for some platforms
+      if (Platform.OS !== 'web') {
+        let webUrl = '';
+        switch (platform) {
+          case 'facebook':
+            webUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}`;
+            break;
+          case 'twitter':
+            webUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(inviteLink)}`;
+            break;
+          case 'telegram':
+            webUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(message)}`;
+            break;
+          default:
+            Alert.alert('Error', `${platform.charAt(0).toUpperCase() + platform.slice(1)} app is not installed`);
+            setShowShareModal(false);
+            return;
+        }
+        Linking.openURL(webUrl).catch(() => {
+          Alert.alert('Error', `Could not open ${platform}`);
+        });
+      } else {
+        Alert.alert('Error', `Could not share via ${platform}`);
+      }
+    });
+    setShowShareModal(false);
   };
 
   const handleWhatsAppShare = () => {
@@ -58,10 +139,20 @@ export const InviteModal = ({ visible, onClose, email }) => {
     });
   };
 
-  const handleCopyToClipboard = () => {
-    Share.share({
-      message: inviteLink,
-    });
+  const handleCopyToClipboard = async () => {
+    if (!inviteLink) return;
+    
+    try {
+      await Clipboard.setStringAsync(inviteLink);
+      Toast.show({
+        type: 'success',
+        text1: 'Copied!',
+        text2: 'Link copied to clipboard',
+        position: 'top',
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to copy link');
+    }
   };
 
   return (
@@ -73,7 +164,15 @@ export const InviteModal = ({ visible, onClose, email }) => {
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
-          <Text style={styles.title}>Invite User</Text>
+          <View style={styles.modalHeader}>
+            <Text style={styles.title}>Invite User</Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={onClose}
+            >
+              <Text style={styles.modalCloseButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
           
           {loading ? (
             <ActivityIndicator size="large" color={COLORS.primary} />
@@ -99,7 +198,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
 
                 <TouchableOpacity
                   style={[styles.button, styles.shareButton]}
-                  onPress={handleCopyLink}
+                  onPress={handleShare}
                 >
                   <Text style={styles.buttonText}>📤 Share</Text>
                 </TouchableOpacity>
@@ -113,15 +212,88 @@ export const InviteModal = ({ visible, onClose, email }) => {
               </View>
             </>
           )}
-
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={onClose}
-          >
-            <Text style={styles.closeButtonText}>Close</Text>
-          </TouchableOpacity>
         </View>
       </View>
+
+      {/* Share Platform Selection Modal */}
+      <Modal
+        transparent={true}
+        visible={showShareModal}
+        animationType="slide"
+        onRequestClose={() => setShowShareModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.shareModalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.shareModalTitle}>Share via</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowShareModal(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.sharePlatformsContainer}>
+              <TouchableOpacity
+                style={styles.sharePlatformButton}
+                onPress={() => handlePlatformShare('whatsapp')}
+              >
+                <Text style={styles.sharePlatformIcon}>📱</Text>
+                <Text style={styles.sharePlatformText}>WhatsApp</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sharePlatformButton}
+                onPress={() => handlePlatformShare('facebook')}
+              >
+                <Text style={styles.sharePlatformIcon}>👤</Text>
+                <Text style={styles.sharePlatformText}>Facebook</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sharePlatformButton}
+                onPress={() => handlePlatformShare('twitter')}
+              >
+                <Text style={styles.sharePlatformIcon}>🐦</Text>
+                <Text style={styles.sharePlatformText}>Twitter</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sharePlatformButton}
+                onPress={() => handlePlatformShare('telegram')}
+              >
+                <Text style={styles.sharePlatformIcon}>✈️</Text>
+                <Text style={styles.sharePlatformText}>Telegram</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sharePlatformButton}
+                onPress={() => handlePlatformShare('sms')}
+              >
+                <Text style={styles.sharePlatformIcon}>💬</Text>
+                <Text style={styles.sharePlatformText}>SMS</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sharePlatformButton}
+                onPress={() => handlePlatformShare('email')}
+              >
+                <Text style={styles.sharePlatformIcon}>📧</Text>
+                <Text style={styles.sharePlatformText}>Email</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sharePlatformButton}
+                onPress={() => handlePlatformShare('native')}
+              >
+                <Text style={styles.sharePlatformIcon}>📤</Text>
+                <Text style={styles.sharePlatformText}>More Options</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -879,12 +1051,35 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
   title: {
     fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.text,
-    marginBottom: SPACING.md,
+    flex: 1,
     textAlign: 'center',
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.divider,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  modalCloseButtonText: {
+    fontSize: 20,
+    color: COLORS.text,
+    fontWeight: 'bold',
+    lineHeight: 20,
   },
   subtitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
@@ -980,6 +1175,59 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  shareModalContainer: {
+    backgroundColor: COLORS.receivedMessage,
+    borderRadius: BORDER_RADIUS.xl,
+    padding: SPACING.xl,
+    width: '90%',
+    maxWidth: 400,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  shareModalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.text,
+    flex: 1,
+    textAlign: 'center',
+  },
+  sharePlatformsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  sharePlatformButton: {
+    width: '30%',
+    minWidth: 90,
+    aspectRatio: 1,
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  sharePlatformIcon: {
+    fontSize: 32,
+    marginBottom: SPACING.xs,
+  },
+  sharePlatformText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.text,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    textAlign: 'center',
   },
 });
 
