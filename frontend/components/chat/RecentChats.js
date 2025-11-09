@@ -14,9 +14,9 @@ import contactsService from '../../services/contactsService';
 import groupService from '../../services/groupService';
 import ChatActionBar from './ChatActionBar';
 
-const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, onNewChat, onCreateGroup, onSaveContact, onInvite, onContactsUpdate, onGroupsUpdate }) => {
+const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, onNewChat, onCreateGroup, onSaveContact, onInvite, onContactsUpdate, onGroupsUpdate, userEmail }) => {
   const { colors } = useTheme();
-  const [filter, setFilter] = useState('all'); // 'all', 'unread', 'favorites'
+  const [filter, setFilter] = useState('all'); // 'all', 'unread', 'favorites', 'archived'
   const [togglingFavorite, setTogglingFavorite] = useState(null);
   const [togglingGroupFavorite, setTogglingGroupFavorite] = useState(null);
   const [selectedChats, setSelectedChats] = useState([]); // Array of { type: 'contact' | 'group', id: string }
@@ -26,29 +26,48 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     return email.split('@')[0];
   };
 
-  // Filter contacts based on selected filter (groups are always shown in 'all' filter)
+  // Filter contacts based on selected filter
   const filteredContacts = useMemo(() => {
+    // Exclude archived chats from all, unread, and favorites filters
+    const nonArchivedContacts = contacts.filter(contact => !contact.isArchived);
+    
     if (filter === 'all') {
-      return contacts;
+      return nonArchivedContacts;
     } else if (filter === 'unread') {
-      return contacts.filter(contact => contact.unreadCount > 0);
+      return nonArchivedContacts.filter(contact => contact.unreadCount > 0);
     } else if (filter === 'favorites') {
-      return contacts.filter(contact => contact.isFavorite === true);
+      return nonArchivedContacts.filter(contact => contact.isFavorite === true);
+    } else if (filter === 'archived') {
+      return contacts.filter(contact => contact.isArchived === true);
     }
-    return contacts;
+    return nonArchivedContacts;
   }, [contacts, filter]);
 
   // Filter groups based on selected filter
   const filteredGroups = useMemo(() => {
+    const groupsList = groups || [];
+    
+    // Helper to check if group is archived for current user
+    const isGroupArchived = (group) => {
+      if (!group.archivedBy || !Array.isArray(group.archivedBy)) return false;
+      // Check if current user's email is in the archivedBy array
+      return userEmail && group.archivedBy.includes(userEmail);
+    };
+    
+    // Exclude archived groups from all, unread, and favorites filters
+    const nonArchivedGroups = groupsList.filter(group => !isGroupArchived(group));
+    
     if (filter === 'all') {
-      return groups || [];
+      return nonArchivedGroups;
     } else if (filter === 'unread') {
-      return (groups || []).filter(group => (group.unreadCount || 0) > 0);
+      return nonArchivedGroups.filter(group => (group.unreadCount || 0) > 0);
     } else if (filter === 'favorites') {
-      return (groups || []).filter(group => group.isFavorite === true);
+      return nonArchivedGroups.filter(group => group.isFavorite === true);
+    } else if (filter === 'archived') {
+      return groupsList.filter(group => isGroupArchived(group));
     }
-    return groups || [];
-  }, [groups, filter]);
+    return nonArchivedGroups;
+  }, [groups, filter, userEmail]);
 
   // Combined data for display (groups + filtered contacts)
   const combinedData = useMemo(() => {
@@ -316,8 +335,20 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
       return false;
     });
     
-    return { isPinned: false, isArchived: false, isMuted: false, isFavorite: allFavorited };
-  }, [selectedChats, contacts, groups]);
+    // Check if all selected chats are archived
+    const allArchived = selectedChats.every(chat => {
+      if (chat.type === 'contact') {
+        const contact = contacts.find(c => c.email === chat.id);
+        return contact?.isArchived === true;
+      } else if (chat.type === 'group') {
+        const group = groups.find(g => g._id === chat.id);
+        return userEmail && group?.archivedBy && group.archivedBy.includes(userEmail);
+      }
+      return false;
+    });
+    
+    return { isPinned: false, isArchived: allArchived, isMuted: false, isFavorite: allFavorited };
+  }, [selectedChats, contacts, groups, userEmail]);
 
   const actionBarStatus = getActionBarStatus();
 
@@ -416,19 +447,46 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
             </View>
           )}
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterTab,
+            { borderColor: filter === 'archived' ? colors.primary : colors.divider },
+            filter === 'archived' && { backgroundColor: colors.primary }
+          ]}
+          onPress={() => setFilter('archived')}
+        >
+          <Text style={[
+            styles.filterTabText,
+            { color: filter === 'archived' ? colors.white : colors.textSecondary }
+          ]}>
+            Archived
+          </Text>
+          {(contacts.filter(c => c.isArchived === true).length + (groups || []).filter(g => userEmail && g.archivedBy && g.archivedBy.includes(userEmail)).length) > 0 && (
+            <View style={[styles.filterBadge, { backgroundColor: filter === 'archived' ? colors.white : colors.primary }]}>
+              <Text style={[styles.filterBadgeText, { color: filter === 'archived' ? colors.primary : colors.white }]}>
+                {contacts.filter(c => c.isArchived === true).length + (groups || []).filter(g => userEmail && g.archivedBy && g.archivedBy.includes(userEmail)).length}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {combinedData.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, { color: colors.text }]}>
-            {filter === 'all' ? 'No recent chats' : filter === 'unread' ? 'No unread messages' : 'No favorite contacts or groups'}
+            {filter === 'all' ? 'No recent chats' 
+              : filter === 'unread' ? 'No unread messages' 
+              : filter === 'favorites' ? 'No favorite contacts or groups'
+              : 'No archived chats'}
           </Text>
           <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
             {filter === 'all' 
               ? 'Start a new chat or create a group to see conversations here'
               : filter === 'unread'
               ? 'All messages are read'
-              : 'Mark contacts as favorite to see them here'}
+              : filter === 'favorites'
+              ? 'Mark contacts as favorite to see them here'
+              : 'Archive chats to see them here'}
           </Text>
           {filter === 'all' && (
             <View style={styles.emptyButtons}>

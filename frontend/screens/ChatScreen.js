@@ -103,10 +103,12 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         // Refresh contacts list to show new contact or update unread count
         loadContacts();
 
-        // Show notification only if not viewing this chat
+        // Show notification only if not viewing this chat and chat is not archived
         const isViewingThisChat = contactEmail === data.senderEmail && chatType === 'private';
+        const senderContact = contacts.find(c => c.email === data.senderEmail);
+        const isArchived = senderContact?.isArchived === true;
         
-        if (!isViewingThisChat) {
+        if (!isViewingThisChat && !isArchived) {
           // Decrypt message for notification
           let messageText = data.message;
           try {
@@ -125,7 +127,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           }
 
           // Get sender name - try from current contacts, fallback to email
-          const senderContact = contacts.find(c => c.email === data.senderEmail);
           let senderName = senderContact?.name;
           
           // If not found in contacts, try to get from profile or use email
@@ -961,6 +962,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                     onInvite={handleInvite}
                     onContactsUpdate={loadContacts}
                     onGroupsUpdate={loadGroups}
+                    userEmail={userEmail}
                   />
 
       {showInviteModal && (
