@@ -137,20 +137,41 @@ const ComputerPartsMatch = () => {
 
   const allMatched = matchedPairs.length === computerParts.length
 
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   return (
     <div className="animal-quiz-container">
-      <div className="animal-quiz-content" style={{ maxWidth: '900px' }}>
+      <div className="animal-quiz-content" style={{ maxWidth: windowWidth <= 768 ? '100%' : '900px', width: '100%' }}>
         <h1 className="quiz-title">🔗 Computer Parts Match</h1>
         <p className="quiz-subtitle">Match computer parts with their descriptions!</p>
         
-        <div className="score-display" style={{ marginBottom: '30px' }}>
+        <div className="score-display" style={{ 
+          marginBottom: '30px',
+          fontSize: windowWidth <= 768 ? '0.9rem' : '1.2rem',
+          padding: windowWidth <= 768 ? '12px' : '15px',
+          wordBreak: 'break-word',
+          textAlign: 'center'
+        }}>
           <span>Score: {score} / {totalMatches} | Matched: {matchedPairs.length} / {computerParts.length}</span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '30px' }}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: windowWidth <= 768 ? '1fr' : '1fr 1fr', 
+          gap: windowWidth <= 768 ? '20px' : '30px', 
+          marginBottom: '30px' 
+        }}>
           {/* Parts Column */}
           <div>
-            <h3 style={{ fontSize: '1.5rem', marginBottom: '20px', color: '#667eea' }}>Computer Parts</h3>
+            <h3 style={{ fontSize: windowWidth <= 768 ? '1.2rem' : '1.5rem', marginBottom: '20px', color: '#667eea' }}>Computer Parts</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               {parts.map((item, index) => {
                 const matched = isMatched(index)
@@ -161,8 +182,8 @@ const ComputerPartsMatch = () => {
                     onClick={() => handlePartClick(index)}
                     disabled={matched}
                     style={{
-                      padding: '20px',
-                      fontSize: '1.2rem',
+                      padding: windowWidth <= 768 ? '15px' : '20px',
+                      fontSize: windowWidth <= 768 ? '1rem' : '1.2rem',
                       border: matched 
                         ? '3px solid #28a745' 
                         : selected 
@@ -179,10 +200,11 @@ const ComputerPartsMatch = () => {
                       textAlign: 'left',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '15px'
+                      gap: windowWidth <= 768 ? '10px' : '15px',
+                      flexWrap: 'wrap'
                     }}
                   >
-                    <span style={{ fontSize: '2.5rem' }}>{item.emoji}</span>
+                    <span style={{ fontSize: windowWidth <= 768 ? '2rem' : '2.5rem' }}>{item.emoji}</span>
                     <span style={{ fontWeight: 'bold' }}>{item.part}</span>
                     {matched && <span style={{ marginLeft: 'auto', fontSize: '1.5rem' }}>✅</span>}
                   </button>
@@ -193,7 +215,7 @@ const ComputerPartsMatch = () => {
 
           {/* Descriptions Column */}
           <div>
-            <h3 style={{ fontSize: '1.5rem', marginBottom: '20px', color: '#667eea' }}>Descriptions</h3>
+            <h3 style={{ fontSize: windowWidth <= 768 ? '1.2rem' : '1.5rem', marginBottom: '20px', color: '#667eea' }}>Descriptions</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               {descriptions.map((desc, index) => {
                 const matched = isDescMatched(desc)
@@ -204,8 +226,8 @@ const ComputerPartsMatch = () => {
                     onClick={() => handleDescClick(index)}
                     disabled={matched}
                     style={{
-                      padding: '20px',
-                      fontSize: '1.1rem',
+                      padding: windowWidth <= 768 ? '15px' : '20px',
+                      fontSize: windowWidth <= 768 ? '1rem' : '1.1rem',
                       border: matched 
                         ? '3px solid #28a745' 
                         : selected 
@@ -219,7 +241,8 @@ const ComputerPartsMatch = () => {
                         : 'white',
                       cursor: matched ? 'not-allowed' : 'pointer',
                       transition: 'all 0.3s',
-                      textAlign: 'left'
+                      textAlign: 'left',
+                      wordBreak: 'break-word'
                     }}
                   >
                     {desc}

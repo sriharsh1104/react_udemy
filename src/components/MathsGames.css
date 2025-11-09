@@ -98,6 +98,18 @@
   gap: 40px;
 }
 
+.game-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+@media (max-width: 768px) {
+  .game-wrapper {
+    padding: 10px;
+  }
+}
+
 .balloon-games-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -255,6 +267,20 @@
   }
 }
 
+@media (max-width: 1024px) {
+  .tabs-container {
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-button {
+    padding: 10px 20px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 768px) {
   .balloon-games-grid {
     grid-template-columns: 1fr;
@@ -268,6 +294,74 @@
   .reset-all-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .tabs-container {
+    gap: 6px;
+    padding-bottom: 10px;
+  }
+
+  .tab-button {
+    padding: 10px 16px;
+    font-size: 13px;
+    min-width: auto;
+  }
+
+  .games-container {
+    padding: 10px;
+  }
+
+  .placeholder-content {
+    padding: 30px 20px;
+  }
+
+  .placeholder-content h3 {
+    font-size: 22px;
+  }
+
+  .placeholder-content p {
+    font-size: 16px;
+  }
+
+  .open-modal-btn {
+    padding: 12px 24px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .maths-games {
+    gap: 15px;
+  }
+
+  .maths-games-title {
+    font-size: 20px;
+  }
+
+  .tabs-container {
+    gap: 4px;
+  }
+
+  .tab-button {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .placeholder-content {
+    padding: 20px 15px;
+  }
+
+  .placeholder-content h3 {
+    font-size: 18px;
+  }
+
+  .placeholder-content p {
+    font-size: 14px;
+  }
+
+  .open-modal-btn {
+    padding: 10px 20px;
+    font-size: 14px;
   }
 }
 

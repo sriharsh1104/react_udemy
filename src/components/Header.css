@@ -139,31 +139,76 @@
   box-shadow: 0 8px 24px rgba(108, 124, 255, 0.35);
 }
 
+@media (max-width: 1024px) {
+  .header-content {
+    padding: 20px 30px;
+  }
+
+  .header-title {
+    font-size: 1.8rem;
+  }
+
+  .tab {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}
+
 @media (max-width: 768px) {
   .header-content {
-    padding: 20px;
+    padding: 15px 20px;
   }
   
   .header-top {
     flex-direction: column;
     align-items: center;
     gap: 15px;
+    margin-bottom: 15px;
   }
   
   .header-title {
     font-size: 1.5rem;
+    text-align: center;
   }
   
   .tabs {
     flex-direction: column;
+    gap: 8px;
+    width: 100%;
   }
   
   .tab {
     width: 100%;
+    padding: 12px 20px;
+    font-size: 0.9rem;
   }
   
   .game-mode-toggle {
     width: 100%;
     justify-content: center;
+  }
+
+  .toggle-label {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-content {
+    padding: 12px 15px;
+  }
+
+  .header-title {
+    font-size: 1.3rem;
+  }
+
+  .tab {
+    padding: 10px 15px;
+    font-size: 0.85rem;
+  }
+
+  .toggle-text {
+    font-size: 0.85rem;
   }
 }

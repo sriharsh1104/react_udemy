@@ -200,31 +200,132 @@
   margin-top: 20px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
+  .animal-quiz-container {
+    padding: 15px;
+  }
+
   .animal-quiz-content {
-    padding: 20px;
+    padding: 30px;
+    max-width: 100%;
   }
 
   .quiz-title {
-    font-size: 2rem;
+    font-size: 2.2rem;
   }
 
   .animal-emoji {
-    font-size: 6rem;
+    font-size: 7rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .animal-quiz-container {
+    padding: 10px;
+    min-height: calc(100vh - 150px);
+  }
+
+  .animal-quiz-content {
+    padding: 20px 15px;
+    border-radius: 15px;
+  }
+
+  .quiz-title {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+  }
+
+  .quiz-subtitle {
+    font-size: 1rem;
+    margin-bottom: 20px;
+  }
+
+  .score-display {
+    padding: 12px;
+    font-size: 1rem;
+    margin-bottom: 20px;
+  }
+
+  .animal-emoji {
+    font-size: 5rem;
+    margin-bottom: 15px;
   }
 
   .question-text {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+    margin-top: 10px;
+    margin-bottom: 15px;
+    line-height: 1.4;
+  }
+
+  .hint-box {
+    padding: 12px;
+    font-size: 1rem;
+    margin-bottom: 15px;
+  }
+
+  .answer-input {
+    padding: 12px;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
   }
 
   .button-group {
     flex-direction: column;
+    gap: 8px;
   }
 
   .hint-button,
   .skip-button,
   .submit-button {
     width: 100%;
+    padding: 12px 20px;
+    font-size: 1rem;
+  }
+
+  .result-message {
+    padding: 15px;
+    font-size: 1rem;
+    margin-bottom: 15px;
+  }
+
+  .result-icon {
+    font-size: 1.5rem;
+  }
+
+  .progress-info {
+    font-size: 0.9rem;
+    margin-top: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .animal-quiz-content {
+    padding: 15px 10px;
+  }
+
+  .quiz-title {
+    font-size: 1.5rem;
+  }
+
+  .animal-emoji {
+    font-size: 4rem;
+  }
+
+  .question-text {
+    font-size: 1rem;
+  }
+
+  .answer-input {
+    font-size: 1rem;
+    padding: 10px;
+  }
+
+  .hint-button,
+  .skip-button,
+  .submit-button {
+    font-size: 0.9rem;
+    padding: 10px 16px;
   }
 }
 
