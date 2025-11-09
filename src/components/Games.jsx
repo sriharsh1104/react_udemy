@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import MathsGamesContent from './MathsGamesContent'
 import EnglishGamesContent from './EnglishGamesContent'
+import AnimalQuiz from './AnimalQuiz'
 import './MathsGames.css'
 
 const Games = ({ onExitGameMode }) => {
@@ -24,6 +25,13 @@ const Games = ({ onExitGameMode }) => {
           >
             📚 English Games
           </button>
+          <button
+            className={`tab-button ${activeGameTab === 'computer' ? 'active' : ''}`}
+            onClick={() => setActiveGameTab('computer')}
+            style={{ fontSize: '24px', fontWeight: 700, padding: '12px 24px' }}
+          >
+            🖥️ Computer
+          </button>
         </div>
       </div>
 
@@ -32,6 +40,9 @@ const Games = ({ onExitGameMode }) => {
       )}
       {activeGameTab === 'english' && (
         <EnglishGamesContent onExitGameMode={onExitGameMode} />
+      )}
+      {activeGameTab === 'computer' && (
+        <AnimalQuiz />
       )}
     </div>
   )
