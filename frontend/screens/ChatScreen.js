@@ -1135,6 +1135,13 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         userEmail={userEmail}
         onLoadMessageInfo={loadMessageInfo}
       />
+      
+      {/* Footer */}
+      <View style={[styles.footer, { borderTopColor: colors.divider }]}>
+        <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+          Powered by onlygossips247
+        </Text>
+      </View>
     </KeyboardAvoidingView>
       </SafeAreaView>
   );
@@ -1189,6 +1196,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     textAlign: 'center',
+  },
+  footer: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderTopWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.background,
+  },
+  footerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
   },
 });
 

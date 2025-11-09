@@ -588,6 +588,13 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
           windowSize={10}
         />
       )}
+      
+      {/* Footer */}
+      <View style={[styles.footer, { borderTopColor: colors.divider }]}>
+        <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+          Powered by onlygossips247
+        </Text>
+      </View>
     </View>
   );
 };
@@ -796,6 +803,17 @@ const styles = StyleSheet.create({
   muteIcon: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     marginLeft: SPACING.xs,
+  },
+  footer: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderTopWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
 });
 
