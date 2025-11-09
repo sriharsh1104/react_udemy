@@ -28,6 +28,7 @@ import MessageActionBar from '../components/chat/MessageActionBar';
 import MessageInfoModal from '../components/chat/MessageInfoModal';
 import PinnedMessageBanner from '../components/chat/PinnedMessageBanner';
 import GLoader from '../components/common/GLoader';
+import StatusFeed from '../components/chat/StatusFeed';
 import contactsService from '../services/contactsService';
 import groupService from '../services/groupService';
 import fileUploadService from '../services/fileUploadService';
@@ -1133,10 +1134,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       );
     } else if (activeBottomTab === 'status') {
       return (
-        <View style={styles.comingSoonContainer}>
-          <Text style={styles.comingSoonText}>Coming Soon</Text>
-          <Text style={styles.comingSoonSubtext}>Status Feed feature is under development</Text>
-        </View>
+        <StatusFeed userEmail={userEmail} contacts={contacts} />
       );
     } else if (activeBottomTab === 'call') {
       return (

@@ -5,6 +5,7 @@ const contactsController = require('../controllers/contactsController');
 const settingsController = require('../controllers/settingsController');
 const groupController = require('../controllers/groupController');
 const fileController = require('../controllers/fileController');
+const statusController = require('../controllers/statusController');
 
 const router = require('express').Router();
 
@@ -93,6 +94,12 @@ router.post('/groups/toggle-mute', asyncHandler(groupController.toggleMute.bind(
 router.post('/files/upload', fileController.uploadFile);
 router.get('/files/download/:fileId', fileController.downloadFile);
 router.delete('/files/delete/:fileId', fileController.deleteFile);
+
+// Status routes
+router.post('/status/upload', statusController.uploadStatus);
+router.get('/status/feed', statusController.getStatusFeed);
+router.post('/status/view', statusController.markAsViewed);
+router.get('/status/:statusId/viewers', statusController.getViewers);
 
 console.log('Routes registered:');
 console.log('  POST /api/auth/register');
