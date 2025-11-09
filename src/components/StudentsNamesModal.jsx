@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './StudentsNamesModal.css'
 
-const StudentsNamesModal = ({ onNamesSubmit, onClose, storageKey = 'maths_games_students_names', gameTitle = 'Maths Games' }) => {
+const StudentsNamesModal = ({ onNamesSubmit, onClose, storageKey = 'maths_games_students_names', gameTitle = 'Maths Games', singlePlayer = false }) => {
   const [names, setNames] = useState({
     student1: '',
     student2: '',
@@ -16,14 +16,22 @@ const StudentsNamesModal = ({ onNamesSubmit, onClose, storageKey = 'maths_games_
     if (savedNames) {
       try {
         const parsed = JSON.parse(savedNames)
-        if (parsed.student1 && parsed.student2 && parsed.student3 && parsed.student4) {
-          setNames(parsed)
+        if (singlePlayer) {
+          // For single player, only check student1
+          if (parsed.student1) {
+            setNames(parsed)
+          }
+        } else {
+          // For multi-player, check all 4 students
+          if (parsed.student1 && parsed.student2 && parsed.student3 && parsed.student4) {
+            setNames(parsed)
+          }
         }
       } catch (e) {
         console.error('Error loading saved names:', e)
       }
     }
-  }, [storageKey])
+  }, [storageKey, singlePlayer])
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -64,7 +72,10 @@ const StudentsNamesModal = ({ onNamesSubmit, onClose, storageKey = 'maths_games_
     const newErrors = {}
     let isValid = true
 
-    Object.keys(names).forEach((studentId) => {
+    // For single player, only validate student1
+    const studentsToValidate = singlePlayer ? ['student1'] : ['student1', 'student2', 'student3', 'student4']
+
+    studentsToValidate.forEach((studentId) => {
       const name = names[studentId].trim()
       if (!name) {
         newErrors[studentId] = 'कृपया नाम दर्ज करें'
@@ -78,18 +89,20 @@ const StudentsNamesModal = ({ onNamesSubmit, onClose, storageKey = 'maths_games_
       }
     })
 
-    // Check for duplicate names
-    const nameValues = Object.values(names).map(n => n.trim().toLowerCase())
-    const duplicates = nameValues.filter((name, index) => nameValues.indexOf(name) !== index && name !== '')
-    
-    if (duplicates.length > 0) {
-      Object.keys(names).forEach((studentId) => {
-        const name = names[studentId].trim().toLowerCase()
-        if (duplicates.includes(name)) {
-          newErrors[studentId] = 'नाम unique होना चाहिए'
-          isValid = false
-        }
-      })
+    // Check for duplicate names (only for multi-player)
+    if (!singlePlayer) {
+      const nameValues = Object.values(names).map(n => n.trim().toLowerCase())
+      const duplicates = nameValues.filter((name, index) => nameValues.indexOf(name) !== index && name !== '')
+      
+      if (duplicates.length > 0) {
+        Object.keys(names).forEach((studentId) => {
+          const name = names[studentId].trim().toLowerCase()
+          if (duplicates.includes(name)) {
+            newErrors[studentId] = 'नाम unique होना चाहिए'
+            isValid = false
+          }
+        })
+      }
     }
 
     setErrors(newErrors)
@@ -130,24 +143,30 @@ const StudentsNamesModal = ({ onNamesSubmit, onClose, storageKey = 'maths_games_
         </button>
         <div className="modal-header">
           <h2>🎮 Welcome to {gameTitle}!</h2>
-          <p>कृपया 4 छात्रों के नाम दर्ज करें</p>
-          <p className="subtitle">सभी नाम mandatory हैं</p>
+          {singlePlayer ? (
+            <p>कृपया अपना नाम दर्ज करें</p>
+          ) : (
+            <>
+              <p>कृपया 4 छात्रों के नाम दर्ज करें</p>
+              <p className="subtitle">सभी नाम mandatory हैं</p>
+            </>
+          )}
         </div>
         
         <form onSubmit={handleSubmit} className="students-names-form">
-          {[1, 2, 3, 4].map((num) => {
+          {(singlePlayer ? [1] : [1, 2, 3, 4]).map((num) => {
             const studentId = `student${num}`
             return (
               <div key={studentId} className="input-group">
                 <label htmlFor={studentId}>
-                  Student {num}: <span className="required">*</span>
+                  {singlePlayer ? 'Player Name' : `Student ${num}`}: <span className="required">*</span>
                 </label>
                 <input
                   id={studentId}
                   type="text"
                   value={names[studentId]}
                   onChange={(e) => handleNameChange(studentId, e.target.value)}
-                  placeholder={`Enter Student ${num} name`}
+                  placeholder={singlePlayer ? 'Enter your name' : `Enter Student ${num} name`}
                   className={errors[studentId] ? 'error' : ''}
                   maxLength={30}
                   autoFocus={num === 1}

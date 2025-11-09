@@ -32,17 +32,17 @@ const ComputerGamesContent = ({ onExitGameMode }) => {
 
       <div className="games-container">
         {activeTab === 'quiz' && (
-          <div className="game-wrapper">
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
             <ComputerQuiz />
           </div>
         )}
         {activeTab === 'match' && (
-          <div className="game-wrapper">
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
             <ComputerPartsMatch />
           </div>
         )}
         {activeTab === 'basics' && (
-          <div className="game-wrapper">
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
             <ComputerBasicsQuiz />
           </div>
         )}

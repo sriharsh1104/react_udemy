@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import BalloonMathPop from './BalloonMathPop'
 import SpaceMission from './SpaceMission'
+import RomanNumerals from './RomanNumerals'
 import ScoreHistory from './ScoreHistory'
 import StudentsNamesModal from './StudentsNamesModal'
 import { BACKEND_URL } from '../constants'
@@ -11,6 +12,7 @@ const MathsGamesContent = ({ onExitGameMode }) => {
   const [showModal, setShowModal] = useState(false)
   const [balloonStarted, setBalloonStarted] = useState(false)
   const [spaceStarted, setSpaceStarted] = useState(false)
+  const [romanStarted, setRomanStarted] = useState(false)
   const [balloonNames, setBalloonNames] = useState({
     student1: '',
     student2: '',
@@ -23,7 +25,13 @@ const MathsGamesContent = ({ onExitGameMode }) => {
     student3: '',
     student4: ''
   })
-  const [currentGameType, setCurrentGameType] = useState(null) // 'balloon' or 'space'
+  const [romanNames, setRomanNames] = useState({
+    student1: '',
+    student2: '',
+    student3: '',
+    student4: ''
+  })
+  const [currentGameType, setCurrentGameType] = useState(null) // 'balloon', 'space', or 'roman'
 
   // Load started games state and names
   useEffect(() => {
@@ -56,6 +64,21 @@ const MathsGamesContent = ({ onExitGameMode }) => {
         console.error('Error loading space names:', e)
       }
     }
+
+    // Load roman game state (single player - only student1 required)
+    const romanStartedState = localStorage.getItem('maths_games_roman_started')
+    const romanNamesData = localStorage.getItem('roman_numerals_students_names')
+    if (romanStartedState === 'true') setRomanStarted(true)
+    if (romanNamesData) {
+      try {
+        const parsed = JSON.parse(romanNamesData)
+        if (parsed.student1) {
+          setRomanNames(parsed)
+        }
+      } catch (e) {
+        console.error('Error loading roman names:', e)
+      }
+    }
   }, [])
 
   const handleNamesSubmit = (names) => {
@@ -69,6 +92,11 @@ const MathsGamesContent = ({ onExitGameMode }) => {
       localStorage.setItem('space_mission_students_names', JSON.stringify(names))
       setSpaceStarted(true)
       localStorage.setItem('maths_games_space_started', 'true')
+    } else if (currentGameType === 'roman') {
+      setRomanNames(names)
+      localStorage.setItem('roman_numerals_students_names', JSON.stringify(names))
+      setRomanStarted(true)
+      localStorage.setItem('maths_games_roman_started', 'true')
     }
     setShowModal(false)
     setCurrentGameType(null)
@@ -82,6 +110,11 @@ const MathsGamesContent = ({ onExitGameMode }) => {
       }))
     } else if (currentGameType === 'space') {
       setSpaceNames(prev => ({
+        ...prev,
+        [studentId]: name.trim()
+      }))
+    } else if (currentGameType === 'roman') {
+      setRomanNames(prev => ({
         ...prev,
         [studentId]: name.trim()
       }))
@@ -107,6 +140,11 @@ const MathsGamesContent = ({ onExitGameMode }) => {
            isValidName(spaceNames.student2) &&
            isValidName(spaceNames.student3) &&
            isValidName(spaceNames.student4)
+  }
+
+  // Check if name is valid for roman game (single player - only student1 required)
+  const romanNamesValid = () => {
+    return isValidName(romanNames.student1)
   }
 
   const handleModalClose = () => {
@@ -137,9 +175,11 @@ const MathsGamesContent = ({ onExitGameMode }) => {
       // Clear localStorage
       localStorage.removeItem('balloon_math_pop_students_names')
       localStorage.removeItem('space_mission_students_names')
+      localStorage.removeItem('roman_numerals_students_names')
       localStorage.removeItem('maths_games_scores')
       localStorage.removeItem('maths_games_balloon_started')
       localStorage.removeItem('maths_games_space_started')
+      localStorage.removeItem('maths_games_roman_started')
       
       // Reset state
       setBalloonNames({
@@ -154,8 +194,15 @@ const MathsGamesContent = ({ onExitGameMode }) => {
         student3: '',
         student4: ''
       })
+      setRomanNames({
+        student1: '',
+        student2: '',
+        student3: '',
+        student4: ''
+      })
       setBalloonStarted(false)
       setSpaceStarted(false)
+      setRomanStarted(false)
       
       // Trigger score update event to refresh leaderboard
       window.dispatchEvent(new CustomEvent('scoreUpdated'))
@@ -172,19 +219,33 @@ const MathsGamesContent = ({ onExitGameMode }) => {
     setShowModal(true)
   }
 
+  const handleStartRoman = () => {
+    setCurrentGameType('roman')
+    setShowModal(true)
+  }
+
   return (
     <>
       {showModal && (
         <StudentsNamesModal 
           onNamesSubmit={handleNamesSubmit} 
           onClose={handleModalClose}
-          storageKey={currentGameType === 'balloon' ? 'balloon_math_pop_students_names' : 'space_mission_students_names'}
-          gameTitle={currentGameType === 'balloon' ? 'Balloon Math Pop' : 'Space Mission'}
+          storageKey={
+            currentGameType === 'balloon' ? 'balloon_math_pop_students_names' :
+            currentGameType === 'space' ? 'space_mission_students_names' :
+            'roman_numerals_students_names'
+          }
+          gameTitle={
+            currentGameType === 'balloon' ? 'Balloon Math Pop' :
+            currentGameType === 'space' ? 'Space Mission' :
+            'Roman Numerals'
+          }
+          singlePlayer={currentGameType === 'roman'}
         />
       )}
       
       <div className="maths-games-header" style={{ justifyContent: 'flex-end' }}>
-        {(balloonStarted && balloonNamesValid()) || (spaceStarted && spaceNamesValid()) ? (
+        {(balloonStarted && balloonNamesValid()) || (spaceStarted && spaceNamesValid()) || (romanStarted && romanNamesValid()) ? (
           <button onClick={handleResetAll} className="reset-all-btn" title="Reset all games and enter new names">
             🔄 Reset All
           </button>
@@ -205,6 +266,12 @@ const MathsGamesContent = ({ onExitGameMode }) => {
           onClick={() => setActiveTab('space')}
         >
           🚀 Space Mission
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'roman' ? 'active' : ''}`}
+          onClick={() => setActiveTab('roman')}
+        >
+          🏛️ Roman Numerals
         </button>
       </div>
 
@@ -274,6 +341,29 @@ const MathsGamesContent = ({ onExitGameMode }) => {
                     <span className="student-name">{spaceNames.student1}</span>
                   </div>
                   <SpaceMission userName={spaceNames.student1} />
+                </div>
+              )}
+            </>
+          )}
+          {activeTab === 'roman' && (
+            <>
+              {!romanStarted ? (
+                <div className="games-placeholder">
+                  <div className="placeholder-content">
+                    <h3>🏛️ Roman Numerals</h3>
+                    <p>Ready to start the game?</p>
+                    <button onClick={handleStartRoman} className="open-modal-btn">
+                      ▶️ Start Game
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-game-wrapper">
+                  <div className="student-name-display">
+                    <label>Player Name:</label>
+                    <span className="student-name">{romanNames.student1}</span>
+                  </div>
+                  <RomanNumerals userName={romanNames.student1} />
                 </div>
               )}
             </>
