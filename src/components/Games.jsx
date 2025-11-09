@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import MathsGamesContent from './MathsGamesContent'
 import EnglishGamesContent from './EnglishGamesContent'
-import AnimalQuiz from './AnimalQuiz'
+import ComputerQuiz from './ComputerQuiz'
 import './MathsGames.css'
 
 const Games = ({ onExitGameMode }) => {
@@ -42,7 +42,7 @@ const Games = ({ onExitGameMode }) => {
         <EnglishGamesContent onExitGameMode={onExitGameMode} />
       )}
       {activeGameTab === 'computer' && (
-        <AnimalQuiz />
+        <ComputerQuiz />
       )}
     </div>
   )
