@@ -459,6 +459,12 @@ const SpaceMission = ({ userName = null }) => {
                 <div className="auto-next-message">
                   Next mission in {answerDisplayTimer}s...
                 </div>
+                <button 
+                  onClick={handleNextQuestion} 
+                  className="next-question-btn"
+                >
+                  ➡️ Next Question
+                </button>
               </div>
             )}
 

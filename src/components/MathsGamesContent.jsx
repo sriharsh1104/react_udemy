@@ -10,6 +10,8 @@ import './MathsGames.css'
 const MathsGamesContent = ({ onExitGameMode }) => {
   const [activeTab, setActiveTab] = useState('balloon')
   const [showModal, setShowModal] = useState(false)
+  const [showModeSelection, setShowModeSelection] = useState(false)
+  const [balloonMode, setBalloonMode] = useState(null) // 'single' or 'multiplayer'
   const [balloonStarted, setBalloonStarted] = useState(false)
   const [spaceStarted, setSpaceStarted] = useState(false)
   const [romanStarted, setRomanStarted] = useState(false)
@@ -38,12 +40,21 @@ const MathsGamesContent = ({ onExitGameMode }) => {
     // Load balloon game state
     const balloonStartedState = localStorage.getItem('maths_games_balloon_started')
     const balloonNamesData = localStorage.getItem('balloon_math_pop_students_names')
+    const savedBalloonMode = localStorage.getItem('balloon_math_pop_mode') // 'single' or 'multiplayer'
     if (balloonStartedState === 'true') setBalloonStarted(true)
+    if (savedBalloonMode) setBalloonMode(savedBalloonMode)
     if (balloonNamesData) {
       try {
         const parsed = JSON.parse(balloonNamesData)
-        if (parsed.student1 && parsed.student2 && parsed.student3 && parsed.student4) {
-          setBalloonNames(parsed)
+        // Check based on mode
+        if (savedBalloonMode === 'single') {
+          if (parsed.student1) {
+            setBalloonNames(parsed)
+          }
+        } else {
+          if (parsed.student1 && parsed.student2 && parsed.student3 && parsed.student4) {
+            setBalloonNames(parsed)
+          }
         }
       } catch (e) {
         console.error('Error loading balloon names:', e)
@@ -87,6 +98,7 @@ const MathsGamesContent = ({ onExitGameMode }) => {
       localStorage.setItem('balloon_math_pop_students_names', JSON.stringify(names))
       setBalloonStarted(true)
       localStorage.setItem('maths_games_balloon_started', 'true')
+      localStorage.setItem('balloon_math_pop_mode', balloonMode)
     } else if (currentGameType === 'space') {
       setSpaceNames(names)
       localStorage.setItem('space_mission_students_names', JSON.stringify(names))
@@ -126,12 +138,16 @@ const MathsGamesContent = ({ onExitGameMode }) => {
     return name && name.trim() !== '' && !name.startsWith('Student ')
   }
 
-  // Check if all names are valid for balloon game
+  // Check if names are valid for balloon game (based on mode)
   const balloonNamesValid = () => {
-    return isValidName(balloonNames.student1) &&
-           isValidName(balloonNames.student2) &&
-           isValidName(balloonNames.student3) &&
-           isValidName(balloonNames.student4)
+    if (balloonMode === 'single') {
+      return isValidName(balloonNames.student1)
+    } else {
+      return isValidName(balloonNames.student1) &&
+             isValidName(balloonNames.student2) &&
+             isValidName(balloonNames.student3) &&
+             isValidName(balloonNames.student4)
+    }
   }
 
   // Check if all names are valid for space game
@@ -174,6 +190,7 @@ const MathsGamesContent = ({ onExitGameMode }) => {
       
       // Clear localStorage
       localStorage.removeItem('balloon_math_pop_students_names')
+      localStorage.removeItem('balloon_math_pop_mode')
       localStorage.removeItem('space_mission_students_names')
       localStorage.removeItem('roman_numerals_students_names')
       localStorage.removeItem('maths_games_scores')
@@ -188,6 +205,7 @@ const MathsGamesContent = ({ onExitGameMode }) => {
         student3: '',
         student4: ''
       })
+      setBalloonMode(null)
       setSpaceNames({
         student1: '',
         student2: '',
@@ -211,7 +229,19 @@ const MathsGamesContent = ({ onExitGameMode }) => {
 
   const handleStartBalloon = () => {
     setCurrentGameType('balloon')
+    setShowModeSelection(true)
+  }
+
+  const handleModeSelect = (mode) => {
+    setBalloonMode(mode)
+    localStorage.setItem('balloon_math_pop_mode', mode)
+    setShowModeSelection(false)
     setShowModal(true)
+  }
+
+  const handleModeSelectionClose = () => {
+    setShowModeSelection(false)
+    setCurrentGameType(null)
   }
 
   const handleStartSpace = () => {
@@ -226,6 +256,41 @@ const MathsGamesContent = ({ onExitGameMode }) => {
 
   return (
     <>
+      {showModeSelection && (
+        <div className="mode-selection-overlay" onClick={handleModeSelectionClose}>
+          <div className="mode-selection-modal" onClick={(e) => e.stopPropagation()}>
+            <button 
+              className="modal-close-btn"
+              onClick={handleModeSelectionClose}
+              aria-label="Close modal"
+            >
+              ✕
+            </button>
+            <div className="modal-header">
+              <h2>🎈 Balloon Math Pop</h2>
+              <p>कृपया game mode चुनें</p>
+            </div>
+            <div className="mode-selection-buttons">
+              <button 
+                className="mode-button single-mode"
+                onClick={() => handleModeSelect('single')}
+              >
+                <div className="mode-icon">👤</div>
+                <div className="mode-title">Single Player</div>
+                <div className="mode-description">1 player के लिए</div>
+              </button>
+              <button 
+                className="mode-button multiplayer-mode"
+                onClick={() => handleModeSelect('multiplayer')}
+              >
+                <div className="mode-icon">👥</div>
+                <div className="mode-title">Multiplayer</div>
+                <div className="mode-description">4 players के लिए</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showModal && (
         <StudentsNamesModal 
           onNamesSubmit={handleNamesSubmit} 
@@ -240,7 +305,7 @@ const MathsGamesContent = ({ onExitGameMode }) => {
             currentGameType === 'space' ? 'Space Mission' :
             'Roman Numerals'
           }
-          singlePlayer={currentGameType === 'roman'}
+          singlePlayer={currentGameType === 'roman' || (currentGameType === 'balloon' && balloonMode === 'single')}
         />
       )}
       
@@ -289,36 +354,46 @@ const MathsGamesContent = ({ onExitGameMode }) => {
                   </div>
                 </div>
               ) : (
-                <div className="balloon-games-grid">
-                  <div className="game-instance">
+                balloonMode === 'single' ? (
+                  <div className="space-game-wrapper">
                     <div className="student-name-display">
-                      <label>Student 1:</label>
+                      <label>Player Name:</label>
                       <span className="student-name">{balloonNames.student1}</span>
                     </div>
                     <BalloonMathPop userName={balloonNames.student1} />
                   </div>
-                  <div className="game-instance">
-                    <div className="student-name-display">
-                      <label>Student 2:</label>
-                      <span className="student-name">{balloonNames.student2}</span>
+                ) : (
+                  <div className="balloon-games-grid">
+                    <div className="game-instance">
+                      <div className="student-name-display">
+                        <label>Student 1:</label>
+                        <span className="student-name">{balloonNames.student1}</span>
+                      </div>
+                      <BalloonMathPop userName={balloonNames.student1} />
                     </div>
-                    <BalloonMathPop userName={balloonNames.student2} />
-                  </div>
-                  <div className="game-instance">
-                    <div className="student-name-display">
-                      <label>Student 3:</label>
-                      <span className="student-name">{balloonNames.student3}</span>
+                    <div className="game-instance">
+                      <div className="student-name-display">
+                        <label>Student 2:</label>
+                        <span className="student-name">{balloonNames.student2}</span>
+                      </div>
+                      <BalloonMathPop userName={balloonNames.student2} />
                     </div>
-                    <BalloonMathPop userName={balloonNames.student3} />
-                  </div>
-                  <div className="game-instance">
-                    <div className="student-name-display">
-                      <label>Student 4:</label>
-                      <span className="student-name">{balloonNames.student4}</span>
+                    <div className="game-instance">
+                      <div className="student-name-display">
+                        <label>Student 3:</label>
+                        <span className="student-name">{balloonNames.student3}</span>
+                      </div>
+                      <BalloonMathPop userName={balloonNames.student3} />
                     </div>
-                    <BalloonMathPop userName={balloonNames.student4} />
+                    <div className="game-instance">
+                      <div className="student-name-display">
+                        <label>Student 4:</label>
+                        <span className="student-name">{balloonNames.student4}</span>
+                      </div>
+                      <BalloonMathPop userName={balloonNames.student4} />
+                    </div>
                   </div>
-                </div>
+                )
               )}
             </>
           )}
