@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   FlatList,
@@ -21,30 +22,45 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
   const [togglingFavorite, setTogglingFavorite] = useState(null);
   const [togglingGroupFavorite, setTogglingGroupFavorite] = useState(null);
   const [selectedChats, setSelectedChats] = useState([]); // Array of { type: 'contact' | 'group', id: string }
+  const [searchQuery, setSearchQuery] = useState(''); // Search query for filtering chats
 
   const getUsernameFromEmail = (email) => {
     if (!email) return '';
     return email.split('@')[0];
   };
 
-  // Filter contacts based on selected filter
+  // Filter contacts based on selected filter and search query
   const filteredContacts = useMemo(() => {
     // Exclude archived chats from all, unread, and favorites filters
     const nonArchivedContacts = contacts.filter(contact => !contact.isArchived);
     
+    let filtered = [];
     if (filter === 'all') {
-      return nonArchivedContacts;
+      filtered = nonArchivedContacts;
     } else if (filter === 'unread') {
-      return nonArchivedContacts.filter(contact => contact.unreadCount > 0);
+      filtered = nonArchivedContacts.filter(contact => contact.unreadCount > 0);
     } else if (filter === 'favorites') {
-      return nonArchivedContacts.filter(contact => contact.isFavorite === true);
+      filtered = nonArchivedContacts.filter(contact => contact.isFavorite === true);
     } else if (filter === 'archived') {
-      return contacts.filter(contact => contact.isArchived === true);
+      filtered = contacts.filter(contact => contact.isArchived === true);
+    } else {
+      filtered = nonArchivedContacts;
     }
-    return nonArchivedContacts;
-  }, [contacts, filter]);
+    
+    // Apply search filter if search query exists
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(contact => {
+        const name = (contact.name || getUsernameFromEmail(contact.email)).toLowerCase();
+        const email = (contact.email || '').toLowerCase();
+        return name.includes(query) || email.includes(query);
+      });
+    }
+    
+    return filtered;
+  }, [contacts, filter, searchQuery]);
 
-  // Filter groups based on selected filter
+  // Filter groups based on selected filter and search query
   const filteredGroups = useMemo(() => {
     const groupsList = groups || [];
     
@@ -58,22 +74,47 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     // Exclude archived groups from all, unread, and favorites filters
     const nonArchivedGroups = groupsList.filter(group => !isGroupArchived(group));
     
+    let filtered = [];
     if (filter === 'all') {
-      return nonArchivedGroups;
+      filtered = nonArchivedGroups;
     } else if (filter === 'unread') {
-      return nonArchivedGroups.filter(group => (group.unreadCount || 0) > 0);
+      filtered = nonArchivedGroups.filter(group => (group.unreadCount || 0) > 0);
     } else if (filter === 'favorites') {
-      return nonArchivedGroups.filter(group => group.isFavorite === true);
+      filtered = nonArchivedGroups.filter(group => group.isFavorite === true);
     } else if (filter === 'archived') {
-      return groupsList.filter(group => isGroupArchived(group));
+      filtered = groupsList.filter(group => isGroupArchived(group));
+    } else {
+      filtered = nonArchivedGroups;
     }
-    return nonArchivedGroups;
-  }, [groups, filter, userEmail]);
+    
+    // Apply search filter if search query exists
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(group => {
+        const name = (group.name || '').toLowerCase();
+        return name.includes(query);
+      });
+    }
+    
+    return filtered;
+  }, [groups, filter, userEmail, searchQuery]);
 
   // Get archived chats separately for "All" filter
   const archivedContacts = useMemo(() => {
-    return contacts.filter(contact => contact.isArchived === true);
-  }, [contacts]);
+    let archived = contacts.filter(contact => contact.isArchived === true);
+    
+    // Apply search filter if search query exists
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      archived = archived.filter(contact => {
+        const name = (contact.name || getUsernameFromEmail(contact.email)).toLowerCase();
+        const email = (contact.email || '').toLowerCase();
+        return name.includes(query) || email.includes(query);
+      });
+    }
+    
+    return archived;
+  }, [contacts, searchQuery]);
 
   const archivedGroups = useMemo(() => {
     const groupsList = groups || [];
@@ -81,8 +122,20 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
       if (!group.archivedBy || !Array.isArray(group.archivedBy)) return false;
       return userEmail && group.archivedBy.includes(userEmail);
     };
-    return groupsList.filter(group => isGroupArchived(group));
-  }, [groups, userEmail]);
+    
+    let archived = groupsList.filter(group => isGroupArchived(group));
+    
+    // Apply search filter if search query exists
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      archived = archived.filter(group => {
+        const name = (group.name || '').toLowerCase();
+        return name.includes(query);
+      });
+    }
+    
+    return archived;
+  }, [groups, userEmail, searchQuery]);
 
   // Combined data for display (groups + filtered contacts)
   const combinedData = useMemo(() => {
@@ -420,6 +473,23 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
             <Text style={[styles.newChatButtonText, { color: colors.white }]}>+ Chat</Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Search Bar */}
+      <View style={[styles.searchContainer, { borderBottomColor: colors.divider }]}>
+        <TextInput
+          style={[styles.searchInput, { 
+            backgroundColor: colors.inputBackground || colors.background,
+            color: colors.text,
+            borderColor: colors.divider
+          }]}
+          placeholder="Search by name or email..."
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
       </View>
 
       {/* Filter Tabs */}
@@ -813,6 +883,16 @@ const styles = StyleSheet.create({
   emptyButtons: {
     flexDirection: 'row',
     marginTop: SPACING.md,
+  },
+  searchContainer: {
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+  },
+  searchInput: {
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    borderWidth: 1,
   },
   selectedIndicator: {
     width: 24,
