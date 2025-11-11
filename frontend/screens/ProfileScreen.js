@@ -15,7 +15,7 @@ import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
 import GLoader from '../components/common/GLoader';
 import profileService from '../services/profileService';
 
-const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile = null }) => {
+const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile = null, isProfileComplete = false }) => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [phone1, setPhone1] = useState('');
@@ -110,7 +110,8 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   };
 
   const handleBack = () => {
-    if (isMandatory) {
+    // Check both isMandatory and isProfileComplete to avoid false alerts
+    if (isMandatory && !isProfileComplete) {
       // Warn user if trying to go back with incomplete profile
       Alert.alert(
         'Profile Incomplete',
@@ -121,6 +122,7 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
         ]
       );
     } else {
+      // Profile is complete or not mandatory, allow back navigation
       onBack();
     }
   };

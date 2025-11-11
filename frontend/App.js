@@ -241,13 +241,15 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
                   {...props}
                   userEmail={userEmail}
                   initialProfile={profile}
+                  isProfileComplete={profile?.isProfileComplete || false}
                   onBack={async () => {
                     // Reload profile to get updated isProfileComplete status
                     const profileResult = await profileService.getProfile();
                     if (profileResult.success && profileResult.profile) {
-                      setProfile(profileResult.profile);
+                      const updatedProfile = profileResult.profile;
+                      setProfile(updatedProfile);
                       // Navigate to chat if profile is complete
-                      if (profileResult.profile?.isProfileComplete) {
+                      if (updatedProfile?.isProfileComplete) {
                         props.navigation.navigate('Chat');
                       } else {
                         props.navigation.goBack();

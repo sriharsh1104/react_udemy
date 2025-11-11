@@ -29,6 +29,7 @@ import MessageInfoModal from '../components/chat/MessageInfoModal';
 import PinnedMessageBanner from '../components/chat/PinnedMessageBanner';
 import GLoader from '../components/common/GLoader';
 import StatusFeed from '../components/chat/StatusFeed';
+import Status from '../components/chat/Status';
 import contactsService from '../services/contactsService';
 import groupService from '../services/groupService';
 import fileUploadService from '../services/fileUploadService';
@@ -1173,7 +1174,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       );
     } else if (activeBottomTab === 'status') {
       return (
-        <StatusFeed userEmail={userEmail} contacts={contacts} />
+        <Status userEmail={userEmail} contacts={contacts} />
       );
     } else if (activeBottomTab === 'call') {
       return (

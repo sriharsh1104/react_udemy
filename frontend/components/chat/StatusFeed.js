@@ -13,12 +13,14 @@ import {
   Platform,
   TextInput,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
 import contactsService from '../../services/contactsService';
 import statusService from '../../services/statusService';
 import feedService from '../../services/feedService';
+import profileService from '../../services/profileService';
 import * as ImagePicker from 'expo-image-picker';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { API_CONFIG } from '../../constants';
@@ -89,6 +91,10 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [likedStatuses, setLikedStatuses] = useState(new Set());
   const doubleTapRefs = useRef({});
   const likeAnimations = useRef({});
+  const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+  const [selectedUserEmail, setSelectedUserEmail] = useState(null);
+  const [selectedUserProfile, setSelectedUserProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
   useEffect(() => {
     loadFeed();
@@ -524,6 +530,36 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     }
   };
 
+  const handleUserProfilePress = async (clickedUserEmail) => {
+    if (!clickedUserEmail) return;
+    
+    setSelectedUserEmail(clickedUserEmail);
+    setShowUserProfileModal(true);
+    setLoadingProfile(true);
+    
+    try {
+      const result = await profileService.getContactProfile(clickedUserEmail);
+      if (result.success && result.profile) {
+        setSelectedUserProfile(result.profile);
+      } else {
+        // If profile not found, still show basic info
+        setSelectedUserProfile({
+          email: clickedUserEmail,
+          name: clickedUserEmail.split('@')[0],
+        });
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      // Show basic info on error
+      setSelectedUserProfile({
+        email: clickedUserEmail,
+        name: clickedUserEmail.split('@')[0],
+      });
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
   // Feed Item Component with proper double tap handling
   const FeedItemComponent = ({ item }) => {
     const statusUrl = item.statusUrl?.startsWith('http') 
@@ -584,9 +620,14 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
             </Text>
           </View>
           <View style={styles.feedHeaderInfo}>
+            <TouchableOpacity
+              onPress={() => handleUserProfilePress(item.userEmail)}
+              activeOpacity={0.7}
+            >
             <Text style={[styles.feedUserName, { color: colors.text }]}>
               {item.userName || item.userEmail?.split('@')[0]}
             </Text>
+            </TouchableOpacity>
             <Text style={[styles.feedTime, { color: colors.textSecondary }]}>
               {item.statusTime}
             </Text>
@@ -714,7 +755,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
               No posts yet
             </Text>
             <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-              Your contacts haven't shared any posts yet
+              Be the first to share a post!
             </Text>
             <TouchableOpacity
               style={[styles.addStatusButton, { backgroundColor: colors.primary }]}
@@ -727,6 +768,15 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           </View>
         }
       />
+
+      {/* Floating Action Button - Always visible */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={handleAddStatus}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.fabIcon}>➕</Text>
+      </TouchableOpacity>
 
       {/* Status Viewer Modal */}
       <Modal
@@ -839,6 +889,72 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           </View>
         </View>
       </Modal>
+
+      {/* User Profile Modal */}
+      <Modal
+        visible={showUserProfileModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowUserProfileModal(false);
+          setSelectedUserEmail(null);
+          setSelectedUserProfile(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.userProfileModal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.divider }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Profile</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowUserProfileModal(false);
+                  setSelectedUserEmail(null);
+                  setSelectedUserProfile(null);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {loadingProfile ? (
+              <View style={styles.profileLoadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : selectedUserProfile ? (
+              <ScrollView style={styles.profileContent} showsVerticalScrollIndicator={false}>
+                <View style={styles.profileSection}>
+                  <View style={[styles.profileAvatar, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.profileAvatarText, { color: colors.white }]}>
+                      {selectedUserProfile.name?.charAt(0).toUpperCase() || selectedUserProfile.email?.charAt(0).toUpperCase() || 'U'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.profileName, { color: colors.text }]}>
+                    {selectedUserProfile.name || selectedUserProfile.email?.split('@')[0] || 'User'}
+                  </Text>
+                  <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>
+                    {selectedUserProfile.email}
+                  </Text>
+                  {selectedUserProfile.phoneNumbers && selectedUserProfile.phoneNumbers.length > 0 && (
+                    <View style={styles.phoneNumbersContainer}>
+                      {selectedUserProfile.phoneNumbers.map((phone, index) => (
+                        <Text key={index} style={[styles.profilePhone, { color: colors.primary }]}>
+                          {phone}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                  {selectedUserProfile.age && (
+                    <Text style={[styles.profileAge, { color: colors.textSecondary }]}>
+                      Age: {selectedUserProfile.age}
+                    </Text>
+                  )}
+                </View>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -876,6 +992,79 @@ const styles = StyleSheet.create({
   feedUserName: {
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    zIndex: 1000,
+  },
+  fabIcon: {
+    fontSize: 28,
+    color: COLORS.white,
+  },
+  userProfileModal: {
+    height: '70%',
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    paddingTop: SPACING.md,
+  },
+  profileLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SPACING.xxl,
+  },
+  profileContent: {
+    flex: 1,
+  },
+  profileSection: {
+    alignItems: 'center',
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.md,
+  },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  profileAvatarText: {
+    fontSize: 32,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  profileName: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    marginBottom: SPACING.xs,
+  },
+  profileEmail: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginBottom: SPACING.xs,
+  },
+  phoneNumbersContainer: {
+    marginTop: SPACING.sm,
+    alignItems: 'center',
+  },
+  profilePhone: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginTop: SPACING.xs / 2,
+  },
+  profileAge: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginTop: SPACING.xs,
   },
   feedTime: {
     fontSize: TYPOGRAPHY.fontSize.xs,

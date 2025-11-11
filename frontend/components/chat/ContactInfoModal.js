@@ -7,10 +7,14 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 import groupService from '../../services/groupService';
 import profileService from '../../services/profileService';
+
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const ContactInfoModal = ({ 
   visible, 
@@ -281,8 +285,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     borderTopLeftRadius: BORDER_RADIUS.xl,
     borderTopRightRadius: BORDER_RADIUS.xl,
-    maxHeight: '90%',
-    paddingBottom: SPACING.xl,
+    height: Platform.OS === 'web' ? '90%' : SCREEN_HEIGHT * 0.9, // Responsive height
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? 600 : '100%', // Limit width on web
+    alignSelf: 'center', // Center on web
+    paddingBottom: Platform.OS === 'ios' ? SPACING.xl + 20 : SPACING.xl, // Extra padding for iOS safe area
   },
   header: {
     flexDirection: 'row',
@@ -318,9 +325,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: SCREEN_WIDTH < 360 ? 70 : 80, // Smaller on small screens
+    height: SCREEN_WIDTH < 360 ? 70 : 80,
+    borderRadius: SCREEN_WIDTH < 360 ? 35 : 40,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -377,9 +384,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   groupAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: SCREEN_WIDTH < 360 ? 44 : 48, // Responsive sizing
+    height: SCREEN_WIDTH < 360 ? 44 : 48,
+    borderRadius: SCREEN_WIDTH < 360 ? 22 : 24,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -412,9 +419,9 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
   },
   mediaItem: {
-    width: '31%',
+    width: SCREEN_WIDTH < 360 ? '30%' : '31%', // Adjust for small screens
     aspectRatio: 1,
-    margin: '1%',
+    margin: SCREEN_WIDTH < 360 ? '1.5%' : '1%',
     borderRadius: BORDER_RADIUS.md,
     overflow: 'hidden',
   },
