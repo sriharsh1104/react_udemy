@@ -496,13 +496,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     const checkResult = await contactsService.checkUserExists(selectedContactEmail);
     
     if (checkResult.success && checkResult.exists) {
-      // User exists - start chat
-      // Add to contacts if not already added
-      const isContact = contacts.some(c => c.email === selectedContactEmail);
-      if (!isContact) {
-        await contactsService.addContact(selectedContactEmail);
-        await loadContacts();
-      }
+      // User exists - start chat directly without adding to contacts
       setChatType('private');
       setContactEmail(selectedContactEmail);
       setGroupId(null);

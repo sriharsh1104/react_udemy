@@ -8,6 +8,7 @@ class SocketService {
 
   connect() {
     if (!this.socket) {
+      console.log('🔌 Connecting to socket:', API_CONFIG.SOCKET_URL);
       this.socket = io(API_CONFIG.SOCKET_URL, {
         transports: ['websocket', 'polling'], // Allow fallback to polling for mobile
         reconnection: true,
@@ -18,9 +19,16 @@ class SocketService {
         forceNew: false,
       });
       
-      // Add connection error handling
+      // Add connection event handlers
+      this.socket.on('connect', () => {
+        console.log('✅ Socket connected successfully to:', API_CONFIG.SOCKET_URL);
+        console.log('✅ Socket ID:', this.socket.id);
+      });
+      
       this.socket.on('connect_error', (error) => {
         console.error('❌ Socket connection error:', error.message);
+        console.error('❌ Socket URL:', API_CONFIG.SOCKET_URL);
+        console.error('❌ Error details:', error);
       });
       
       this.socket.on('reconnect_attempt', (attemptNumber) => {
@@ -29,6 +37,7 @@ class SocketService {
       
       this.socket.on('reconnect', (attemptNumber) => {
         console.log(`✅ Socket reconnected after ${attemptNumber} attempts`);
+        console.log('✅ Socket ID:', this.socket.id);
       });
       
       this.socket.on('reconnect_failed', () => {

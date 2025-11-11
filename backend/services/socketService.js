@@ -21,7 +21,13 @@ class SocketService {
 
   setupSocketHandlers() {
     this.io.on('connection', (socket) => {
-      console.log('User connected:', socket.id);
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] 🔌 NEW SOCKET CONNECTION:`, {
+        socketId: socket.id,
+        transport: socket.conn?.transport?.name || 'unknown',
+        remoteAddress: socket.handshake?.address || 'unknown',
+        userAgent: socket.handshake?.headers?.['user-agent'] || 'unknown',
+      });
 
       // Handle user login (associate email with socket)
       socket.on('login', (data) => {
@@ -82,19 +88,42 @@ class SocketService {
 
   handleLogin(socket, data) {
     const { email } = data;
+    const timestamp = new Date().toISOString();
     if (email) {
       userService.setEmailToSocket(email, socket.id);
       userService.addUser(socket.id, email);
-      console.log(`User logged in: ${email} (socket: ${socket.id})`);
+      console.log(`[${timestamp}] ✅ USER LOGIN:`, {
+        email,
+        socketId: socket.id,
+        status: 'success',
+      });
+    } else {
+      console.log(`[${timestamp}] ❌ USER LOGIN FAILED:`, {
+        socketId: socket.id,
+        reason: 'No email provided',
+        data,
+      });
     }
   }
 
   async handleJoinChat(socket, data) {
+    const timestamp = new Date().toISOString();
     const { userEmail, contactEmail } = data;
     const currentUserEmail = this.getEmailFromSocket(socket.id);
     
+    console.log(`[${timestamp}] 🔗 JOIN CHAT REQUEST:`, {
+      socketId: socket.id,
+      userEmail,
+      contactEmail,
+      currentUserEmail,
+    });
+    
     if (!currentUserEmail || currentUserEmail !== userEmail) {
-      console.log('Join chat failed: email mismatch', { currentUserEmail, userEmail });
+      console.log(`[${timestamp}] ❌ JOIN CHAT FAILED - Email mismatch:`, { 
+        currentUserEmail, 
+        userEmail,
+        socketId: socket.id,
+      });
       return;
     }
 
@@ -107,7 +136,7 @@ class SocketService {
       const contactSocket = this.io.sockets.sockets.get(contactSocketId);
       if (contactSocket && !contactSocket.rooms.has(roomId)) {
         contactSocket.join(roomId);
-        console.log(`Auto-joined ${contactEmail} to room ${roomId}`);
+        console.log(`[${timestamp}] 🔄 Auto-joined ${contactEmail} to room ${roomId}`);
       }
     }
     
@@ -120,7 +149,12 @@ class SocketService {
     });
 
     if (messages.length > 0) {
-      console.log(`📬 DELIVERED ${messages.length} pending message(s) to ${userEmail} from ${contactEmail}`);
+      console.log(`[${timestamp}] 📬 DELIVERED PENDING MESSAGES:`, {
+        count: messages.length,
+        from: contactEmail,
+        to: userEmail,
+        roomId,
+      });
       
       // Mark all pending messages as delivered and notify senders
       for (const msg of messages) {
@@ -142,13 +176,22 @@ class SocketService {
               }
             }
           } catch (error) {
-            console.error('Error marking pending message as delivered:', error);
+            console.error(`[${timestamp}] ❌ Error marking pending message as delivered:`, {
+              error: error.message,
+              messageId: msg._id?.toString(),
+            });
           }
         }
       }
     }
 
-    console.log(`User ${userEmail} joined chat with ${contactEmail} (room: ${roomId})`);
+    console.log(`[${timestamp}] ✅ USER JOINED CHAT:`, {
+      userEmail,
+      contactEmail,
+      roomId,
+      pendingMessages: messages.length,
+      contactOnline: !!contactSocketId,
+    });
   }
 
   handleLeaveChat(socket, data) {
@@ -161,19 +204,38 @@ class SocketService {
   }
 
   async handlePrivateMessage(socket, data) {
+    const timestamp = new Date().toISOString();
     const { message, contactEmail, senderEmail: providedSenderEmail, replyTo, replyToMessage, replyToSender } = data;
+    
+    console.log(`[${timestamp}] 📨 PRIVATE MESSAGE RECEIVED:`, {
+      socketId: socket.id,
+      providedSenderEmail,
+      contactEmail,
+      messageLength: message?.length || 0,
+      hasReply: !!(replyTo || replyToMessage),
+    });
+    
     // Try to get senderEmail from data first, fallback to socket lookup
     let senderEmail = providedSenderEmail || this.getEmailFromSocket(socket.id);
     
     if (!senderEmail || !contactEmail) {
-      console.log('Missing senderEmail or contactEmail:', { senderEmail, contactEmail, socketId: socket.id });
+      console.log(`[${timestamp}] ❌ PRIVATE MESSAGE FAILED - Missing data:`, { 
+        senderEmail, 
+        contactEmail, 
+        socketId: socket.id,
+        hasMessage: !!message,
+      });
       return;
     }
     
     // Verify senderEmail matches the socket (security check)
     const socketEmail = this.getEmailFromSocket(socket.id);
     if (socketEmail && socketEmail !== senderEmail) {
-      console.log('SenderEmail mismatch:', { provided: senderEmail, socket: socketEmail });
+      console.log(`[${timestamp}] ⚠️ PRIVATE MESSAGE - Email mismatch:`, { 
+        provided: senderEmail, 
+        socket: socketEmail,
+        using: 'socket email',
+      });
       // Use socket email if available, otherwise use provided
       senderEmail = socketEmail;
     }
@@ -191,9 +253,21 @@ class SocketService {
     let savedMessage;
     try {
       savedMessage = await chatService.addMessage(senderEmail, contactEmail, messageData);
-      console.log(`✅ Message STORED in MongoDB: ${senderEmail} -> ${contactEmail}: "${message.trim()}"`);
+      const messagePreview = message.trim().substring(0, 50);
+      console.log(`[${timestamp}] ✅ MESSAGE STORED IN MONGODB:`, {
+        from: senderEmail,
+        to: contactEmail,
+        messageId: savedMessage._id?.toString(),
+        preview: messagePreview,
+        fullLength: message.trim().length,
+      });
     } catch (error) {
-      console.error('Error storing message:', error);
+      console.error(`[${timestamp}] ❌ ERROR STORING MESSAGE:`, {
+        error: error.message,
+        stack: error.stack,
+        senderEmail,
+        contactEmail,
+      });
       return;
     }
     
@@ -211,7 +285,7 @@ class SocketService {
         // Ensure contact is in the room
         if (!contactSocket.rooms.has(roomId)) {
           contactSocket.join(roomId);
-          console.log(`Auto-joined ${contactEmail} to room ${roomId}`);
+          console.log(`[${timestamp}] 🔄 Auto-joined ${contactEmail} to room ${roomId}`);
         }
         
         // Send message immediately to online contact
@@ -226,7 +300,13 @@ class SocketService {
         };
         
         contactSocket.emit('privateMessage', messagePayload);
-        console.log(`📤 Message DELIVERED (online): ${contactEmail} received message from ${senderEmail}`);
+        console.log(`[${timestamp}] 📤 MESSAGE DELIVERED (ONLINE):`, {
+          from: senderEmail,
+          to: contactEmail,
+          messageId: savedMessage._id.toString(),
+          contactSocketId: contactSocketId,
+          status: 'delivered',
+        });
         
         // Mark message as delivered and notify sender
         try {
@@ -252,13 +332,25 @@ class SocketService {
     } else {
       // Contact is OFFLINE - message is stored in MongoDB, will be delivered when they come online
       // Status remains 'sent' until they come online
-      console.log(`⏳ Message PENDING (offline): ${contactEmail} is offline. Message stored in MongoDB, will be delivered when they come online.`);
+      console.log(`[${timestamp}] ⏳ MESSAGE PENDING (OFFLINE):`, {
+        from: senderEmail,
+        to: contactEmail,
+        messageId: savedMessage._id.toString(),
+        status: 'stored_in_db',
+        willDeliver: 'when_contact_comes_online',
+      });
     }
     
     // Don't send message back to sender - they already have it via optimistic UI update
     // Only send to receiver (contact) if they are online
 
-    console.log(`Message from ${senderEmail} to ${contactEmail} in room ${roomId}: ${message}`);
+    console.log(`[${timestamp}] ✅ PRIVATE MESSAGE PROCESSED:`, {
+      from: senderEmail,
+      to: contactEmail,
+      roomId,
+      messageId: savedMessage._id.toString(),
+      contactOnline: isContactOnline,
+    });
   }
 
   handleTyping(socket, data) {
@@ -280,12 +372,21 @@ class SocketService {
   }
 
   handleDisconnect(socket) {
+    const timestamp = new Date().toISOString();
     const email = this.getEmailFromSocket(socket.id);
     
     if (email) {
       userService.removeEmailToSocket(email);
       userService.removeUser(socket.id);
-      console.log(`User disconnected: ${email} (socket: ${socket.id})`);
+      console.log(`[${timestamp}] 🔌 USER DISCONNECTED:`, {
+        email,
+        socketId: socket.id,
+        reason: socket.disconnect || 'unknown',
+      });
+    } else {
+      console.log(`[${timestamp}] 🔌 SOCKET DISCONNECTED (no email):`, {
+        socketId: socket.id,
+      });
     }
   }
 

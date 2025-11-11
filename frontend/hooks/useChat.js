@@ -362,26 +362,58 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         // Convert encrypted data to JSON string for storage
         const encryptedMessage = JSON.stringify(encryptedData);
         
+        // Check socket connection before sending
+        const currentSocket = socketService.getSocket();
+        if (!currentSocket) {
+          console.error('❌ Socket not initialized. Cannot send message.');
+          throw new Error('Socket not initialized');
+        }
+        
+        if (!currentSocket.connected) {
+          console.error('❌ Socket not connected. Current state:', currentSocket.connected);
+          console.error('❌ Attempting to reconnect...');
+          // Try to reconnect
+          socketService.connect();
+          throw new Error('Socket not connected. Please try again.');
+        }
+        
         // Send encrypted message to server
-      socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+        const messageSent = socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
           message: encryptedMessage,
-        contactEmail,
+          contactEmail,
           senderEmail: userEmail, // Include senderEmail for reliability
           replyTo: replyInfo?.replyTo || null,
           replyToMessage: replyInfo?.replyToMessage || null,
           replyToSender: replyInfo?.replyToSender || null,
-      });
-      
-      socketService.emit(SOCKET_EVENTS.TYPING, {
-        contactEmail,
-        isTyping: false,
-      });
+        });
+        
+        if (!messageSent) {
+          console.error('❌ Failed to emit PRIVATE_MESSAGE event');
+          throw new Error('Failed to send message');
+        }
+        
+        console.log('✅ Message sent successfully via socket');
+        
+        socketService.emit(SOCKET_EVENTS.TYPING, {
+          contactEmail,
+          isTyping: false,
+        });
       } catch (error) {
-        console.error('Error encrypting message:', error);
+        console.error('❌ Error sending message:', error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          stack: error.stack,
+          socketConnected: socketService.getSocket()?.connected,
+          socketExists: !!socketService.getSocket(),
+        });
+        
         // Remove optimistic message on error
         setMessages((prev) => prev.filter(msg => 
           !(msg.message === displayMessage && msg.senderEmail === userEmail && msg.isSent)
         ));
+        
+        // Show user-friendly error (optional - you can add toast here if needed)
+        // For now, just log it - the UI will show the message was removed
       }
     }
   };

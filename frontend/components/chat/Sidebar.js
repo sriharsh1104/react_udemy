@@ -425,8 +425,7 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
 
   const handlePhoneContactSelect = async (contact) => {
     if (contact.registered && contact.email) {
-      // User is registered - start chat
-      await contactsService.addContact(contact.email);
+      // User is registered - start chat directly without adding to contacts
       onSelectContact(contact.email);
       onClose();
     } else {
@@ -468,12 +467,7 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
 
   const handleSelectUser = async (user) => {
     if (user.exists) {
-      // User exists - start chat
-      if (!user.isContact) {
-        // Add to contacts first
-        await contactsService.addContact(user.email);
-        await loadContacts();
-      }
+      // User exists - start chat directly without adding to contacts
       onSelectContact(user.email);
       onClose();
     } else {
@@ -488,7 +482,7 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
       // Toast will be shown by contactsService
       const addResult = await contactsService.addContact(user.email);
       if (addResult.success) {
-        await loadContacts();
+        await loadContacts(); // Refresh contact list to show newly added contact
       }
     } else {
       Toast.show({
@@ -713,12 +707,24 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
                           </View>
                         </View>
                         {item.registered ? (
-                          <TouchableOpacity
-                            style={styles.chatButton}
-                            onPress={() => handlePhoneContactSelect(item)}
-                          >
-                            <Text style={styles.chatButtonText}>💬</Text>
-                          </TouchableOpacity>
+                          <View style={styles.actionButtonsRow}>
+                            {!contacts.some(c => c.email === item.email) && (
+                              <TouchableOpacity
+                                style={styles.addButton}
+                                onPress={async () => {
+                                  await handleAddContactFromSearch({ exists: true, email: item.email });
+                                }}
+                              >
+                                <Text style={styles.addButtonText}>➕</Text>
+                              </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                              style={styles.chatButton}
+                              onPress={() => handlePhoneContactSelect(item)}
+                            >
+                              <Text style={styles.chatButtonText}>💬</Text>
+                            </TouchableOpacity>
+                          </View>
                         ) : (
                           <TouchableOpacity
                             style={styles.inviteButton}

@@ -1,7 +1,10 @@
 // API Configuration
+// Production backend URL
+const PRODUCTION_API_URL = 'https://react-udemy-yaks.onrender.com';
+
 // Use environment variables if available, otherwise use defaults
 const getApiUrl = () => {
-  // Check for Expo environment variable (EXPO_PUBLIC_*)
+  // Priority 1: Check for Expo environment variable (EXPO_PUBLIC_*)
   if (typeof process !== 'undefined' && process.env) {
     // Expo uses EXPO_PUBLIC_ prefix for public env vars
     if (process.env.EXPO_PUBLIC_API_URL) {
@@ -13,30 +16,41 @@ const getApiUrl = () => {
     }
   }
   
-  // Check for staging environment
+  // Priority 2: Check for staging environment
   const isStaging = typeof process !== 'undefined' && process.env && 
     (process.env.EXPO_PUBLIC_ENV === 'staging' || process.env.NODE_ENV === 'staging');
   
   if (isStaging) {
-    // Staging URL - same as production for now
-    return 'https://react-udemy-yaks.onrender.com';
+    return PRODUCTION_API_URL; // Staging uses same URL as production
   }
   
-  // Check for __DEV__ (React Native/Expo development mode)
-  // In production mobile builds, __DEV__ might be undefined or false
-  // So we also check if we're running on web (window exists) for development
-  const isWebDev = typeof window !== 'undefined' && window.location && 
+  // Priority 3: Check for development mode - ONLY for web development
+  // In production mobile builds, __DEV__ is false/undefined, so this won't match
+  const isWeb = typeof window !== 'undefined' && window.location;
+  const isWebDev = isWeb && 
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   
-  if (typeof __DEV__ !== 'undefined' && __DEV__ && isWebDev) {
+  // Only use localhost if BOTH __DEV__ is true AND we're on web with localhost
+  // This ensures production mobile builds ALWAYS use production URL
+  if (typeof __DEV__ !== 'undefined' && __DEV__ === true && isWebDev) {
     return 'http://localhost:3001';
   }
   
-  // Production URL - Render backend (default for mobile APK)
-  return 'https://react-udemy-yaks.onrender.com';
+  // Priority 4: Default to production URL for all production builds (mobile APK, production web, etc.)
+  // This is the fallback for all production builds
+  return PRODUCTION_API_URL;
 };
 
 const API_URL = getApiUrl();
+
+// Log API URL for debugging (always log to help debug production issues)
+console.log('🔗 API Configuration:', {
+  API_URL,
+  SOCKET_URL: API_URL,
+  API_BASE: `${API_URL}/api`,
+  __DEV__: typeof __DEV__ !== 'undefined' ? __DEV__ : 'undefined',
+  isWeb: typeof window !== 'undefined',
+});
 
 export const API_CONFIG = {
   BASE_URL: API_URL,

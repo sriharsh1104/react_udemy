@@ -40,9 +40,30 @@ app.use(cors(corsOptions));
 app.use(express.json());
 // Note: express.json() doesn't parse multipart/form-data, so multer can handle it
 
-// Debug: Log all API requests
+// Debug: Log all API requests with detailed information
 app.use('/api', (req, res, next) => {
-  console.log(`[${req.method}] ${req.originalUrl}`);
+  const timestamp = new Date().toISOString();
+  const logData = {
+    timestamp,
+    method: req.method,
+    path: req.originalUrl,
+    ip: req.ip || req.connection?.remoteAddress || 'unknown',
+    userAgent: req.headers['user-agent'] || 'unknown',
+  };
+  
+  // Log request body for POST/PUT requests (but limit size for security)
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+    const bodyStr = JSON.stringify(req.body);
+    logData.bodySize = bodyStr.length;
+    // Only log body preview for large requests
+    if (bodyStr.length < 500) {
+      logData.bodyPreview = req.body;
+    } else {
+      logData.bodyPreview = 'Body too large to log';
+    }
+  }
+  
+  console.log(`[${timestamp}] 🌐 API REQUEST:`, logData);
   next();
 });
 
@@ -95,7 +116,13 @@ new SocketService(io);
 
 // Start server
 server.listen(config.port, () => {
-  console.log(`Server running on port ${config.port}`);
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] 🚀 SERVER STARTED:`, {
+    port: config.port,
+    nodeEnv: process.env.NODE_ENV || 'development',
+    baseUrl: process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${config.port}`,
+  });
+  console.log(`[${timestamp}] ✅ Socket.io server initialized and ready for connections`);
 });
 
 module.exports = { app, server };
