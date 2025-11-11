@@ -1,26 +1,18 @@
 const Status = require('../models/Status');
 const File = require('../models/File');
-const Contact = require('../models/Contact');
 const User = require('../models/User');
 
 class FeedService {
-  // Get Instagram-like feed (all statuses from contacts in chronological order)
+  // Get Instagram-like feed (PUBLIC - all statuses from all users in chronological order)
   async getFeed(userEmail, page = 1, limit = 10) {
     try {
-      // Get all contacts
-      const contacts = await Contact.find({ userEmail }).lean();
-      const contactEmails = contacts.map(c => c.contactEmail);
-      
-      // Also include own statuses
-      const allUserEmails = [...contactEmails, userEmail];
-      
-      // Get statuses from contacts (last 24 hours) with pagination
+      // PUBLIC FEED - Get ALL statuses from ALL users (not just contacts)
+      // Anyone can see anyone's posts (like Instagram)
       const skip = (page - 1) * limit;
       const statuses = await Status.find({
-        userEmail: { $in: allUserEmails },
-        expiresAt: { $gt: new Date() },
+        expiresAt: { $gt: new Date() }, // Only non-expired statuses
       })
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1 }) // Latest first
         .skip(skip)
         .limit(limit)
         .lean();
@@ -44,17 +36,11 @@ class FeedService {
         };
       });
 
-      // Get contact names
-      const contactMap = {};
-      contacts.forEach(contact => {
-        contactMap[contact.contactEmail] = contact.name || contact.contactEmail.split('@')[0];
-      });
-
       // Combine status with file info, user info, and interaction data
       const feedItems = statuses.map(status => {
         const file = fileMap[status.fileId];
         const user = userMap[status.userEmail] || {
-          name: contactMap[status.userEmail] || status.userEmail.split('@')[0],
+          name: status.userEmail.split('@')[0],
           email: status.userEmail,
         };
         
