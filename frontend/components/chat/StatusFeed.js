@@ -154,7 +154,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                 type: isVideo ? 'video' : 'image',
                 mimeType: file.type,
                 name: file.name || `status_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
-                size: file.size,
+                size: file.size || 0,
               };
               await uploadStatus(fileObj, isVideo ? 'video' : 'image');
             }
@@ -336,6 +336,30 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
 
   const uploadStatus = async (file, type) => {
     try {
+      // Validate file size before upload
+      const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+      const MAX_VIDEO_SIZE = 5 * 1024 * 1024; // 5MB
+      
+      const fileSize = file.size || 0;
+      
+      if (type === 'image' && fileSize > MAX_IMAGE_SIZE) {
+        Alert.alert(
+          'File Too Large',
+          'Image size must be less than 2MB. Please choose a smaller image.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      if (type === 'video' && fileSize > MAX_VIDEO_SIZE) {
+        Alert.alert(
+          'File Too Large',
+          'Video size must be less than 5MB. Please choose a smaller video.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
       Alert.alert('Uploading', 'Please wait...');
       
       // Upload status

@@ -311,6 +311,7 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
   const [activeTab, setActiveTab] = useState('app'); // 'app' or 'phone'
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [addContactEmail, setAddContactEmail] = useState('');
+  const [phoneSearchQuery, setPhoneSearchQuery] = useState('');
 
   useEffect(() => {
     if (visible) {
@@ -670,9 +671,26 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
 
             {activeTab === 'phone' && (
               <>
+                <View style={styles.searchContainer}>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search by name or phone number..."
+                    placeholderTextColor={COLORS.textSecondary}
+                    value={phoneSearchQuery}
+                    onChangeText={setPhoneSearchQuery}
+                    autoCapitalize="words"
+                    keyboardType="default"
+                  />
+                </View>
                 {!loadingPhoneContacts && (
                   <FlatList
-                    data={phoneContacts}
+                    data={phoneContacts.filter(contact => {
+                      if (!phoneSearchQuery.trim()) return true;
+                      const query = phoneSearchQuery.toLowerCase().trim();
+                      const name = (contact.name || '').toLowerCase();
+                      const phone = (contact.phone || '').toLowerCase();
+                      return name.includes(query) || phone.includes(query);
+                    })}
                     renderItem={({ item }) => (
                       <TouchableOpacity
                         style={styles.resultItem}
@@ -716,9 +734,15 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
                     ListEmptyComponent={
                       !loadingPhoneContacts && (
                         <View style={styles.emptyContainer}>
-                          <Text style={styles.emptyText}>No phone contacts found</Text>
+                          <Text style={styles.emptyText}>
+                            {phoneSearchQuery.trim() 
+                              ? 'No contacts found matching your search' 
+                              : 'No phone contacts found'}
+                          </Text>
                           <Text style={styles.emptySubtext}>
-                            Make sure contacts have phone numbers
+                            {phoneSearchQuery.trim() 
+                              ? 'Try searching with a different name or phone number' 
+                              : 'Make sure contacts have phone numbers'}
                           </Text>
                         </View>
                       )

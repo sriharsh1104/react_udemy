@@ -36,7 +36,7 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max
+    fileSize: 5 * 1024 * 1024, // 5MB max (for videos, images will be validated separately)
   },
 });
 
@@ -103,6 +103,32 @@ class StatusController {
         return res.status(400).json({
           success: false,
           message: 'Invalid file type. Only image or video allowed',
+        });
+      }
+
+      // Validate file size based on type
+      const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+      const MAX_VIDEO_SIZE = 5 * 1024 * 1024; // 5MB
+      
+      if (type === 'image' && req.file.size > MAX_IMAGE_SIZE) {
+        // Delete uploaded file
+        if (req.file && req.file.path) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(400).json({
+          success: false,
+          message: 'Image size exceeds 2MB limit. Please choose a smaller image.',
+        });
+      }
+      
+      if (type === 'video' && req.file.size > MAX_VIDEO_SIZE) {
+        // Delete uploaded file
+        if (req.file && req.file.path) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(400).json({
+          success: false,
+          message: 'Video size exceeds 5MB limit. Please choose a smaller video.',
         });
       }
 
