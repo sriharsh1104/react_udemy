@@ -360,29 +360,31 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     if (chatType === 'private' && contactEmail) {
       const name = getUsernameFromEmail(contactEmail);
       setContactName(name);
-      // Mark messages as read when chat is opened
-      // Backend will send contactsUpdated event, no need to call API
-      contactsService.markMessagesAsRead(contactEmail);
+      // Don't mark as read here - will be handled by useChat hook when messages are loaded
+      // Only mark if there are actually unread messages
     } else if (chatType === 'group' && groupId) {
       // Find group from current groups state (but don't include groups in deps to avoid loop)
       const group = groups.find(g => g._id === groupId);
       if (group) {
         setGroupName(group.name);
         setCurrentGroup(group);
-        // Mark group messages as read when chat is opened
-        // Backend will send groupsUpdated event, no need to call API
-        groupService.markMessagesAsRead(groupId);
+        // Only mark as read if there are unread messages
+        if (group.unreadCount > 0) {
+          groupService.markMessagesAsRead(groupId);
+        }
       } else {
         // Load group details if not in list
         groupService.getGroup(groupId).then(result => {
           if (result.success && result.group) {
             setGroupName(result.group.name);
             setCurrentGroup(result.group);
-            // Mark group messages as read when chat is opened
-            groupService.markMessagesAsRead(groupId).then(() => {
-              // Reload groups to update unread count (but don't trigger this useEffect)
-              loadGroups();
-            });
+            // Only mark as read if there are unread messages
+            if (result.group.unreadCount > 0) {
+              groupService.markMessagesAsRead(groupId).then(() => {
+                // Reload groups to update unread count (but don't trigger this useEffect)
+                loadGroups();
+              });
+            }
           }
         });
       }
@@ -973,16 +975,33 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   
   useEffect(() => {
     if (contactEmail && chatType === 'private' && markPrivateMessagesAsRead && !hasMarkedAsRead.current) {
-      // Small delay to ensure messages are loaded
-      const timer = setTimeout(() => {
-        if (!hasMarkedAsRead.current) {
-          markPrivateMessagesAsRead();
-          hasMarkedAsRead.current = true;
-        }
-      }, 1000); // Increased delay to ensure messages are fully loaded
-      return () => clearTimeout(timer);
+      // Check if there are unread messages before marking as read
+      const contact = contacts.find(c => c.email === contactEmail);
+      const hasUnreadMessages = contact && contact.unreadCount > 0;
+      
+      // Only mark as read if there are unread messages
+      if (hasUnreadMessages) {
+        // Small delay to ensure messages are loaded
+        const timer = setTimeout(() => {
+          if (!hasMarkedAsRead.current) {
+            // Check again if there are unread messages in the loaded messages
+            const unreadMessages = messages.filter(msg => !msg.isSent && msg.senderEmail === contactEmail);
+            if (unreadMessages.length > 0) {
+              // Call API to mark messages as read
+              contactsService.markMessagesAsRead(contactEmail);
+              // Also send socket read receipts
+              markPrivateMessagesAsRead();
+            }
+            hasMarkedAsRead.current = true;
+          }
+        }, 1000); // Increased delay to ensure messages are fully loaded
+        return () => clearTimeout(timer);
+      } else {
+        // No unread messages, just mark as done
+        hasMarkedAsRead.current = true;
+      }
     }
-  }, [contactEmail, chatType, markPrivateMessagesAsRead, messages.length]); // Also depend on messages.length to ensure messages are loaded
+  }, [contactEmail, chatType, markPrivateMessagesAsRead, messages.length, contacts]); // Added contacts to check unread count
 
   // Render content based on active bottom tab
   const renderTabContent = () => {
@@ -1020,6 +1039,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               visible={showCreateGroupModal}
               onClose={() => setShowCreateGroupModal(false)}
               onGroupCreated={handleGroupCreated}
+              contacts={contacts}
             />
           </>
         );
@@ -1187,6 +1207,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             visible={showSidebar}
             onClose={() => setShowSidebar(false)}
             onSelectContact={handleSelectContact}
+            contacts={contacts}
           />
           
           <View style={styles.contentContainer}>

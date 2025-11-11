@@ -17,7 +17,7 @@ import contactsService from '../../services/contactsService';
 import groupService from '../../services/groupService';
 import { showToastFromResponse } from '../../utils/toast';
 
-const CreateGroupModal = ({ visible, onClose, onGroupCreated }) => {
+const CreateGroupModal = ({ visible, onClose, onGroupCreated, contacts: parentContacts = [] }) => {
   const { colors } = useTheme();
   const [groupName, setGroupName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,9 +28,17 @@ const CreateGroupModal = ({ visible, onClose, onGroupCreated }) => {
   const [searching, setSearching] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  // Use contacts from parent (ChatScreen) instead of loading again
+  useEffect(() => {
+    if (parentContacts && parentContacts.length > 0) {
+      setContacts(parentContacts);
+    }
+  }, [parentContacts]);
+
   useEffect(() => {
     if (visible) {
-      loadContacts();
+      // No need to load contacts - use from parent
+      // loadContacts(); // Removed - using contacts from ChatScreen
     } else {
       // Reset state when modal closes
       setGroupName('');
@@ -52,14 +60,8 @@ const CreateGroupModal = ({ visible, onClose, onGroupCreated }) => {
     }
   }, [searchQuery]);
 
-  const loadContacts = async () => {
-    setLoading(true);
-    const result = await contactsService.getContacts();
-    if (result.success) {
-      setContacts(result.contacts || []);
-    }
-    setLoading(false);
-  };
+  // Removed loadContacts - using contacts from parent (ChatScreen)
+  // This reduces unnecessary API calls
 
   const searchUsers = async () => {
     setSearching(true);

@@ -298,7 +298,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
   );
 };
 
-const Sidebar = ({ visible, onClose, onSelectContact }) => {
+const Sidebar = ({ visible, onClose, onSelectContact, contacts: parentContacts = [] }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [contacts, setContacts] = useState([]);
@@ -313,9 +313,17 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
   const [addContactEmail, setAddContactEmail] = useState('');
   const [phoneSearchQuery, setPhoneSearchQuery] = useState('');
 
+  // Use contacts from parent (ChatScreen) instead of loading again
+  useEffect(() => {
+    if (parentContacts && parentContacts.length > 0) {
+      setContacts(parentContacts);
+    }
+  }, [parentContacts]);
+
   useEffect(() => {
     if (visible) {
-      loadContacts();
+      // No need to load contacts - use from parent
+      // loadContacts(); // Removed - using contacts from ChatScreen
       if (activeTab === 'phone') {
         loadPhoneContacts();
       }
@@ -334,14 +342,8 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
     }
   }, [searchQuery]);
 
-  const loadContacts = async () => {
-    setLoading(true);
-    const result = await contactsService.getContacts();
-    if (result.success) {
-      setContacts(result.contacts);
-    }
-    setLoading(false);
-  };
+  // Removed loadContacts - using contacts from parent (ChatScreen)
+  // This reduces unnecessary API calls
 
   const searchUsers = async () => {
     setLoading(true);
@@ -453,7 +455,8 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
       // Add to contacts - toast will be shown by contactsService
       const addResult = await contactsService.addContact(email);
       if (addResult.success) {
-        await loadContacts();
+        // Backend will send contactsUpdated socket event, no need to call API
+        // Parent (ChatScreen) will handle the update via socket event
       }
     } else {
       Toast.show({
@@ -482,7 +485,8 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
       // Toast will be shown by contactsService
       const addResult = await contactsService.addContact(user.email);
       if (addResult.success) {
-        await loadContacts(); // Refresh contact list to show newly added contact
+        // Backend will send contactsUpdated socket event, no need to call API
+        // Parent (ChatScreen) will handle the update via socket event
       }
     } else {
       Toast.show({
