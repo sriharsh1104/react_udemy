@@ -9,7 +9,30 @@ class SocketService {
   connect() {
     if (!this.socket) {
       this.socket = io(API_CONFIG.SOCKET_URL, {
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // Allow fallback to polling for mobile
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: Infinity,
+        timeout: 20000,
+        forceNew: false,
+      });
+      
+      // Add connection error handling
+      this.socket.on('connect_error', (error) => {
+        console.error('❌ Socket connection error:', error.message);
+      });
+      
+      this.socket.on('reconnect_attempt', (attemptNumber) => {
+        console.log(`🔄 Socket reconnection attempt ${attemptNumber}`);
+      });
+      
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log(`✅ Socket reconnected after ${attemptNumber} attempts`);
+      });
+      
+      this.socket.on('reconnect_failed', () => {
+        console.error('❌ Socket reconnection failed');
       });
     }
     return this.socket;

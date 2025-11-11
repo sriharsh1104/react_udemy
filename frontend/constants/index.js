@@ -23,11 +23,16 @@ const getApiUrl = () => {
   }
   
   // Check for __DEV__ (React Native/Expo development mode)
-  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+  // In production mobile builds, __DEV__ might be undefined or false
+  // So we also check if we're running on web (window exists) for development
+  const isWebDev = typeof window !== 'undefined' && window.location && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && isWebDev) {
     return 'http://localhost:3001';
   }
   
-  // Production URL - Render backend
+  // Production URL - Render backend (default for mobile APK)
   return 'https://react-udemy-yaks.onrender.com';
 };
 

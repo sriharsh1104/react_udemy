@@ -102,23 +102,12 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       if (token && email) {
         setUserEmail(email);
         setIsLoggedIn(true);
-        // Check profile completeness
-        const profileResult = await profileService.getProfile();
-        if (profileResult.success) {
-          setProfile(profileResult.profile);
-          // Navigate based on profile completeness - ONLY navigate to Profile if incomplete
-          setTimeout(() => {
-            if (navigationRef.current) {
-              // If profile is complete (true), go directly to Chat
-              // If profile is incomplete (false/null), go to Profile
-              if (profileResult.profile && profileResult.profile.isProfileComplete === true) {
-                navigationRef.current.navigate('Chat');
-              } else {
-                navigationRef.current.navigate('Profile');
-              }
-            }
-          }, 100);
-        }
+        // Navigate to Chat - profile will be loaded when needed
+        setTimeout(() => {
+          if (navigationRef.current) {
+            navigationRef.current.navigate('Chat');
+          }
+        }, 100);
       }
     } catch (error) {
       console.error('Error checking auth status:', error);

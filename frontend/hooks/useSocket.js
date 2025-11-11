@@ -10,18 +10,35 @@ export const useSocket = () => {
     const newSocket = socketService.connect();
     setSocket(newSocket);
 
-    newSocket.on(SOCKET_EVENTS.CONNECT, () => {
+    const handleConnect = () => {
       setIsConnected(true);
-      console.log('Connected to server');
-    });
+      console.log('✅ Connected to server');
+    };
 
-    newSocket.on(SOCKET_EVENTS.DISCONNECT, () => {
+    const handleDisconnect = (reason) => {
       setIsConnected(false);
-      console.log('Disconnected from server');
-    });
+      console.log('❌ Disconnected from server:', reason);
+    };
+
+    const handleConnectError = (error) => {
+      console.error('❌ Socket connection error:', error.message);
+      setIsConnected(false);
+    };
+
+    newSocket.on(SOCKET_EVENTS.CONNECT, handleConnect);
+    newSocket.on(SOCKET_EVENTS.DISCONNECT, handleDisconnect);
+    newSocket.on('connect_error', handleConnectError);
+
+    // Check initial connection state
+    if (newSocket.connected) {
+      setIsConnected(true);
+    }
 
     return () => {
-      socketService.disconnect();
+      newSocket.off(SOCKET_EVENTS.CONNECT, handleConnect);
+      newSocket.off(SOCKET_EVENTS.DISCONNECT, handleDisconnect);
+      newSocket.off('connect_error', handleConnectError);
+      // Don't disconnect here - let socketService manage it
     };
   }, []);
 

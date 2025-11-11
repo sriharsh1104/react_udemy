@@ -45,17 +45,29 @@ export const useGroupChat = (userEmail, groupId) => {
   useEffect(() => {
     if (!socket || !userEmail) return;
 
-    // Login with email when socket connects
-    socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
+    // Wait for socket to be connected before logging in
+    const handleConnect = () => {
+      // Login with email when socket connects
+      socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
 
-    // Join group when groupId is available
-    if (groupId) {
-      socketService.emit(SOCKET_EVENTS.JOIN_GROUP, {
-        groupId,
-      });
+      // Join group when groupId is available
+      if (groupId) {
+        socketService.emit(SOCKET_EVENTS.JOIN_GROUP, {
+          groupId,
+        });
+      }
+    };
+
+    // If already connected, login immediately
+    if (socket.connected) {
+      handleConnect();
+    } else {
+      // Wait for connection
+      socket.on(SOCKET_EVENTS.CONNECT, handleConnect);
     }
 
     return () => {
+      socket.off(SOCKET_EVENTS.CONNECT, handleConnect);
       // Leave group on cleanup
       if (groupId) {
         socketService.emit(SOCKET_EVENTS.LEAVE_GROUP, {

@@ -62,18 +62,30 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
   useEffect(() => {
     if (!socket || !userEmail) return;
 
-    // Login with email when socket connects
-    socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
+    // Wait for socket to be connected before logging in
+    const handleConnect = () => {
+      // Login with email when socket connects
+      socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
 
-    // Join chat room when contactEmail is available
-    if (contactEmail) {
-      socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
-        userEmail,
-        contactEmail,
-      });
+      // Join chat room when contactEmail is available
+      if (contactEmail) {
+        socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
+          userEmail,
+          contactEmail,
+        });
+      }
+    };
+
+    // If already connected, login immediately
+    if (socket.connected) {
+      handleConnect();
+    } else {
+      // Wait for connection
+      socket.on(SOCKET_EVENTS.CONNECT, handleConnect);
     }
 
     return () => {
+      socket.off(SOCKET_EVENTS.CONNECT, handleConnect);
       // Leave chat room on cleanup
       if (contactEmail) {
         socketService.emit(SOCKET_EVENTS.LEAVE_CHAT, {
