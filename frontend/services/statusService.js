@@ -107,10 +107,11 @@ class StatusService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/status/feed?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/status/feed`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -171,10 +172,11 @@ class StatusService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/status/${statusId}/viewers?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/status/${statusId}/viewers`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 

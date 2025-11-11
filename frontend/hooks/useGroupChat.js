@@ -47,14 +47,14 @@ export const useGroupChat = (userEmail, groupId) => {
 
     // Wait for socket to be connected before logging in
     const handleConnect = () => {
-      // Login with email when socket connects
-      socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
+    // Login with email when socket connects
+    socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
 
-      // Join group when groupId is available
-      if (groupId) {
-        socketService.emit(SOCKET_EVENTS.JOIN_GROUP, {
-          groupId,
-        });
+    // Join group when groupId is available
+    if (groupId) {
+      socketService.emit(SOCKET_EVENTS.JOIN_GROUP, {
+        groupId,
+      });
       }
     };
 

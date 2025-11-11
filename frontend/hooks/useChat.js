@@ -64,15 +64,32 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
 
     // Wait for socket to be connected before logging in
     const handleConnect = () => {
-      // Login with email when socket connects
-      socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
+      console.log('🔗 Socket connected, attempting login:', {
+        userEmail,
+        socketId: socket?.id,
+        connected: socket?.connected,
+      });
+      
+    // Login with email when socket connects
+      const loginSent = socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
+      console.log('🔐 LOGIN EVENT SENT:', {
+        success: loginSent,
+        userEmail,
+        socketId: socket?.id,
+      });
 
-      // Join chat room when contactEmail is available
-      if (contactEmail) {
-        socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
+    // Join chat room when contactEmail is available
+    if (contactEmail) {
+        console.log('🔗 Joining chat room:', { userEmail, contactEmail });
+        const joinSent = socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
           userEmail,
           contactEmail,
         });
+        console.log('🔗 JOIN CHAT EVENT SENT:', {
+          success: joinSent,
+        userEmail,
+        contactEmail,
+      });
       }
     };
 
@@ -364,40 +381,64 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         
         // Check socket connection before sending
         const currentSocket = socketService.getSocket();
+        console.log('🔍 PRE-SEND CHECK:', {
+          socketExists: !!currentSocket,
+          socketConnected: currentSocket?.connected,
+          socketId: currentSocket?.id,
+          userEmail,
+          contactEmail,
+          messageLength: encryptedMessage.length,
+        });
+        
         if (!currentSocket) {
           console.error('❌ Socket not initialized. Cannot send message.');
           throw new Error('Socket not initialized');
         }
         
         if (!currentSocket.connected) {
-          console.error('❌ Socket not connected. Current state:', currentSocket.connected);
+          console.error('❌ Socket not connected. Current state:', {
+            connected: currentSocket.connected,
+            disconnected: currentSocket.disconnected,
+            socketId: currentSocket.id,
+          });
           console.error('❌ Attempting to reconnect...');
           // Try to reconnect
           socketService.connect();
           throw new Error('Socket not connected. Please try again.');
         }
         
-        // Send encrypted message to server
-        const messageSent = socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+        // Prepare message payload
+        const messagePayload = {
           message: encryptedMessage,
-          contactEmail,
+        contactEmail,
           senderEmail: userEmail, // Include senderEmail for reliability
           replyTo: replyInfo?.replyTo || null,
           replyToMessage: replyInfo?.replyToMessage || null,
           replyToSender: replyInfo?.replyToSender || null,
+        };
+        
+        console.log('📤 ATTEMPTING TO SEND MESSAGE:', {
+          event: SOCKET_EVENTS.PRIVATE_MESSAGE,
+          senderEmail: userEmail,
+          contactEmail,
+          encryptedMessageLength: encryptedMessage.length,
+          hasReply: !!(replyInfo?.replyTo),
         });
+        
+        // Send encrypted message to server
+        const messageSent = socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, messagePayload);
         
         if (!messageSent) {
           console.error('❌ Failed to emit PRIVATE_MESSAGE event');
           throw new Error('Failed to send message');
         }
         
-        console.log('✅ Message sent successfully via socket');
-        
-        socketService.emit(SOCKET_EVENTS.TYPING, {
-          contactEmail,
-          isTyping: false,
-        });
+        console.log('✅ Message emit successful - waiting for backend confirmation');
+      
+      socketService.emit(SOCKET_EVENTS.TYPING, {
+        contactEmail,
+        isTyping: false,
+      });
       } catch (error) {
         console.error('❌ Error sending message:', error);
         console.error('❌ Error details:', {

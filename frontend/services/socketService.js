@@ -61,16 +61,39 @@ class SocketService {
     }
     
     if (!this.socket.connected) {
-      console.error('❌ Socket not connected. Cannot emit:', event);
+      console.error('❌ Socket not connected. Cannot emit:', event, {
+        socketExists: !!this.socket,
+        connected: this.socket.connected,
+        disconnected: this.socket.disconnected,
+        socketId: this.socket.id,
+      });
       return false;
     }
     
     try {
+      // Log detailed emit information
+      console.log('📤 SOCKET EMIT:', {
+        event,
+        socketId: this.socket.id,
+        connected: this.socket.connected,
+        dataKeys: data ? Object.keys(data) : [],
+        hasMessage: data?.message ? true : false,
+        messageLength: data?.message?.length || 0,
+        senderEmail: data?.senderEmail,
+        contactEmail: data?.contactEmail,
+      });
+      
       this.socket.emit(event, data);
-      console.log('✅ Socket emit:', event, data ? Object.keys(data) : 'no data');
+      console.log('✅ Socket emit successful:', event);
       return true;
     } catch (error) {
-      console.error('❌ Error emitting socket event:', event, error);
+      console.error('❌ Error emitting socket event:', {
+        event,
+        error: error.message,
+        stack: error.stack,
+        socketId: this.socket?.id,
+        connected: this.socket?.connected,
+      });
       return false;
     }
   }

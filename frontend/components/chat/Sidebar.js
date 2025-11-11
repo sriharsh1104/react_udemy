@@ -718,12 +718,12 @@ const Sidebar = ({ visible, onClose, onSelectContact }) => {
                                 <Text style={styles.addButtonText}>➕</Text>
                               </TouchableOpacity>
                             )}
-                            <TouchableOpacity
-                              style={styles.chatButton}
-                              onPress={() => handlePhoneContactSelect(item)}
-                            >
-                              <Text style={styles.chatButtonText}>💬</Text>
-                            </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.chatButton}
+                            onPress={() => handlePhoneContactSelect(item)}
+                          >
+                            <Text style={styles.chatButtonText}>💬</Text>
+                          </TouchableOpacity>
                           </View>
                         ) : (
                           <TouchableOpacity

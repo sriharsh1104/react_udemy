@@ -165,10 +165,19 @@ class ContactsController {
         });
       }
 
-      // Only check exact email match (case-insensitive)
-      const profile = await userProfileService.getProfileByEmail(searchQuery);
+      // Check User model directly (for registered users, even without profile)
+      const User = require('../models/User');
+      let user = await User.findOne({ email: searchQuery }).select('-password').lean();
       
-      if (!profile) {
+      // If not found in User model, try getProfileByEmail (for backward compatibility)
+      if (!user) {
+        const profile = await userProfileService.getProfileByEmail(searchQuery);
+        if (profile) {
+          user = profile;
+        }
+      }
+      
+      if (!user) {
         return res.status(200).json({
           success: true,
           message: 'User not found',
@@ -177,21 +186,21 @@ class ContactsController {
       }
 
       // Skip if searching for self
-      if (profile.email.toLowerCase() === userEmail.toLowerCase()) {
+      if (user.email.toLowerCase() === userEmail.toLowerCase()) {
         return res.status(400).json({
           success: false,
           message: 'Cannot search for yourself',
         });
       }
 
-      const isContact = await contactsService.hasContact(userEmail, profile.email);
+      const isContact = await contactsService.hasContact(userEmail, user.email);
       
       res.status(200).json({
         success: true,
         message: 'User found',
         results: [{
-          email: profile.email,
-          name: profile.name || profile.email.split('@')[0],
+          email: user.email,
+          name: user.name || user.email.split('@')[0],
           exists: true,
           isContact,
         }],
@@ -291,6 +300,20 @@ class ContactsController {
 
       const contacts = await contactsService.addContact(userEmail, contactEmail);
 
+      // Emit socket event to notify user about contacts update
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io) {
+        const userSocketId = userService.getSocketByEmail(userEmail);
+        if (userSocketId) {
+          io.to(userSocketId).emit('contactsUpdated', {
+            contactEmail,
+            action: 'added',
+            contacts,
+          });
+        }
+      }
+
       res.status(200).json({
         success: true,
         message: 'Contact added successfully',
@@ -340,13 +363,17 @@ class ContactsController {
       // Extract all unique email addresses from roomIds
       const usersWithMessages = new Set();
       roomsWithMessages.forEach(roomId => {
-        // RoomId format: "email1_email2" (sorted)
-        const emails = roomId.split('_');
-        emails.forEach(email => {
-          if (email !== userEmail) {
-            usersWithMessages.add(email);
-          }
-        });
+        // RoomId format: "chat_email1_email2" (sorted)
+        // Remove "chat_" prefix first
+        if (roomId.startsWith('chat_')) {
+          const emailsPart = roomId.substring(5); // Remove "chat_" (5 chars)
+          const emails = emailsPart.split('_');
+          emails.forEach(email => {
+            if (email && email !== userEmail) {
+              usersWithMessages.add(email);
+            }
+          });
+        }
       });
       
       // Combine manually added contacts with users who have messages
@@ -375,6 +402,37 @@ class ContactsController {
           // Get unread message count
           const unreadCount = await chatService.getUnreadCount(userEmail, email);
           
+          // Get last message for this contact (for sorting and preview)
+          const roomId = chatService.getRoomId(userEmail, email);
+          const lastMessage = await Message.findOne({ roomId, messageType: 'private' })
+            .sort({ timestamp: -1 })
+            .lean();
+          
+          let lastMessageText = null;
+          let lastMessageTimestamp = null;
+          if (lastMessage) {
+            lastMessageTimestamp = lastMessage.timestamp;
+            // Try to extract readable message text (handle encrypted messages)
+            try {
+              const parsed = JSON.parse(lastMessage.message);
+              if (parsed && parsed.encrypted) {
+                // Encrypted message - show placeholder
+                lastMessageText = '🔒 Encrypted message';
+              } else if (parsed && parsed.type === 'file') {
+                // File message
+                lastMessageText = parsed.fileType === 'image' ? '📷 Photo' : 
+                                 parsed.fileType === 'video' ? '🎥 Video' : 
+                                 parsed.fileType === 'audio' ? '🎵 Audio' : 
+                                 `📎 ${parsed.fileName || 'File'}`;
+              } else {
+                lastMessageText = lastMessage.message;
+              }
+            } catch (e) {
+              // Not JSON, use as-is
+              lastMessageText = lastMessage.message;
+            }
+          }
+          
           return {
             email,
             name: profile?.name || email.split('@')[0],
@@ -386,9 +444,28 @@ class ContactsController {
             isArchived: manualContact?.isArchived || false,
             isMuted: manualContact?.isMuted || false,
             isManuallyAdded, // Flag to distinguish manually added vs message-based contacts
+            lastMessage: lastMessageText,
+            lastMessageTimestamp: lastMessageTimestamp,
           };
         })
       );
+      
+      // Sort contacts by last message timestamp (most recent first), then by name
+      contacts.sort((a, b) => {
+        // Pinned contacts first
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        
+        // Then by last message timestamp (most recent first)
+        if (a.lastMessageTimestamp && b.lastMessageTimestamp) {
+          return new Date(b.lastMessageTimestamp) - new Date(a.lastMessageTimestamp);
+        }
+        if (a.lastMessageTimestamp) return -1;
+        if (b.lastMessageTimestamp) return 1;
+        
+        // Then by name
+        return (a.name || a.email).localeCompare(b.name || b.email);
+      });
 
       res.status(200).json({
         success: true,
@@ -670,6 +747,19 @@ class ContactsController {
 
       const result = await contactsService.removeContact(userEmail, contactEmail);
 
+      // Emit socket event to notify user about contacts update
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io) {
+        const userSocketId = userService.getSocketByEmail(userEmail);
+        if (userSocketId) {
+          io.to(userSocketId).emit('contactsUpdated', {
+            contactEmail,
+            action: 'deleted',
+          });
+        }
+      }
+
       res.status(200).json({
         success: true,
         message: 'Contact deleted successfully',
@@ -757,6 +847,19 @@ class ContactsController {
 
       const chatService = require('../services/chatService');
       await chatService.markMessagesAsRead(userEmail, contactEmail);
+
+      // Emit socket event to update contacts (unread count changed)
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io) {
+        const userSocketId = userService.getSocketByEmail(userEmail);
+        if (userSocketId) {
+          io.to(userSocketId).emit('contactsUpdated', {
+            contactEmail,
+            action: 'messages_read',
+          });
+        }
+      }
 
       res.status(200).json({
         success: true,

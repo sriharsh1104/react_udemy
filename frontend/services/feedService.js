@@ -15,11 +15,12 @@ class FeedService {
       }
 
       const response = await fetch(
-        `${API_CONFIG.API_BASE}/feed?token=${encodeURIComponent(token)}&page=${page}&limit=${limit}`,
+        `${API_CONFIG.API_BASE}/feed?page=${page}&limit=${limit}`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
         }
       );
@@ -122,11 +123,12 @@ class FeedService {
       }
 
       const response = await fetch(
-        `${API_CONFIG.API_BASE}/feed/${statusId}/comments?token=${encodeURIComponent(token)}`,
+        `${API_CONFIG.API_BASE}/feed/${statusId}/comments`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
         }
       );

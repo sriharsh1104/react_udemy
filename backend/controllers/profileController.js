@@ -113,10 +113,29 @@ class ProfileController {
   // Update user profile
   async updateProfile(req, res) {
     try {
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] 📝 UPDATE PROFILE REQUEST:`, {
+        method: req.method,
+        url: req.url,
+        headers: {
+          authorization: req.headers.authorization ? 'Bearer ***' : 'missing',
+          contentType: req.headers['content-type'],
+        },
+        body: req.body,
+        query: req.query,
+      });
+
       const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
       const { name, age, phoneNumbers } = req.body;
 
+      console.log(`[${timestamp}] 🔑 Token extracted:`, {
+        fromHeader: !!req.headers.authorization,
+        fromBody: !!req.body.token,
+        tokenPresent: !!token,
+      });
+
       if (!token) {
+        console.error(`[${timestamp}] ❌ No token provided`);
         return res.status(401).json({
           success: false,
           message: 'Authentication required',
@@ -124,7 +143,10 @@ class ProfileController {
       }
 
       const email = await userService.getUserByToken(token);
+      console.log(`[${timestamp}] 👤 User email from token:`, email);
+      
       if (!email) {
+        console.error(`[${timestamp}] ❌ Invalid token - user not found`);
         return res.status(401).json({
           success: false,
           message: 'Invalid token',
@@ -160,6 +182,7 @@ class ProfileController {
 
         const isComplete = await userProfileService.isProfileComplete(email);
 
+        console.log(`[${timestamp}] ✅ Profile updated successfully for:`, email);
         res.status(200).json({
           success: true,
           message: 'Profile updated successfully',
@@ -177,7 +200,9 @@ class ProfileController {
         throw profileError; // Re-throw if it's a different error
       }
     } catch (error) {
-      console.error('Error in updateProfile:', error);
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] ❌ Error in updateProfile:`, error);
+      console.error(`[${timestamp}] ❌ Error stack:`, error.stack);
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error',

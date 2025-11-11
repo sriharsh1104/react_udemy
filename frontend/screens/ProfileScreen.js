@@ -53,6 +53,8 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   };
 
   const handleSave = async () => {
+    console.log('💾 handleSave called');
+    
     // Validate required fields for mandatory profile
     if (isMandatory && (!name.trim() || !phone1.trim())) {
       Alert.alert('Required Fields', 'Please fill Name and at least one Phone Number to continue');
@@ -80,12 +82,17 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       }
     }
 
+    console.log('✅ Validation passed, calling updateProfile');
     setSaving(true);
+    
+    try {
     const result = await profileService.updateProfile({
       name: name.trim(),
       age: age ? parseInt(age) : null,
       phoneNumbers,
     });
+
+      console.log('📥 updateProfile result:', result);
 
     if (result.success) {
       // Directly navigate to chat section on success
@@ -93,6 +100,11 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       onBack();
     } else {
       // Toast already shown by profileService
+        setSaving(false);
+      }
+    } catch (error) {
+      console.error('❌ Error in handleSave:', error);
+      Alert.alert('Error', `Failed to save profile: ${error.message || 'Unknown error'}`);
       setSaving(false);
     }
   };
@@ -128,9 +140,13 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
           showsVerticalScrollIndicator={false}
         >
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
+          {!isMandatory ? (
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Text style={styles.backButtonText}>← Back</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.placeholder} />
+          )}
           <Text style={styles.headerTitle}>
             {isMandatory ? 'Complete Your Profile' : 'Profile'}
           </Text>

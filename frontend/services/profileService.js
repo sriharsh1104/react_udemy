@@ -13,10 +13,11 @@ class ProfileService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/profile?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/profile`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -62,36 +63,64 @@ class ProfileService {
 
   async updateProfile(profileData) {
     try {
+      console.log('📝 updateProfile called with data:', profileData);
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
+        console.error('❌ No token found');
         return {
           success: false,
           message: 'No token found',
         };
       }
       
+      console.log('🔗 Making POST request to:', `${API_CONFIG.API_BASE}/profile`);
+      console.log('📤 Request payload:', JSON.stringify(profileData));
+      console.log('🔑 Token present:', !!token);
+      
       const response = await fetch(`${API_CONFIG.API_BASE}/profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...profileData,
-          token,
-        }),
+        body: JSON.stringify(profileData),
       });
 
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Response error:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          showToastFromResponse(errorData, { 
+            successTitle: 'Profile Updated',
+            errorTitle: 'Failed to Update Profile',
+          });
+          return errorData;
+        } catch (e) {
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+      }
+
       const data = await response.json();
+      console.log('✅ Profile update response:', data);
       showToastFromResponse(data, { 
         successTitle: 'Profile Updated',
         errorTitle: 'Failed to Update Profile',
       });
       return data;
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('❌ Error updating profile:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
       const errorResponse = {
         success: false,
-        message: 'Network error. Please check your connection.',
+        message: error.message || 'Network error. Please check your connection.',
       };
       showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
       return errorResponse;
@@ -108,10 +137,11 @@ class ProfileService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/profile/${encodeURIComponent(contactEmail)}?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/profile/${encodeURIComponent(contactEmail)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 

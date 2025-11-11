@@ -17,11 +17,11 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           name,
           members,
-          token,
         }),
       });
 
@@ -52,10 +52,11 @@ class GroupService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -88,10 +89,11 @@ class GroupService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/${groupId}?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/${groupId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -128,11 +130,11 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           groupId,
           members,
-          token,
         }),
       });
 
@@ -167,11 +169,11 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           groupId,
           memberEmail,
-          token,
         }),
       });
 
@@ -206,11 +208,11 @@ class GroupService {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           groupId,
           name,
-          token,
         }),
       });
 
@@ -245,10 +247,10 @@ class GroupService {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           groupId,
-          token,
         }),
       });
 
@@ -283,10 +285,10 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           groupId,
-          token,
         }),
       });
 
@@ -325,10 +327,10 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           groupId,
-          token,
         }),
       });
 
@@ -365,10 +367,10 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           groupId,
-          token,
         }),
       });
 
@@ -405,10 +407,10 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           groupId,
-          token,
         }),
       });
 
@@ -443,10 +445,10 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           inviteToken,
-          token,
         }),
       });
 
@@ -481,11 +483,11 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           messageId,
           groupId,
-          token,
         }),
       });
 
@@ -520,11 +522,11 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           messageId,
           groupId,
-          token,
         }),
       });
 
@@ -555,10 +557,11 @@ class GroupService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/${groupId}/pinned-messages?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/${groupId}/pinned-messages`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -595,10 +598,10 @@ class GroupService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           messageId,
-          token,
         }),
       });
 
@@ -629,10 +632,11 @@ class GroupService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/message-info/${messageId}?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/message-info/${messageId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -668,7 +672,7 @@ class GroupService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ groupId, token }),
+        body: JSON.stringify({ groupId }),
       });
 
       const data = await response.json();
@@ -695,7 +699,7 @@ class GroupService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ groupId, token }),
+        body: JSON.stringify({ groupId }),
       });
 
       const data = await response.json();
@@ -722,7 +726,7 @@ class GroupService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ groupId, mutedUntil, token }),
+        body: JSON.stringify({ groupId, mutedUntil }),
       });
 
       const data = await response.json();

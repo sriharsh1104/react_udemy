@@ -183,7 +183,7 @@ class AuthService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({}),
       });
 
       const data = await response.json();

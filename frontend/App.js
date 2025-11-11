@@ -103,11 +103,11 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
         setUserEmail(email);
         setIsLoggedIn(true);
         // Navigate to Chat - profile will be loaded when needed
-        setTimeout(() => {
-          if (navigationRef.current) {
-            navigationRef.current.navigate('Chat');
-          }
-        }, 100);
+          setTimeout(() => {
+            if (navigationRef.current) {
+                navigationRef.current.navigate('Chat');
+            }
+          }, 100);
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
@@ -241,10 +241,17 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
                   {...props}
                   userEmail={userEmail}
                   initialProfile={profile}
-                  onBack={() => {
-                    handleProfileBack();
-                    if (profile?.isProfileComplete) {
-                      props.navigation.navigate('Chat');
+                  onBack={async () => {
+                    // Reload profile to get updated isProfileComplete status
+                    const profileResult = await profileService.getProfile();
+                    if (profileResult.success && profileResult.profile) {
+                      setProfile(profileResult.profile);
+                      // Navigate to chat if profile is complete
+                      if (profileResult.profile?.isProfileComplete) {
+                        props.navigation.navigate('Chat');
+                      } else {
+                        props.navigation.goBack();
+                      }
                     } else {
                       props.navigation.goBack();
                     }

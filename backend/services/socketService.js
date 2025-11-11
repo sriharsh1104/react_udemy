@@ -97,6 +97,22 @@ class SocketService {
         socketId: socket.id,
         status: 'success',
       });
+      
+      // Notify all contacts that this user is now online
+      const Contact = require('../models/Contact');
+      Contact.find({ contactEmail: email }).then((contacts) => {
+        contacts.forEach((contact) => {
+          const contactSocketId = userService.getSocketByEmail(contact.userEmail);
+          if (contactSocketId) {
+            this.io.to(contactSocketId).emit('contactOnlineStatus', {
+              contactEmail: email,
+              isOnline: true,
+            });
+          }
+        });
+      }).catch((error) => {
+        console.error('Error notifying contacts about online status:', error);
+      });
     } else {
       console.log(`[${timestamp}] ❌ USER LOGIN FAILED:`, {
         socketId: socket.id,
@@ -207,12 +223,17 @@ class SocketService {
     const timestamp = new Date().toISOString();
     const { message, contactEmail, senderEmail: providedSenderEmail, replyTo, replyToMessage, replyToSender } = data;
     
-    console.log(`[${timestamp}] 📨 PRIVATE MESSAGE RECEIVED:`, {
+    // Log ALL received data for debugging
+    console.log(`[${timestamp}] 📨 PRIVATE MESSAGE RECEIVED ON BACKEND:`, {
       socketId: socket.id,
       providedSenderEmail,
       contactEmail,
       messageLength: message?.length || 0,
       hasReply: !!(replyTo || replyToMessage),
+      hasMessage: !!message,
+      dataKeys: Object.keys(data || {}),
+      // Log first 100 chars of message for debugging (encrypted, so safe)
+      messagePreview: message ? message.substring(0, 100) : 'no message',
     });
     
     // Try to get senderEmail from data first, fallback to socket lookup
@@ -308,6 +329,13 @@ class SocketService {
           status: 'delivered',
         });
         
+        // Emit contacts update event to receiver to update unread count
+        this.io.to(contactSocketId).emit('contactsUpdated', {
+          contactEmail: senderEmail,
+          action: 'message_received',
+          messageId: savedMessage._id.toString(),
+        });
+        
         // Mark message as delivered and notify sender
         try {
           const updatedMessage = await chatService.markMessageAsDelivered(savedMessage._id);
@@ -382,6 +410,22 @@ class SocketService {
         email,
         socketId: socket.id,
         reason: socket.disconnect || 'unknown',
+      });
+      
+      // Notify all contacts that this user is now offline
+      const Contact = require('../models/Contact');
+      Contact.find({ contactEmail: email }).then((contacts) => {
+        contacts.forEach((contact) => {
+          const contactSocketId = userService.getSocketByEmail(contact.userEmail);
+          if (contactSocketId) {
+            this.io.to(contactSocketId).emit('contactOnlineStatus', {
+              contactEmail: email,
+              isOnline: false,
+            });
+          }
+        });
+      }).catch((error) => {
+        console.error('Error notifying contacts about offline status:', error);
       });
     } else {
       console.log(`[${timestamp}] 🔌 SOCKET DISCONNECTED (no email):`, {

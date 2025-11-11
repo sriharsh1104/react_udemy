@@ -77,6 +77,10 @@ export const SOCKET_EVENTS = {
   // Message status events
   MESSAGE_STATUS_UPDATE: 'messageStatusUpdate',
   MESSAGE_READ: 'messageRead',
+  // Contacts and groups update events
+  CONTACTS_UPDATED: 'contactsUpdated',
+  GROUPS_UPDATED: 'groupsUpdated',
+  CONTACT_ONLINE_STATUS: 'contactOnlineStatus',
 };
 
 // Premium Color Scheme (WhatsApp-inspired but with premium colors)

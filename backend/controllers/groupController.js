@@ -57,6 +57,24 @@ class GroupController {
 
       const group = await groupService.createGroup(name, userEmail, validMembers);
 
+      // Emit socket event to notify all group members about new group
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io && group) {
+        // Notify all members about the new group
+        const allMembers = group.members || [];
+        allMembers.forEach((memberEmail) => {
+          const memberSocketId = userService.getSocketByEmail(memberEmail);
+          if (memberSocketId) {
+            io.to(memberSocketId).emit('groupsUpdated', {
+              groupId: group._id.toString(),
+              action: 'created',
+              group,
+            });
+          }
+        });
+      }
+
       res.status(200).json({
         success: true,
         message: 'Group created successfully',

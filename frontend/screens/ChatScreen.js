@@ -79,8 +79,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   
   const { socket, isConnected } = useSocket();
   const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead } = useChat(userEmail, contactEmail, () => {
-    // Refresh contacts when a new message is received
-    loadContacts();
+    // Backend will send contactsUpdated event, no need to call API
   });
   const { messages: groupMessages, typingUsers, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping } = useGroupChat(userEmail, groupId);
   
@@ -103,8 +102,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     const handleAnyPrivateMessage = async (data) => {
       // Only handle messages from other users (not from ourselves)
       if (data.senderEmail && data.senderEmail !== userEmail) {
-        // Refresh contacts list to show new contact or update unread count
-        loadContacts();
+        // Update contact's last message and unread count without full API call
+        // Backend will send contactsUpdated event if needed
 
         // Show notification only if not viewing this chat and chat is not archived
         const isViewingThisChat = contactEmail === data.senderEmail && chatType === 'private';
@@ -155,9 +154,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               clearNotification(notificationSenderEmail);
             },
             onMarkAsRead: async () => {
-              // Mark messages as read
+              // Mark messages as read - backend will send contactsUpdated event
               await contactsService.markMessagesAsRead(notificationSenderEmail);
-              loadContacts();
             },
             onReply: async (replyMessage) => {
               console.log('📨 ChatScreen: onReply callback called', {
@@ -260,10 +258,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                   
                   console.log('✅ ChatScreen: Reply sent successfully to:', notificationSenderEmail, 'Message:', messageText);
                   
-                  // Refresh contacts to update last message (with delay to ensure server processed)
-                  setTimeout(() => {
-                    loadContacts();
-                  }, 500);
+                  // Backend will send contactsUpdated event, no need to call API
                   
                   // Clear notification after sending
                   clearNotification(notificationSenderEmail);
@@ -289,16 +284,53 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     };
   }, [socket, userEmail, contactEmail, chatType, contacts, addNotification, clearNotification]);
 
-  // Periodically refresh contacts and groups
+  // Listen for socket events to update contacts and groups in real-time
   useEffect(() => {
-    // Refresh every 10 seconds to update online status and unread count
-    const interval = setInterval(() => {
-      loadContacts(false); // Don't show loading spinner
-      loadGroups();
-    }, 10000);
+    if (!socket || !userEmail) return;
+
+    // Listen for contacts update event from backend
+    const handleContactsUpdated = (data) => {
+      console.log('📬 Contacts updated via socket:', data);
+      // Only update if we have new data
+      if (data && (data.contacts || data.contactEmail)) {
+        loadContacts(false); // Refresh contacts list
+      }
+    };
+
+    // Listen for groups update event from backend
+    const handleGroupsUpdated = (data) => {
+      console.log('📬 Groups updated via socket:', data);
+      // Only update if we have new data
+      if (data && (data.groups || data.groupId)) {
+        loadGroups(); // Refresh groups list
+      }
+    };
+
+    // Listen for contact online status changes
+    const handleContactOnlineStatus = (data) => {
+      console.log('🟢 Contact online status changed:', data);
+      if (data && data.contactEmail) {
+        // Update specific contact's online status without full refresh
+        setContacts((prev) =>
+          prev.map((contact) =>
+            contact.email === data.contactEmail
+              ? { ...contact, isOnline: data.isOnline }
+              : contact
+          )
+        );
+      }
+    };
+
+    socket.on(SOCKET_EVENTS.CONTACTS_UPDATED, handleContactsUpdated);
+    socket.on(SOCKET_EVENTS.GROUPS_UPDATED, handleGroupsUpdated);
+    socket.on(SOCKET_EVENTS.CONTACT_ONLINE_STATUS, handleContactOnlineStatus);
     
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      socket.off(SOCKET_EVENTS.CONTACTS_UPDATED, handleContactsUpdated);
+      socket.off(SOCKET_EVENTS.GROUPS_UPDATED, handleGroupsUpdated);
+      socket.off(SOCKET_EVENTS.CONTACT_ONLINE_STATUS, handleContactOnlineStatus);
+    };
+  }, [socket, userEmail]);
 
   const loadGroups = async () => {
     const result = await groupService.getGroups();
@@ -329,10 +361,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       const name = getUsernameFromEmail(contactEmail);
       setContactName(name);
       // Mark messages as read when chat is opened
-      contactsService.markMessagesAsRead(contactEmail).then(() => {
-        // Reload contacts to update unread count
-        loadContacts();
-      });
+      // Backend will send contactsUpdated event, no need to call API
+      contactsService.markMessagesAsRead(contactEmail);
     } else if (chatType === 'group' && groupId) {
       // Find group from current groups state (but don't include groups in deps to avoid loop)
       const group = groups.find(g => g._id === groupId);
@@ -340,10 +370,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         setGroupName(group.name);
         setCurrentGroup(group);
         // Mark group messages as read when chat is opened
-        groupService.markMessagesAsRead(groupId).then(() => {
-          // Reload groups to update unread count (but don't trigger this useEffect)
-          loadGroups();
-        });
+        // Backend will send groupsUpdated event, no need to call API
+        groupService.markMessagesAsRead(groupId);
       } else {
         // Load group details if not in list
         groupService.getGroup(groupId).then(result => {
@@ -522,14 +550,14 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   };
 
   const handleGroupCreated = async (group) => {
-    await loadGroups();
+    // Backend will send groupsUpdated event, no need to call API
     if (group && group._id) {
       handleSelectGroup(group._id);
     }
   };
 
   const handleGroupUpdated = async (updatedGroup) => {
-    await loadGroups();
+    // Backend will send groupsUpdated event, no need to call API
     if (updatedGroup && updatedGroup._id === groupId) {
       setCurrentGroup(updatedGroup);
       setGroupName(updatedGroup.name);
@@ -551,7 +579,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     const result = await contactsService.addContact(email);
     if (result.success) {
       Alert.alert('Success', 'Contact saved successfully');
-      await loadContacts();
+      // Backend will send contactsUpdated event, no need to call API
     } else {
       Alert.alert('Error', result.message || 'Failed to save contact');
     }

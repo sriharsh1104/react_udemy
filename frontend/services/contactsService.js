@@ -13,10 +13,11 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/search?query=${encodeURIComponent(query)}&token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/search?query=${encodeURIComponent(query)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -50,10 +51,11 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check?email=${encodeURIComponent(email)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -87,10 +89,11 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -128,10 +131,10 @@ class ContactsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           contactEmail,
-          token,
         }),
       });
 
@@ -166,10 +169,10 @@ class ContactsService {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           contactEmail,
-          token,
         }),
       });
 
@@ -204,10 +207,10 @@ class ContactsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           contactEmail,
-          token,
         }),
       });
 
@@ -241,10 +244,11 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check-phone?phone=${encodeURIComponent(phone)}&token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check-phone?phone=${encodeURIComponent(phone)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -282,10 +286,10 @@ class ContactsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           phones,
-          token,
         }),
       });
 
@@ -319,10 +323,11 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/invite-link?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/invite-link`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -360,10 +365,10 @@ class ContactsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           contactEmail,
-          token,
         }),
       });
 
@@ -401,10 +406,10 @@ class ContactsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           messageId,
-          token,
         }),
       });
 
@@ -435,10 +440,11 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/message-info/${messageId}?token=${encodeURIComponent(token)}`, {
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/message-info/${messageId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -474,7 +480,7 @@ class ContactsService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ contactEmail, token }),
+        body: JSON.stringify({ contactEmail }),
       });
 
       const data = await response.json();
@@ -501,7 +507,7 @@ class ContactsService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ contactEmail, token }),
+        body: JSON.stringify({ contactEmail }),
       });
 
       const data = await response.json();
@@ -528,7 +534,7 @@ class ContactsService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ contactEmail, mutedUntil, token }),
+        body: JSON.stringify({ contactEmail, mutedUntil }),
       });
 
       const data = await response.json();
@@ -555,7 +561,7 @@ class ContactsService {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ contactEmail, token }),
+        body: JSON.stringify({ contactEmail }),
       });
 
       const data = await response.json();
