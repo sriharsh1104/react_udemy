@@ -78,7 +78,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [activeBottomTab, setActiveBottomTab] = useState('chat'); // 'chat', 'feed', 'status', 'call'
   const flatListRef = useRef(null);
   
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected } = useSocket(userEmail);
   const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead } = useChat(userEmail, contactEmail, () => {
     // Backend will send contactsUpdated event, no need to call API
   });

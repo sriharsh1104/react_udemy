@@ -400,11 +400,31 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             connected: currentSocket.connected,
             disconnected: currentSocket.disconnected,
             socketId: currentSocket.id,
+            readyState: currentSocket.io?.readyState,
+            transport: currentSocket.io?.engine?.transport?.name,
           });
           console.error('❌ Attempting to reconnect...');
-          // Try to reconnect
-          socketService.connect();
-          throw new Error('Socket not connected. Please try again.');
+          
+          // Try to reconnect with retry
+          socketService.connect(userEmail);
+          
+          // Wait for connection with timeout
+          let retries = 0;
+          const maxRetries = 5;
+          while (!currentSocket.connected && retries < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            retries++;
+            // Re-check socket
+            const updatedSocket = socketService.getSocket();
+            if (updatedSocket && updatedSocket.connected) {
+              console.log('✅ Socket reconnected after', retries, 'retries');
+              break;
+            }
+          }
+          
+          if (!currentSocket.connected) {
+            throw new Error('Socket not connected. Please check your internet connection and try again.');
+          }
         }
         
         // Prepare message payload

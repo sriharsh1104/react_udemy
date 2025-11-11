@@ -2,17 +2,28 @@ import { useState, useEffect } from 'react';
 import socketService from '../services/socketService';
 import { SOCKET_EVENTS } from '../constants';
 
-export const useSocket = () => {
+export const useSocket = (userEmail = null) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const newSocket = socketService.connect();
+    const newSocket = socketService.connect(userEmail);
     setSocket(newSocket);
+
+    // Set user email in socket service
+    if (userEmail) {
+      socketService.setUserEmail(userEmail);
+    }
 
     const handleConnect = () => {
       setIsConnected(true);
       console.log('✅ Connected to server');
+      
+      // Re-login if we have userEmail
+      if (userEmail) {
+        console.log('🔐 Logging in after connection:', userEmail);
+        socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
+      }
     };
 
     const handleDisconnect = (reason) => {
@@ -32,6 +43,10 @@ export const useSocket = () => {
     // Check initial connection state
     if (newSocket.connected) {
       setIsConnected(true);
+      // Login if already connected
+      if (userEmail) {
+        socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
+      }
     }
 
     return () => {
@@ -40,7 +55,7 @@ export const useSocket = () => {
       newSocket.off('connect_error', handleConnectError);
       // Don't disconnect here - let socketService manage it
     };
-  }, []);
+  }, [userEmail]);
 
   return { socket, isConnected };
 };

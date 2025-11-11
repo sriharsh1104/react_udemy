@@ -106,9 +106,15 @@ app.use(notFoundHandler);
 // Error handler
 app.use(errorHandler);
 
-// Initialize Socket.io
+// Initialize Socket.io with mobile-friendly settings
 const io = require('socket.io')(server, {
-  cors: config.cors
+  cors: config.cors,
+  transports: ['websocket', 'polling'], // Support both transports for mobile
+  pingTimeout: 60000, // 60 seconds - longer timeout for mobile networks
+  pingInterval: 25000, // 25 seconds - keep connection alive
+  upgradeTimeout: 30000, // 30 seconds for transport upgrade
+  allowEIO3: true, // Support older clients
+  maxHttpBufferSize: 1e8, // 100MB - for large file uploads
 });
 
 // Initialize Socket Service
