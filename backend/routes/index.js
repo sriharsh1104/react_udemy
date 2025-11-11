@@ -6,6 +6,7 @@ const settingsController = require('../controllers/settingsController');
 const groupController = require('../controllers/groupController');
 const fileController = require('../controllers/fileController');
 const statusController = require('../controllers/statusController');
+const feedController = require('../controllers/feedController');
 
 const router = require('express').Router();
 
@@ -100,6 +101,13 @@ router.post('/status/upload', statusController.uploadStatus);
 router.get('/status/feed', statusController.getStatusFeed);
 router.post('/status/view', statusController.markAsViewed);
 router.get('/status/:statusId/viewers', statusController.getViewers);
+
+// Feed routes (Instagram-like feed)
+router.get('/feed', feedController.getFeed);
+router.post('/feed/like', feedController.toggleLike);
+router.post('/feed/comment', feedController.addComment);
+router.get('/feed/:statusId/comments', feedController.getComments);
+router.post('/feed/caption', feedController.updateCaption);
 
 console.log('Routes registered:');
 console.log('  POST /api/auth/register');

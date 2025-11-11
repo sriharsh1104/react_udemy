@@ -11,11 +11,14 @@ import {
   Modal,
   Dimensions,
   Platform,
+  TextInput,
+  Animated,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
 import contactsService from '../../services/contactsService';
 import statusService from '../../services/statusService';
+import feedService from '../../services/feedService';
 import * as ImagePicker from 'expo-image-picker';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { API_CONFIG } from '../../constants';
@@ -72,32 +75,68 @@ const StatusContentView = ({ status }) => {
 
 const StatusFeed = ({ userEmail, contacts = [] }) => {
   const { colors } = useTheme();
-  const [statuses, setStatuses] = useState([]);
-  const [myStatus, setMyStatus] = useState(null);
+  const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [showStatusViewer, setShowStatusViewer] = useState(false);
-  const [showViewersModal, setShowViewersModal] = useState(false);
-  const [viewers, setViewers] = useState([]);
-  const [loadingViewers, setLoadingViewers] = useState(false);
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [likedStatuses, setLikedStatuses] = useState(new Set());
+  const doubleTapRefs = useRef({});
+  const likeAnimations = useRef({});
 
   useEffect(() => {
-    loadStatuses();
+    loadFeed();
   }, [contacts, userEmail]);
 
-  const loadStatuses = async () => {
-    setLoading(true);
+  const loadFeed = async (pageNum = 1, append = false) => {
+    if (pageNum === 1) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+    
     try {
-      const result = await statusService.getStatusFeed();
+      const result = await feedService.getFeed(pageNum, 10);
       if (result.success) {
-        setStatuses(result.statuses || []);
-        setMyStatus(result.myStatus);
+        if (append) {
+          setFeed(prev => [...prev, ...result.feed]);
+        } else {
+          setFeed(result.feed);
+        }
+        setHasMore(result.hasMore);
+        setPage(pageNum);
+        
+        // Track liked statuses
+        const liked = new Set();
+        result.feed.forEach(item => {
+          if (item.isLiked) {
+            liked.add(item.statusId);
+          }
+        });
+        setLikedStatuses(liked);
       }
     } catch (error) {
-      console.error('Error loading statuses:', error);
+      console.error('Error loading feed:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const loadMore = () => {
+    if (hasMore && !loading) {
+      loadFeed(page + 1, true);
+    }
+  };
+
+  const handleRefresh = () => {
+    loadFeed(1, false);
   };
 
   const handleAddStatus = async () => {
@@ -366,7 +405,8 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       const result = await statusService.uploadStatus(file, type);
       
       if (result.success) {
-        await loadStatuses();
+        // Refresh feed after upload
+        await loadFeed(1, false);
       }
     } catch (error) {
       console.error('Error uploading status:', error);
@@ -374,133 +414,283 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     }
   };
 
-  const handleStatusPress = async (status, index) => {
-    // Mark as viewed
-    if (status.statusId && !status.hasUnviewedStatus) {
-      await statusService.markAsViewed(status.statusId);
+  const handleLike = async (statusId) => {
+    // Optimistic update
+    const isLiked = likedStatuses.has(statusId);
+    const newLikedStatuses = new Set(likedStatuses);
+    if (isLiked) {
+      newLikedStatuses.delete(statusId);
+    } else {
+      newLikedStatuses.add(statusId);
     }
-    
-    // Build full status URL
-    const fullStatusUrl = status.statusUrl?.startsWith('http') 
-      ? status.statusUrl 
-      : `${API_CONFIG.BASE_URL}${status.statusUrl}`;
-    
-    setSelectedStatus({
-      ...status,
-      statusUrl: fullStatusUrl,
-    });
-    setShowStatusViewer(true);
-    
-    // Mark as viewed after opening
-    if (status.statusId && status.hasUnviewedStatus) {
-      await statusService.markAsViewed(status.statusId);
-      // Reload to update viewed status
-      setTimeout(() => loadStatuses(), 500);
+    setLikedStatuses(newLikedStatuses);
+
+    // Update feed
+    setFeed(prev => prev.map(item => {
+      if (item.statusId === statusId) {
+        return {
+          ...item,
+          isLiked: !isLiked,
+          likesCount: isLiked ? item.likesCount - 1 : item.likesCount + 1,
+        };
+      }
+      return item;
+    }));
+
+    // API call
+    try {
+      await feedService.toggleLike(statusId);
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      // Revert on error
+      setLikedStatuses(likedStatuses);
+      setFeed(prev => prev.map(item => {
+        if (item.statusId === statusId) {
+          return {
+            ...item,
+            isLiked,
+            likesCount: isLiked ? item.likesCount + 1 : item.likesCount - 1,
+          };
+        }
+        return item;
+      }));
     }
   };
 
-  const handleViewInfo = async (status) => {
-    if (!status.statusId) return;
-    
-    setLoadingViewers(true);
-    setShowViewersModal(true);
+  const handleDoubleTap = (statusId) => {
+    if (!likedStatuses.has(statusId)) {
+      handleLike(statusId);
+      
+      // Animate heart
+      if (!likeAnimations.current[statusId]) {
+        likeAnimations.current[statusId] = new Animated.Value(0);
+      }
+      
+      Animated.sequence([
+        Animated.timing(likeAnimations.current[statusId], {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(likeAnimations.current[statusId], {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  };
+
+  const handleCommentPress = async (statusId) => {
+    setSelectedStatus(statusId);
+    setShowCommentsModal(true);
+    setLoadingComments(true);
     
     try {
-      const result = await statusService.getViewers(status.statusId);
+      const result = await feedService.getComments(statusId);
       if (result.success) {
-        setViewers(result.viewers || []);
+        setComments(result.comments || []);
       }
     } catch (error) {
-      console.error('Error loading viewers:', error);
+      console.error('Error loading comments:', error);
     } finally {
-      setLoadingViewers(false);
+      setLoadingComments(false);
     }
   };
 
-  const renderStatusItem = ({ item, index }) => {
-    const name = item.name || item.email?.split('@')[0] || 'Unknown';
-    const hasUnviewedStatus = item.hasUnviewedStatus;
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !selectedStatus) return;
+    
+    const commentToAdd = commentText.trim();
+    setCommentText('');
+    
+    try {
+      const result = await feedService.addComment(selectedStatus, commentToAdd);
+      if (result.success) {
+        setComments(prev => [...prev, result.comment]);
+        // Update feed
+        setFeed(prev => prev.map(item => {
+          if (item.statusId === selectedStatus) {
+            return {
+              ...item,
+              commentsCount: item.commentsCount + 1,
+            };
+          }
+          return item;
+        }));
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
+  };
+
+  // Feed Item Component with proper double tap handling
+  const FeedItemComponent = ({ item }) => {
     const statusUrl = item.statusUrl?.startsWith('http') 
       ? item.statusUrl 
       : item.statusUrl 
         ? `${API_CONFIG.BASE_URL}${item.statusUrl}` 
         : null;
     
-    return (
-      <TouchableOpacity
-        style={[styles.statusItem, { borderBottomColor: colors.divider }]}
-        onPress={() => handleStatusPress(item, index)}
-        onLongPress={() => {
-          // Only owner can see viewers, so we don't show info for others' status
-        }}
-      >
-        <View style={[styles.statusAvatar, { backgroundColor: colors.primary }]}>
-          {statusUrl ? (
-            <Image source={{ uri: statusUrl }} style={styles.statusAvatarImage} />
-          ) : (
-            <Text style={[styles.statusAvatarText, { color: colors.white }]}>
-              {name.charAt(0).toUpperCase()}
-            </Text>
-          )}
-          {hasUnviewedStatus && (
-            <View style={[styles.unviewedIndicator, { backgroundColor: colors.primary }]} />
-          )}
-        </View>
-        <View style={styles.statusInfo}>
-          <Text style={[styles.statusName, { color: colors.text }]}>{name}</Text>
-          <Text style={[styles.statusTime, { color: colors.textSecondary }]}>
-            {item.statusTime || 'Just now'}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderMyStatus = () => {
-    const hasStatus = myStatus !== null;
-    const statusUrl = myStatus?.statusUrl?.startsWith('http') 
-      ? myStatus.statusUrl 
-      : myStatus?.statusUrl 
-        ? `${API_CONFIG.BASE_URL}${myStatus.statusUrl}` 
-        : null;
+    const isLiked = likedStatuses.has(item.statusId);
+    const isVideo = item.statusType === 'video';
+    const lastTapRef = useRef(null);
     
+    // Initialize animation if needed
+    if (!likeAnimations.current[item.statusId]) {
+      likeAnimations.current[item.statusId] = new Animated.Value(0);
+    }
+    
+    const heartScale = likeAnimations.current[item.statusId].interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1.5],
+    });
+    
+    const heartOpacity = likeAnimations.current[item.statusId].interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0, 1, 0],
+    });
+
+    const handleImagePress = () => {
+      const now = Date.now();
+      const DOUBLE_PRESS_DELAY = 300;
+      
+      if (lastTapRef.current && (now - lastTapRef.current) < DOUBLE_PRESS_DELAY) {
+        handleDoubleTap(item.statusId);
+        lastTapRef.current = null;
+      } else {
+        lastTapRef.current = now;
+      }
+    };
+
+    // Video player hook - always call it
+    const videoPlayer = useVideoPlayer(
+      isVideo && statusUrl ? statusUrl : '',
+      (player) => {
+        if (isVideo && player && statusUrl) {
+          player.loop = true;
+          player.play();
+        }
+      }
+    );
+
     return (
-      <TouchableOpacity
-        style={[styles.myStatusItem, { borderBottomColor: colors.divider }]}
-        onPress={hasStatus ? () => handleStatusPress({ ...myStatus, name: 'My Status', email: userEmail }, 0) : handleAddStatus}
-        onLongPress={hasStatus ? () => handleViewInfo({ ...myStatus, email: userEmail }) : null}
-      >
-        <View style={[styles.myStatusAvatar, { backgroundColor: colors.primary }]}>
-          {hasStatus && statusUrl ? (
-            <Image source={{ uri: statusUrl }} style={styles.myStatusAvatarImage} />
-          ) : (
-            <Text style={[styles.myStatusAvatarText, { color: colors.white }]}>
-              {userEmail?.split('@')[0]?.charAt(0).toUpperCase() || '+'}
+      <View style={[styles.feedItem, { backgroundColor: colors.background }]}>
+        {/* Header */}
+        <View style={styles.feedHeader}>
+          <View style={[styles.feedAvatar, { backgroundColor: colors.primary }]}>
+            <Text style={[styles.feedAvatarText, { color: colors.white }]}>
+              {item.userName?.charAt(0).toUpperCase() || 'U'}
             </Text>
-          )}
-          <View style={[styles.addStatusButton, { backgroundColor: colors.primary }]}>
-            <Text style={styles.addStatusIcon}>{hasStatus ? 'ℹ️' : '+'}</Text>
+          </View>
+          <View style={styles.feedHeaderInfo}>
+            <Text style={[styles.feedUserName, { color: colors.text }]}>
+              {item.userName || item.userEmail?.split('@')[0]}
+            </Text>
+            <Text style={[styles.feedTime, { color: colors.textSecondary }]}>
+              {item.statusTime}
+            </Text>
           </View>
         </View>
-        <View style={styles.statusInfo}>
-          <Text style={[styles.statusName, { color: colors.text }]}>My Status</Text>
-          <Text style={[styles.statusTime, { color: colors.textSecondary }]}>
-            {hasStatus ? (myStatus.statusTime || 'Just now') : 'Tap to add status update'}
-          </Text>
-        </View>
-        {hasStatus && (
+
+        {/* Media */}
+        <TouchableOpacity 
+          activeOpacity={1}
+          onPress={handleImagePress}
+          style={styles.feedMediaContainer}
+        >
+          {statusUrl && (
+            <>
+              {isVideo ? (
+                <VideoView
+                  player={videoPlayer}
+                  style={styles.feedMedia}
+                  contentFit="cover"
+                  nativeControls={false}
+                />
+              ) : (
+                <Image
+                  source={{ uri: statusUrl }}
+                  style={styles.feedMedia}
+                  resizeMode="cover"
+                />
+              )}
+              
+              {/* Double tap heart animation */}
+              <Animated.View
+                style={[
+                  styles.doubleTapHeart,
+                  {
+                    transform: [{ scale: heartScale }],
+                    opacity: heartOpacity,
+                  },
+                ]}
+                pointerEvents="none"
+              >
+                <Text style={styles.heartEmoji}>❤️</Text>
+              </Animated.View>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {/* Actions */}
+        <View style={styles.feedActions}>
           <TouchableOpacity
-            style={styles.infoButton}
-            onPress={() => handleViewInfo({ ...myStatus, email: userEmail })}
+            onPress={() => handleLike(item.statusId)}
+            style={styles.feedActionButton}
           >
-            <Text style={[styles.infoButtonText, { color: colors.primary }]}>ℹ️</Text>
+            <Text style={styles.feedActionIcon}>
+              {isLiked ? '❤️' : '🤍'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleCommentPress(item.statusId)}
+            style={styles.feedActionButton}
+          >
+            <Text style={styles.feedActionIcon}>💬</Text>
+          </TouchableOpacity>
+          <View style={styles.feedActionSpacer} />
+        </View>
+
+        {/* Likes count */}
+        {item.likesCount > 0 && (
+          <Text style={[styles.feedLikes, { color: colors.text }]}>
+            {item.likesCount} {item.likesCount === 1 ? 'like' : 'likes'}
+          </Text>
+        )}
+
+        {/* Caption */}
+        {item.caption && (
+          <View style={styles.feedCaption}>
+            <Text style={[styles.feedCaptionText, { color: colors.text }]}>
+              <Text style={[styles.feedCaptionUser, { color: colors.text }]}>
+                {item.userName || item.userEmail?.split('@')[0]}{' '}
+              </Text>
+              {item.caption}
+            </Text>
+          </View>
+        )}
+
+        {/* Comments count */}
+        {item.commentsCount > 0 && (
+          <TouchableOpacity
+            onPress={() => handleCommentPress(item.statusId)}
+            style={styles.feedCommentsButton}
+          >
+            <Text style={[styles.feedCommentsText, { color: colors.textSecondary }]}>
+              View all {item.commentsCount} {item.commentsCount === 1 ? 'comment' : 'comments'}
+            </Text>
           </TouchableOpacity>
         )}
-      </TouchableOpacity>
+      </View>
     );
   };
 
-  if (loading) {
+  const renderFeedItem = ({ item }) => {
+    return <FeedItemComponent item={item} />;
+  };
+
+  if (loading && feed.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -511,18 +701,29 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-        data={statuses}
-        renderItem={renderStatusItem}
-        keyExtractor={(item, index) => `status-${item.email || index}`}
-        ListHeaderComponent={renderMyStatus}
+        data={feed}
+        renderItem={renderFeedItem}
+        keyExtractor={(item) => `feed-${item.statusId}`}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: colors.text }]}>
-              No status updates
+              No posts yet
             </Text>
             <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-              Your contacts haven't shared any status updates yet
+              Your contacts haven't shared any posts yet
             </Text>
+            <TouchableOpacity
+              style={[styles.addStatusButton, { backgroundColor: colors.primary }]}
+              onPress={handleAddStatus}
+            >
+              <Text style={[styles.addStatusButtonText, { color: colors.white }]}>
+                Add Your First Post
+              </Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -548,60 +749,92 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         </View>
       </Modal>
 
-      {/* Viewers Modal */}
+      {/* Comments Modal */}
       <Modal
-        visible={showViewersModal}
+        visible={showCommentsModal}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowViewersModal(false)}
+        onRequestClose={() => {
+          setShowCommentsModal(false);
+          setComments([]);
+          setCommentText('');
+        }}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.viewersModal, { backgroundColor: colors.background }]}>
+          <View style={[styles.commentsModal, { backgroundColor: colors.background }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.divider }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Status Info</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Comments</Text>
               <TouchableOpacity
-                onPress={() => setShowViewersModal(false)}
+                onPress={() => {
+                  setShowCommentsModal(false);
+                  setComments([]);
+                  setCommentText('');
+                }}
                 style={styles.modalCloseButton}
               >
                 <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>✕</Text>
               </TouchableOpacity>
             </View>
             
-            {loadingViewers ? (
+            {loadingComments ? (
               <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
             ) : (
-              <View style={styles.viewersList}>
-                <Text style={[styles.viewersCount, { color: colors.textSecondary }]}>
-                  {viewers.length} {viewers.length === 1 ? 'viewer' : 'viewers'}
-                </Text>
-                {viewers.length === 0 ? (
-                  <Text style={[styles.noViewers, { color: colors.textSecondary }]}>
-                    No one has viewed this status yet
-                  </Text>
-                ) : (
-                  <FlatList
-                    data={viewers}
-                    keyExtractor={(item, index) => `viewer-${item.viewerEmail}-${index}`}
-                    renderItem={({ item }) => (
-                      <View style={[styles.viewerItem, { borderBottomColor: colors.divider }]}>
-                        <View style={[styles.viewerAvatar, { backgroundColor: colors.primary }]}>
-                          <Text style={[styles.viewerAvatarText, { color: colors.white }]}>
-                            {item.viewerName?.charAt(0).toUpperCase() || item.viewerEmail?.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={styles.viewerInfo}>
-                          <Text style={[styles.viewerName, { color: colors.text }]}>
-                            {item.viewerName || item.viewerEmail?.split('@')[0]}
-                          </Text>
-                          <Text style={[styles.viewerTime, { color: colors.textSecondary }]}>
-                            {new Date(item.viewedAt).toLocaleString()}
-                          </Text>
-                        </View>
+              <>
+                <FlatList
+                  data={comments}
+                  keyExtractor={(item, index) => `comment-${item.commentId}-${index}`}
+                  style={styles.commentsList}
+                  renderItem={({ item }) => (
+                    <View style={[styles.commentItem, { borderBottomColor: colors.divider }]}>
+                      <View style={[styles.commentAvatar, { backgroundColor: colors.primary }]}>
+                        <Text style={[styles.commentAvatarText, { color: colors.white }]}>
+                          {item.userName?.charAt(0).toUpperCase() || 'U'}
+                        </Text>
                       </View>
-                    )}
+                      <View style={styles.commentContent}>
+                        <Text style={[styles.commentUserName, { color: colors.text }]}>
+                          {item.userName || item.userEmail?.split('@')[0]}
+                        </Text>
+                        <Text style={[styles.commentText, { color: colors.text }]}>
+                          {item.comment}
+                        </Text>
+                        <Text style={[styles.commentTime, { color: colors.textSecondary }]}>
+                          {new Date(item.commentedAt).toLocaleString()}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                  ListEmptyComponent={
+                    <View style={styles.emptyComments}>
+                      <Text style={[styles.emptyCommentsText, { color: colors.textSecondary }]}>
+                        No comments yet. Be the first to comment!
+                      </Text>
+                    </View>
+                  }
+                />
+                
+                {/* Comment Input */}
+                <View style={[styles.commentInputContainer, { borderTopColor: colors.divider }]}>
+                  <TextInput
+                    style={[styles.commentInput, { color: colors.text, backgroundColor: colors.inputBackground }]}
+                    placeholder="Add a comment..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={commentText}
+                    onChangeText={setCommentText}
+                    multiline
                   />
-                )}
-              </View>
+                  <TouchableOpacity
+                    onPress={handleAddComment}
+                    disabled={!commentText.trim()}
+                    style={[
+                      styles.commentSendButton,
+                      { backgroundColor: commentText.trim() ? colors.primary : colors.divider },
+                    ]}
+                  >
+                    <Text style={[styles.commentSendText, { color: colors.white }]}>Post</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
             )}
           </View>
         </View>
@@ -614,87 +847,98 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  statusItem: {
+  // Feed Item Styles
+  feedItem: {
+    marginBottom: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  feedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
-    borderBottomWidth: 1,
   },
-  myStatusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-  },
-  statusAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  feedAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
   },
-  statusAvatarImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  statusAvatarText: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
+  feedAvatarText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
-  unviewedIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: COLORS.background,
-  },
-  myStatusAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-  },
-  myStatusAvatarText: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-  },
-  addStatusButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.background,
-  },
-  addStatusIcon: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  statusInfo: {
+  feedHeaderInfo: {
     flex: 1,
   },
-  statusName: {
+  feedUserName: {
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    marginBottom: 2,
   },
-  statusTime: {
+  feedTime: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginTop: 2,
+  },
+  feedMediaContainer: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH,
+    position: 'relative',
+  },
+  feedMedia: {
+    width: '100%',
+    height: '100%',
+  },
+  doubleTapHeart: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -30,
+    marginTop: -30,
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heartEmoji: {
+    fontSize: 60,
+  },
+  feedActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+  },
+  feedActionButton: {
+    marginRight: SPACING.md,
+  },
+  feedActionIcon: {
+    fontSize: 28,
+  },
+  feedActionSpacer: {
+    flex: 1,
+  },
+  feedLikes: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+  feedCaption: {
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+  feedCaptionText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+  },
+  feedCaptionUser: {
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  feedCommentsButton: {
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  feedCommentsText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
   },
   emptyContainer: {
@@ -711,6 +955,16 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: TYPOGRAPHY.fontSize.md,
     textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
+  addStatusButton: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  addStatusButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   statusViewerContainer: {
     flex: 1,
@@ -776,6 +1030,78 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BORDER_RADIUS.xl,
     borderTopRightRadius: BORDER_RADIUS.xl,
     paddingTop: SPACING.md,
+  },
+  commentsModal: {
+    height: '70%',
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    paddingTop: SPACING.md,
+  },
+  commentsList: {
+    flex: 1,
+    padding: SPACING.md,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+  },
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  commentAvatarText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentUserName: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    marginBottom: SPACING.xs,
+  },
+  commentText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    marginBottom: SPACING.xs,
+  },
+  commentTime: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  emptyComments: {
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  emptyCommentsText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    textAlign: 'center',
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderTopWidth: 1,
+  },
+  commentInput: {
+    flex: 1,
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    marginRight: SPACING.md,
+    maxHeight: 100,
+  },
+  commentSendButton: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  commentSendText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -860,4 +1186,5 @@ const styles = StyleSheet.create({
 });
 
 export default StatusFeed;
+
 

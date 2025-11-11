@@ -38,6 +38,34 @@ const StatusSchema = new mongoose.Schema({
     },
     index: { expireAfterSeconds: 0 },
   },
+  caption: {
+    type: String,
+    default: '',
+  },
+  likes: [{
+    userEmail: {
+      type: String,
+      required: true,
+    },
+    likedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  }],
+  comments: [{
+    userEmail: {
+      type: String,
+      required: true,
+    },
+    comment: {
+      type: String,
+      required: true,
+    },
+    commentedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  }],
 });
 
 // Index for finding statuses by user

@@ -1127,10 +1127,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       );
     } else if (activeBottomTab === 'feed') {
       return (
-        <View style={styles.comingSoonContainer}>
-          <Text style={styles.comingSoonText}>Coming Soon</Text>
-          <Text style={styles.comingSoonSubtext}>Feed feature is under development</Text>
-        </View>
+        <StatusFeed userEmail={userEmail} contacts={contacts} />
       );
     } else if (activeBottomTab === 'status') {
       return (
