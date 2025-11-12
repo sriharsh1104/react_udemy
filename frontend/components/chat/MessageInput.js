@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Modal, A
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
 
-const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, replyingTo, onCancelReply }) => {
+const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, replyingTo, onCancelReply, editingMessage, onCancelEdit }) => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
 
   const handleSend = () => {
@@ -74,9 +74,48 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
       : replyingTo.message;
   };
 
+  // Extract message text for editing display
+  const getEditMessageText = () => {
+    if (!editingMessage || !editingMessage.message) return '';
+    try {
+      const parsed = JSON.parse(editingMessage.message);
+      if (parsed && parsed.type === 'file') {
+        return `📎 ${parsed.fileName || 'File'}`;
+      }
+    } catch {
+      // Not JSON, return as-is
+    }
+    return editingMessage.message.length > 50 
+      ? editingMessage.message.substring(0, 50) + '...' 
+      : editingMessage.message;
+  };
+
   return (
     <View style={styles.container}>
-      {replyingTo && (
+      {editingMessage && (
+        <View style={[styles.replyContainer, styles.editContainer]}>
+          <View style={styles.replyContent}>
+            <View style={[styles.replyIndicator, { backgroundColor: COLORS.primary }]} />
+            <View style={styles.replyTextContainer}>
+              <Text style={styles.replyLabel}>
+                Editing message
+              </Text>
+              <Text style={styles.replyMessage} numberOfLines={1}>
+                {getEditMessageText()}
+              </Text>
+            </View>
+          </View>
+          {onCancelEdit && (
+            <TouchableOpacity 
+              style={styles.cancelReplyButton}
+              onPress={onCancelEdit}
+            >
+              <Text style={styles.cancelReplyIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+      {replyingTo && !editingMessage && (
         <View style={styles.replyContainer}>
           <View style={styles.replyContent}>
             <View style={styles.replyIndicator} />
@@ -342,6 +381,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: COLORS.textSecondary,
     fontWeight: 'bold',
+  },
+  editContainer: {
+    backgroundColor: COLORS.primary + '20', // Light tint for edit mode
   },
 });
 

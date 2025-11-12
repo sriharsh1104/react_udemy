@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
 
-const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail }) => {
+const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt }) => {
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
@@ -157,8 +157,15 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
               </TouchableOpacity>
             )}
           </View>
+          {/* Show deleted message for image/video files */}
+          {isDeleted && (fileData.fileType === 'image' || fileData.fileType === 'video') && (
+            <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText, styles.deletedMessage]}>
+              This message is deleted
+            </Text>
+          )}
+          
           {/* Display image if downloaded */}
-          {fileData.fileType === 'image' && localFileUri && (
+          {fileData.fileType === 'image' && localFileUri && !isDeleted && (
             <View style={styles.imageContainer}>
               <Image source={{ uri: localFileUri }} style={styles.fileImage} resizeMode="cover" />
               <TouchableOpacity 
@@ -176,7 +183,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
           )}
           
           {/* Display video if downloaded */}
-          {fileData.fileType === 'video' && localFileUri && (
+          {fileData.fileType === 'video' && localFileUri && !isDeleted && (
             <View style={styles.videoContainer}>
               <VideoPlayer uri={localFileUri} />
               <TouchableOpacity 
@@ -195,6 +202,12 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
           
           {/* Show file info and download button for non-image/video files or when not downloaded */}
           {(!localFileUri || (fileData.fileType !== 'image' && fileData.fileType !== 'video')) && (
+            <>
+              {isDeleted ? (
+                <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText, styles.deletedMessage]}>
+                  This message is deleted
+                </Text>
+              ) : (
             <TouchableOpacity 
               style={styles.fileContainer}
               onPress={handleDownload}
@@ -221,6 +234,8 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
                 </>
               )}
             </TouchableOpacity>
+              )}
+            </>
           )}
           
           {/* Show download option for images/videos that are displayed but can be re-downloaded */}
@@ -287,9 +302,22 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
             </Text>
           </View>
         )}
+        {isDeleted ? (
+          <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText, styles.deletedMessage]}>
+            This message is deleted
+          </Text>
+        ) : (
+          <>
         <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText]}>
           {message}
         </Text>
+            {editedAt && (
+              <Text style={[styles.editedLabel, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
+                (edited)
+              </Text>
+            )}
+          </>
+        )}
         <View style={styles.timestampContainer}>
           <Text style={[styles.timestamp, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
             {new Date(timestamp).toLocaleTimeString('en-US', { 
@@ -536,6 +564,15 @@ const styles = StyleSheet.create({
   },
   replyMessageText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  deletedMessage: {
+    fontStyle: 'italic',
+    opacity: 0.7,
+  },
+  editedLabel: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontStyle: 'italic',
+    marginTop: SPACING.xs / 2,
   },
 });
 

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Platform,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 import groupService from '../../services/groupService';
@@ -23,7 +24,8 @@ const ContactInfoModal = ({
   userEmail, 
   contactName,
   onSelectGroup,
-  messages = [] 
+  messages = [],
+  onClearChat
 }) => {
   const [commonGroups, setCommonGroups] = useState([]);
   const [sharedMedia, setSharedMedia] = useState([]);
@@ -266,6 +268,34 @@ const ContactInfoModal = ({
                     <Text style={styles.emptyText}>No shared groups or media</Text>
                   </View>
                 )}
+
+                {/* Clear Chat Button */}
+                {onClearChat && (
+                  <View style={styles.section}>
+                    <TouchableOpacity
+                      style={styles.clearChatButton}
+                      onPress={() => {
+                        Alert.alert(
+                          'Clear Chat',
+                          'Are you sure you want to clear all messages in this chat? This action cannot be undone.',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Clear',
+                              style: 'destructive',
+                              onPress: () => {
+                                onClearChat();
+                                onClose();
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                    >
+                      <Text style={styles.clearChatText}>🗑️ Clear Chat</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </>
             )}
           </ScrollView>
@@ -456,6 +486,19 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: TYPOGRAPHY.fontSize.md,
     color: COLORS.textSecondary,
+  },
+  clearChatButton: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    backgroundColor: COLORS.receivedMessage,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+    marginTop: SPACING.md,
+  },
+  clearChatText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: '#EF4444',
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });
 

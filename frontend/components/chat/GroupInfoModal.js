@@ -24,7 +24,7 @@ import groupService from '../../services/groupService';
 import { showToastFromResponse } from '../../utils/toast';
 import Toast from 'react-native-toast-message';
 
-const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, onExitGroup }) => {
+const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, onExitGroup, onClearChat }) => {
   const { colors } = useTheme();
   const [groupDetails, setGroupDetails] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -630,6 +630,33 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
                   <Text style={[styles.creatorNote, { color: colors.textSecondary }]}>
                     This will permanently delete the group and all messages
                   </Text>
+                </View>
+              )}
+
+              {/* Clear Chat Button */}
+              {onClearChat && (
+                <View style={styles.section}>
+                  <Button
+                    title="🗑️ Clear Chat"
+                    onPress={() => {
+                      Alert.alert(
+                        'Clear Chat',
+                        'Are you sure you want to clear all messages in this chat? This action cannot be undone.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Clear',
+                            style: 'destructive',
+                            onPress: () => {
+                              onClearChat();
+                              onClose();
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                    variant="outline"
+                  />
                 </View>
               )}
 

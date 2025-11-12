@@ -76,6 +76,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [showMessageInfoModal, setShowMessageInfoModal] = useState(false);
   const [messageInfoMessageId, setMessageInfoMessageId] = useState(null);
   const [activeBottomTab, setActiveBottomTab] = useState('chat'); // 'chat', 'feed', 'status', 'call'
+  const [editingMessage, setEditingMessage] = useState(null); // Track message being edited
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket(userEmail);
@@ -425,8 +426,30 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
   }, [messages.length]); // Only depend on length to prevent unnecessary scrolls
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (inputMessage.trim()) {
+      // If editing a message, call edit instead of send
+      if (editingMessage && editingMessage.messageId) {
+        try {
+          let result;
+          if (chatType === 'group') {
+            result = await groupService.editMessage(editingMessage.messageId, inputMessage.trim());
+          } else {
+            result = await contactsService.editMessage(editingMessage.messageId, inputMessage.trim());
+          }
+          
+          if (result.success) {
+            setInputMessage('');
+            setEditingMessage(null);
+            setReplyingTo(null);
+          }
+        } catch (error) {
+          console.error('Error editing message:', error);
+          Alert.alert('Error', 'Failed to edit message');
+        }
+        return;
+      }
+      
       // Include reply info if replying
       const replyInfo = replyingTo ? {
         replyTo: replyingTo.messageId,
@@ -437,6 +460,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       sendMessage(inputMessage, replyInfo);
       setInputMessage('');
       setReplyingTo(null); // Clear reply after sending
+      setEditingMessage(null); // Clear editing state
     }
   };
   
@@ -779,9 +803,12 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               }
               
               if (result.success) {
-                // For group messages, socket event will handle the update
-                // For private messages, the message will be removed from backend
-                // UI will update on next message load or refresh
+                // Clear editing state if deleting the message being edited
+                if (editingMessage && editingMessage.messageId === selectedMessage.messageId) {
+                  setEditingMessage(null);
+                  setInputMessage('');
+                }
+                // Socket event will handle the UI update
               }
             } catch (error) {
               console.error('Error deleting message:', error);
@@ -870,6 +897,25 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
   };
 
+  const handleActionBarEdit = () => {
+    if (selectedMessages.length === 0) return;
+    const messageToEdit = selectedMessages[0];
+    setSelectedMessage(messageToEdit);
+    setEditingMessage(messageToEdit);
+    // Set input message to current message for editing
+    setInputMessage(messageToEdit.message);
+    setSelectedMessages([]);
+    // Focus on input (will be handled by MessageInput component)
+  };
+
+  const handleEditMessage = () => {
+    if (!selectedMessage) return;
+    setEditingMessage(selectedMessage);
+    setInputMessage(selectedMessage.message);
+    setShowMessageMenu(false);
+    setSelectedMessage(null);
+  };
+
   const handleActionBarDelete = () => {
     if (selectedMessages.length === 0) return;
     const messageToDelete = selectedMessages[0];
@@ -886,6 +932,38 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       setShowMessageInfoModal(true);
       setSelectedMessages([]);
     }
+  };
+
+  const handleClearChat = async () => {
+    Alert.alert(
+      'Clear Chat',
+      'Are you sure you want to clear all messages in this chat? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              let result;
+              if (chatType === 'group') {
+                result = await groupService.clearChat(groupId);
+              } else {
+                result = await contactsService.clearChat(contactEmail);
+              }
+              
+              if (result.success) {
+                // Socket event will handle the UI update
+                // Messages will be filtered on next load
+              }
+            } catch (error) {
+              console.error('Error clearing chat:', error);
+              Alert.alert('Error', 'Failed to clear chat');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Load message info
@@ -959,6 +1037,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         replyToMessage={item.replyToMessage || null}
         replyToSender={item.replyToSender || null}
         userEmail={userEmail}
+        isDeleted={item.isDeleted || false}
+        editedAt={item.editedAt || null}
       />
     );
   }, [userEmail, chatType, currentGroup, groupId, selectedMessages, handleMessageSelect, handleMenuPress, handlePinMessage, handleUnpinMessage]);
@@ -1064,6 +1144,23 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             onDelete={handleActionBarDelete}
             onInfo={handleActionBarInfo}
             onClose={handleActionBarClose}
+            onEdit={handleActionBarEdit}
+            canEdit={selectedMessages.length > 0 && (() => {
+              const msg = selectedMessages[0];
+              // Can edit if: message is sent by user, not deleted, and not read
+              if (!msg.isSent) return false;
+              if (msg.isDeleted) return false;
+              // For private messages: check if status is not 'read'
+              if (chatType === 'private') {
+                return msg.status !== 'read';
+              }
+              // For group messages: check if no one else has read it
+              if (chatType === 'group' && currentGroup) {
+                const readByOthers = (msg.readBy || []).filter(email => email !== userEmail);
+                return readByOthers.length === 0;
+              }
+              return false;
+            })()}
           />
 
           {/* Pinned Message Banner - Only for groups */}
@@ -1109,6 +1206,11 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             userEmail={userEmail}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
+            editingMessage={editingMessage}
+            onCancelEdit={() => {
+              setEditingMessage(null);
+              setInputMessage('');
+            }}
           />
 
           <MessageActionMenu
@@ -1130,6 +1232,23 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             onUnpin={() => selectedMessage?.messageId && handleUnpinMessage(selectedMessage.messageId)}
             onCopy={handleCopyMessage}
             onInfo={handleInfoMessage}
+            onEdit={handleEditMessage}
+            canEdit={selectedMessage && (() => {
+              const msg = selectedMessage;
+              // Can edit if: message is sent by user, not deleted, and not read
+              if (!msg.isSent) return false;
+              if (msg.isDeleted) return false;
+              // For private messages: check if status is not 'read'
+              if (chatType === 'private') {
+                return msg.status !== 'read';
+              }
+              // For group messages: check if no one else has read it
+              if (chatType === 'group' && currentGroup) {
+                const readByOthers = (msg.readBy || []).filter(email => email !== userEmail);
+                return readByOthers.length === 0;
+              }
+              return false;
+            })()}
           />
 
           {currentGroup && (
@@ -1140,6 +1259,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               userEmail={userEmail}
               onGroupUpdated={handleGroupUpdated}
               onExitGroup={handleExitGroup}
+              onClearChat={handleClearChat}
             />
           )}
 
@@ -1152,6 +1272,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               contactName={contactName}
               onSelectGroup={handleSelectGroup}
               messages={privateMessages}
+              onClearChat={handleClearChat}
             />
           )}
 
@@ -1283,6 +1404,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         isGroup={chatType === 'group'}
         onGroupInfoPress={() => setShowGroupInfoModal(true)}
         onContactInfoPress={() => setShowContactInfoModal(true)}
+        onClearChat={handleClearChat}
       />
       
       <Sidebar

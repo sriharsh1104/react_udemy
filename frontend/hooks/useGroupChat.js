@@ -137,10 +137,12 @@ export const useGroupChat = (userEmail, groupId) => {
               messageId: msg._id || msg.messageId,
               _id: msg._id || msg.messageId,
               isPinned: msg.isPinned || false,
+              isDeleted: msg.isDeleted || false,
+              editedAt: msg.editedAt || null,
+              readBy: msg.readBy || [],
               replyTo: msg.replyTo || null,
               replyToMessage: msg.replyToMessage || null,
               replyToSender: msg.replyToSender || null,
-              readBy: msg.readBy || [],
               status: msg.status || 'sent',
             };
           })
@@ -196,11 +198,37 @@ export const useGroupChat = (userEmail, groupId) => {
     // Handle message deleted event
     const handleMessageDeleted = (data) => {
       if (data.groupId === groupId) {
-        setMessages((prev) =>
-          prev.filter(
-            (msg) => (msg.messageId !== data.messageId && msg._id !== data.messageId)
-          )
-        );
+        // Update message to show as deleted (soft delete)
+        setMessages((prev) => {
+          return prev.map((msg) => {
+            if ((msg.messageId || msg._id) === data.messageId) {
+              return {
+                ...msg,
+                isDeleted: true,
+                message: 'This message is deleted',
+              };
+            }
+            return msg;
+          });
+        });
+      }
+    };
+
+    const handleMessageEdited = (data) => {
+      if (data.groupId === groupId) {
+        // Update message with edited content
+        setMessages((prev) => {
+          return prev.map((msg) => {
+            if ((msg.messageId || msg._id) === data.messageId) {
+              return {
+                ...msg,
+                message: data.newMessage,
+                editedAt: data.editedAt,
+              };
+            }
+            return msg;
+          });
+        });
       }
     };
 
@@ -222,12 +250,27 @@ export const useGroupChat = (userEmail, groupId) => {
       }
     };
 
+    const handleChatCleared = (data) => {
+      // If current user cleared the chat, filter out old messages
+      if (data.groupId === groupId && data.clearedBy === userEmail) {
+        // Clear all messages - new ones will load on next history fetch
+        setMessages([]);
+        // Request fresh chat history (will be filtered by clearedAt on backend)
+        socketService.emit(SOCKET_EVENTS.JOIN_GROUP, {
+          groupId,
+          userEmail,
+        });
+      }
+    };
+
     socket.on(SOCKET_EVENTS.GROUP_MESSAGE, handleGroupMessage);
     socket.on(SOCKET_EVENTS.GROUP_CHAT_HISTORY, handleGroupChatHistory);
     socket.on(SOCKET_EVENTS.GROUP_TYPING, handleGroupTyping);
     socket.on('messagePinned', handleMessagePinned);
     socket.on('messageUnpinned', handleMessageUnpinned);
     socket.on('messageDeleted', handleMessageDeleted);
+    socket.on('messageEdited', handleMessageEdited);
+    socket.on('chatCleared', handleChatCleared);
     socket.on('groupMessageReadUpdate', handleGroupMessageReadUpdate);
 
     return () => {
@@ -237,6 +280,8 @@ export const useGroupChat = (userEmail, groupId) => {
       socket.off('messagePinned', handleMessagePinned);
       socket.off('messageUnpinned', handleMessageUnpinned);
       socket.off('messageDeleted', handleMessageDeleted);
+      socket.off('messageEdited', handleMessageEdited);
+      socket.off('chatCleared', handleChatCleared);
       socket.off('groupMessageReadUpdate', handleGroupMessageReadUpdate);
     };
   }, [socket, userEmail, groupId]);

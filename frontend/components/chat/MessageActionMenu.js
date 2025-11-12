@@ -26,6 +26,8 @@ const MessageActionMenu = ({
   onUnpin,
   onCopy,
   onInfo,
+  onEdit,
+  canEdit,
 }) => {
   const { colors } = useTheme();
 
@@ -39,6 +41,15 @@ const MessageActionMenu = ({
     label: 'Copy',
     onPress: onCopy,
   });
+
+  // Edit - Only if message can be edited (not read)
+  if (canEdit && onEdit) {
+    actions.push({
+      icon: '✏️',
+      label: 'Edit',
+      onPress: onEdit,
+    });
+  }
 
   // Reply - Always available
   actions.push({

@@ -940,7 +940,18 @@ class ContactsController {
       }
 
       const chatService = require('../services/chatService');
-      await chatService.deleteMessage(messageId, userEmail);
+      const deletedMessage = await chatService.deleteMessage(messageId, userEmail);
+
+      // Emit socket event to notify the other user
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io && deletedMessage) {
+        const roomId = deletedMessage.roomId;
+        io.to(roomId).emit('messageDeleted', {
+          messageId: messageId,
+          roomId: roomId,
+        });
+      }
 
       res.status(200).json({
         success: true,
@@ -948,6 +959,120 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in deleteMessage:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Edit a private message
+  async editMessage(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { messageId, newMessage } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!messageId || !newMessage) {
+        return res.status(400).json({
+          success: false,
+          message: 'Message ID and new message are required',
+        });
+      }
+
+      const chatService = require('../services/chatService');
+      const editedMessage = await chatService.editMessage(messageId, userEmail, newMessage);
+
+      // Emit socket event to notify the other user
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io && editedMessage) {
+        const roomId = editedMessage.roomId;
+        io.to(roomId).emit('messageEdited', {
+          messageId: messageId,
+          roomId: roomId,
+          newMessage: newMessage,
+          editedAt: editedMessage.editedAt,
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Message edited successfully',
+        data: editedMessage,
+      });
+    } catch (error) {
+      console.error('Error in editMessage:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Clear chat for a user
+  async clearChat(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { contactEmail } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!contactEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Contact email is required',
+        });
+      }
+
+      await contactsService.clearChat(userEmail, contactEmail);
+
+      // Emit socket event to refresh chat (messages will be filtered on next load)
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io) {
+        const chatService = require('../services/chatService');
+        const roomId = chatService.getRoomId(userEmail, contactEmail);
+        // Notify user to refresh chat
+        io.to(roomId).emit('chatCleared', {
+          roomId,
+          clearedBy: userEmail,
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Chat cleared successfully',
+      });
+    } catch (error) {
+      console.error('Error in clearChat:', error);
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error',

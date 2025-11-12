@@ -923,20 +923,17 @@ class GroupController {
       }
 
       const chatService = require('../services/chatService');
-      await chatService.deleteMessage(messageId, userEmail);
+      const deletedMessage = await chatService.deleteMessage(messageId, userEmail);
 
       // Emit socket event to notify all group members
       const SocketService = require('../services/socketService');
       const io = SocketService.getIO();
-      if (io) {
-        const message = await chatService.getMessageById(messageId);
-        if (message && message.groupId) {
-          const roomId = `group_${message.groupId}`;
+      if (io && deletedMessage) {
+        const roomId = `group_${deletedMessage.groupId}`;
           io.to(roomId).emit('messageDeleted', {
-            groupId: message.groupId,
+          groupId: deletedMessage.groupId,
             messageId: messageId,
           });
-        }
       }
 
       res.status(200).json({
@@ -945,6 +942,120 @@ class GroupController {
       });
     } catch (error) {
       console.error('Error in deleteMessage:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Edit a group message
+  async editMessage(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { messageId, newMessage } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!messageId || !newMessage) {
+        return res.status(400).json({
+          success: false,
+          message: 'Message ID and new message are required',
+        });
+      }
+
+      const chatService = require('../services/chatService');
+      const editedMessage = await chatService.editMessage(messageId, userEmail, newMessage);
+
+      // Emit socket event to notify all group members
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io && editedMessage) {
+        const roomId = `group_${editedMessage.groupId}`;
+        io.to(roomId).emit('messageEdited', {
+          messageId: messageId,
+          groupId: editedMessage.groupId,
+          newMessage: newMessage,
+          editedAt: editedMessage.editedAt,
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Message edited successfully',
+        data: editedMessage,
+      });
+    } catch (error) {
+      console.error('Error in editMessage:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Clear chat for a user in a group
+  async clearChat(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { groupId } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!groupId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Group ID is required',
+        });
+      }
+
+      await groupService.clearChat(groupId, userEmail);
+
+      // Emit socket event to refresh chat (messages will be filtered on next load)
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io) {
+        const roomId = `group_${groupId}`;
+        // Notify user to refresh chat
+        io.to(roomId).emit('chatCleared', {
+          groupId,
+          roomId,
+          clearedBy: userEmail,
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Chat cleared successfully',
+      });
+    } catch (error) {
+      console.error('Error in clearChat:', error);
       res.status(500).json({
         success: false,
         message: error.message || 'Internal server error',

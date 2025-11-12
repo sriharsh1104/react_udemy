@@ -81,6 +81,23 @@ const MessageSchema = new mongoose.Schema({
     type: String, // Email of original message sender
     default: null,
   },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  deletedAt: {
+    type: Date,
+    default: null,
+  },
+  editedAt: {
+    type: Date,
+    default: null,
+  },
+  editedMessage: {
+    type: String, // Store edited message text
+    default: null,
+  },
 });
 
 // Compound index for efficient querying

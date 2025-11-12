@@ -88,6 +88,42 @@ class ContactsService {
       return false;
     }
   }
+
+  // Clear chat for a user (mark clearedAt timestamp)
+  async clearChat(userEmail, contactEmail) {
+    try {
+      let contact = await Contact.findOne({ userEmail, contactEmail });
+      
+      if (!contact) {
+        // Create contact if it doesn't exist
+        contact = new Contact({
+          userEmail,
+          contactEmail,
+          createdAt: new Date(),
+        });
+      }
+      
+      // Set clearedAt to current timestamp
+      contact.clearedAt = new Date();
+      await contact.save();
+      
+      return contact.toObject();
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      throw error;
+    }
+  }
+
+  // Get clearedAt timestamp for a contact
+  async getClearedAt(userEmail, contactEmail) {
+    try {
+      const contact = await Contact.findOne({ userEmail, contactEmail });
+      return contact?.clearedAt || null;
+    } catch (error) {
+      console.error('Error getting clearedAt:', error);
+      return null;
+    }
+  }
 }
 
 module.exports = new ContactsService();

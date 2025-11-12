@@ -35,6 +35,11 @@ const ContactSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  clearedAt: {
+    type: Date,
+    default: null,
+    index: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

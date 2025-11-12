@@ -622,6 +622,83 @@ class GroupService {
     }
   }
 
+  async editMessage(messageId, newMessage) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/edit-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          messageId,
+          newMessage,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Message Edited',
+        errorTitle: 'Failed to Edit Message',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error editing message:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
+  async clearChat(groupId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/groups/clear-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          groupId,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Chat Cleared',
+        errorTitle: 'Failed to Clear Chat',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
   async getMessageInfo(messageId) {
     try {
       const token = await AsyncStorage.getItem('authToken');

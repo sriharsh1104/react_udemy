@@ -74,10 +74,17 @@ class ChatService {
     }
   }
 
-  // Get group messages
-  async getGroupMessages(groupId) {
+  // Get group messages (filtered by clearedAt if provided)
+  async getGroupMessages(groupId, clearedAt = null) {
     try {
-      const messages = await Message.find({ groupId, messageType: 'group' })
+      const query = { groupId, messageType: 'group' };
+      
+      // If clearedAt is provided, only get messages after that timestamp
+      if (clearedAt) {
+        query.timestamp = { $gt: clearedAt };
+      }
+      
+      const messages = await Message.find(query)
         .sort({ timestamp: 1 })
         .lean();
       
@@ -88,12 +95,19 @@ class ChatService {
     }
   }
 
-  // Get messages from MongoDB
-  async getMessages(email1, email2) {
+  // Get messages from MongoDB (filtered by clearedAt if provided)
+  async getMessages(email1, email2, clearedAt = null) {
     try {
       const roomId = this.getRoomId(email1, email2);
       
-      const messages = await Message.find({ roomId })
+      const query = { roomId };
+      
+      // If clearedAt is provided, only get messages after that timestamp
+      if (clearedAt) {
+        query.timestamp = { $gt: clearedAt };
+      }
+      
+      const messages = await Message.find(query)
         .sort({ timestamp: 1 })
         .lean();
       
@@ -367,7 +381,7 @@ class ChatService {
     }
   }
 
-  // Delete a message (only sender can delete their own message)
+  // Delete a message (soft delete - WhatsApp style)
   async deleteMessage(messageId, userEmail) {
     try {
       const message = await Message.findById(messageId);
@@ -380,10 +394,56 @@ class ChatService {
         throw new Error('You can only delete your own messages');
       }
 
-      await Message.deleteOne({ _id: messageId });
-      return true;
+      // Soft delete - set isDeleted flag and update message text
+      message.isDeleted = true;
+      message.deletedAt = new Date();
+      message.message = 'This message is deleted';
+      await message.save();
+
+      return message.toObject();
     } catch (error) {
       console.error('Error deleting message:', error);
+      throw error;
+    }
+  }
+
+  // Edit a message (only if not read yet)
+  async editMessage(messageId, userEmail, newMessage) {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) {
+        throw new Error('Message not found');
+      }
+
+      // Only sender can edit their own message
+      if (message.senderEmail !== userEmail) {
+        throw new Error('You can only edit your own messages');
+      }
+
+      // Check if message has been read
+      // For private messages: check if status is 'read'
+      // For group messages: check if readBy contains anyone other than sender
+      if (message.messageType === 'private') {
+        if (message.status === 'read') {
+          throw new Error('Cannot edit message that has been read');
+        }
+      } else if (message.messageType === 'group') {
+        const readByOthers = message.readBy.filter(email => email !== userEmail);
+        if (readByOthers.length > 0) {
+          throw new Error('Cannot edit message that has been read');
+        }
+      }
+
+      // Update message
+      message.editedMessage = newMessage;
+      message.editedAt = new Date();
+      // Also update the main message field for backward compatibility
+      message.message = newMessage;
+      await message.save();
+
+      return message.toObject();
+    } catch (error) {
+      console.error('Error editing message:', error);
       throw error;
     }
   }

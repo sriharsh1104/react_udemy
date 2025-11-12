@@ -161,8 +161,13 @@ class SocketService {
       }
     }
     
+    // Get clearedAt timestamp for this user
+    const contactsService = require('./contactsService');
+    const clearedAt = await contactsService.getClearedAt(userEmail, contactEmail);
+    
     // Send existing messages (PENDING MESSAGES) from MongoDB to the user when they come online
-    const messages = await chatService.getMessages(userEmail, contactEmail);
+    // Filter out messages before clearedAt timestamp
+    const messages = await chatService.getMessages(userEmail, contactEmail, clearedAt);
     socket.emit('chatHistory', {
       roomId,
       messages,
@@ -459,7 +464,12 @@ class SocketService {
     socket.join(roomId);
     
     // Send existing messages from MongoDB
-    const messages = await chatService.getGroupMessages(groupId);
+    // Get clearedAt timestamp for this user in this group
+    const groupService = require('./groupService');
+    const clearedAt = await groupService.getClearedAt(groupId, userEmail);
+    
+    // Filter out messages before clearedAt timestamp
+    const messages = await chatService.getGroupMessages(groupId, clearedAt);
     socket.emit('groupChatHistory', {
       groupId,
       roomId,

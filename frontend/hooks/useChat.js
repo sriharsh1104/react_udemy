@@ -155,6 +155,8 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             replyTo: data.replyTo || null,
             replyToMessage: data.replyToMessage || null,
             replyToSender: data.replyToSender || null,
+            isDeleted: data.isDeleted || false,
+            editedAt: data.editedAt || null,
           };
           
           // Send read receipt immediately if we have messageId
@@ -189,6 +191,8 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
               replyTo: msg.replyTo || null,
               replyToMessage: msg.replyToMessage || null,
               replyToSender: msg.replyToSender || null,
+              isDeleted: msg.isDeleted || false,
+              editedAt: msg.editedAt || null,
             };
           })
         );
@@ -324,16 +328,67 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       });
     };
 
+    const handleMessageDeleted = (data) => {
+      // Update message to show as deleted
+      setMessages((prev) => {
+        return prev.map((msg) => {
+          if (msg.messageId === data.messageId) {
+            return {
+              ...msg,
+              isDeleted: true,
+              message: 'This message is deleted',
+            };
+          }
+          return msg;
+        });
+      });
+    };
+
+    const handleMessageEdited = (data) => {
+      // Update message with edited content
+      setMessages((prev) => {
+        return prev.map((msg) => {
+          if (msg.messageId === data.messageId) {
+            return {
+              ...msg,
+              message: data.newMessage,
+              editedAt: data.editedAt,
+            };
+          }
+          return msg;
+        });
+      });
+    };
+
+    const handleChatCleared = (data) => {
+      // If current user cleared the chat, filter out old messages
+      if (data.clearedBy === userEmail) {
+        // Clear all messages - new ones will load on next history fetch
+        setMessages([]);
+        // Request fresh chat history (will be filtered by clearedAt on backend)
+        socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
+          userEmail,
+          contactEmail,
+        });
+      }
+    };
+
     socket.on(SOCKET_EVENTS.PRIVATE_MESSAGE, handlePrivateMessage);
     socket.on(SOCKET_EVENTS.CHAT_HISTORY, handleChatHistory);
     socket.on(SOCKET_EVENTS.TYPING, handleTyping);
     socket.on(SOCKET_EVENTS.MESSAGE_STATUS_UPDATE, handleMessageStatusUpdate);
+    socket.on('messageDeleted', handleMessageDeleted);
+    socket.on('messageEdited', handleMessageEdited);
+    socket.on('chatCleared', handleChatCleared);
 
     return () => {
       socket.off(SOCKET_EVENTS.PRIVATE_MESSAGE, handlePrivateMessage);
       socket.off(SOCKET_EVENTS.CHAT_HISTORY, handleChatHistory);
       socket.off(SOCKET_EVENTS.TYPING, handleTyping);
       socket.off(SOCKET_EVENTS.MESSAGE_STATUS_UPDATE, handleMessageStatusUpdate);
+      socket.off('messageDeleted', handleMessageDeleted);
+      socket.off('messageEdited', handleMessageEdited);
+      socket.off('chatCleared', handleChatCleared);
     };
   }, [socket, userEmail, contactEmail]);
 

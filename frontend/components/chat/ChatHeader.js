@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, StatusBar, TouchableOpacity, Modal } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 
-const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClose }) => {
+const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClose, showChatOptions = false, onClearChat, onGroupInfoPress, onContactInfoPress, isGroup = false }) => {
   return (
     <Modal
       transparent={true}
@@ -16,44 +16,91 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
         onPress={onClose}
       >
         <View style={styles.dropdownContainer}>
-          <TouchableOpacity 
-            style={styles.dropdownItem}
-            onPress={() => {
-              onClose();
-              onProfilePress();
-            }}
-          >
-            <Text style={styles.dropdownItemText}>👤 Profile</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.dropdownItem}
-            onPress={() => {
-              onClose();
-              onSettingsPress();
-            }}
-          >
-            <Text style={styles.dropdownItemText}>⚙️ Settings</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.divider} />
-          
-          <TouchableOpacity 
-            style={[styles.dropdownItem, styles.logoutItem]}
-            onPress={() => {
-              onClose();
-              onLogoutPress();
-            }}
-          >
-            <Text style={[styles.dropdownItemText, styles.logoutText]}>🚪 Logout</Text>
-          </TouchableOpacity>
+          {showChatOptions ? (
+            <>
+              {/* Chat-specific options */}
+              {isGroup && onGroupInfoPress && (
+                <TouchableOpacity 
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    onClose();
+                    onGroupInfoPress();
+                  }}
+                >
+                  <Text style={styles.dropdownItemText}>ℹ️ Group Info</Text>
+                </TouchableOpacity>
+              )}
+              
+              {!isGroup && onContactInfoPress && (
+                <TouchableOpacity 
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    onClose();
+                    onContactInfoPress();
+                  }}
+                >
+                  <Text style={styles.dropdownItemText}>ℹ️ Contact Info</Text>
+                </TouchableOpacity>
+              )}
+              
+              {onClearChat && (
+                <>
+                  <View style={styles.divider} />
+                  <TouchableOpacity 
+                    style={[styles.dropdownItem, styles.destructiveItem]}
+                    onPress={() => {
+                      onClose();
+                      onClearChat();
+                    }}
+                  >
+                    <Text style={[styles.dropdownItemText, styles.destructiveText]}>🗑️ Clear Chat</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Main menu options (when not in chat) */}
+              <TouchableOpacity 
+                style={styles.dropdownItem}
+                onPress={() => {
+                  onClose();
+                  onProfilePress();
+                }}
+              >
+                <Text style={styles.dropdownItemText}>👤 Profile</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.dropdownItem}
+                onPress={() => {
+                  onClose();
+                  onSettingsPress();
+                }}
+              >
+                <Text style={styles.dropdownItemText}>⚙️ Settings</Text>
+              </TouchableOpacity>
+              
+              <View style={styles.divider} />
+              
+              <TouchableOpacity 
+                style={[styles.dropdownItem, styles.logoutItem]}
+                onPress={() => {
+                  onClose();
+                  onLogoutPress();
+                }}
+              >
+                <Text style={[styles.dropdownItemText, styles.logoutText]}>🚪 Logout</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </TouchableOpacity>
     </Modal>
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
@@ -110,7 +157,9 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
             onPress={() => setShowDropdown(true)} 
             style={styles.profileButton}
           >
-            <Text style={styles.profileButtonText}>👤</Text>
+            <Text style={styles.profileButtonText}>
+              ⋮
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -121,6 +170,11 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
           onSettingsPress={onSettingsPress}
           onLogoutPress={onLogoutPress}
           onClose={() => setShowDropdown(false)}
+          showChatOptions={showBackButton}
+          onClearChat={onClearChat}
+          onGroupInfoPress={onGroupInfoPress}
+          onContactInfoPress={onContactInfoPress}
+          isGroup={isGroup}
         />
       )}
     </>
@@ -225,16 +279,15 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
   profileButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: SPACING.md,
+    padding: SPACING.xs,
   },
   profileButtonText: {
-    fontSize: 20,
+    fontSize: 24,
+    color: COLORS.headerText,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
   modalOverlay: {
     flex: 1,
@@ -280,6 +333,12 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: '#EF4444', // Red color for logout
+  },
+  destructiveItem: {
+    // Destructive action styling
+  },
+  destructiveText: {
+    color: '#EF4444', // Red color for destructive actions
   },
 });
 

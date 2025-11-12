@@ -41,6 +41,16 @@ const GroupSchema = new mongoose.Schema({
       default: null,
     },
   }],
+  clearedBy: [{
+    userEmail: {
+      type: String,
+      required: true,
+    },
+    clearedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  }],
   inviteLink: {
     type: String,
     default: null,

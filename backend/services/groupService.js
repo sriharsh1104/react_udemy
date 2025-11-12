@@ -362,6 +362,64 @@ class GroupService {
       return null;
     }
   }
+
+  // Clear chat for a user in a group
+  async clearChat(groupId, userEmail) {
+    try {
+      const group = await Group.findById(groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+
+      // Check if user is a member
+      if (!group.members.includes(userEmail)) {
+        throw new Error('Only group members can clear chat');
+      }
+
+      // Initialize clearedBy array if it doesn't exist
+      if (!group.clearedBy) {
+        group.clearedBy = [];
+      }
+
+      // Remove existing entry for this user if any
+      group.clearedBy = group.clearedBy.filter(
+        entry => entry.userEmail !== userEmail
+      );
+
+      // Add new cleared entry
+      group.clearedBy.push({
+        userEmail,
+        clearedAt: new Date(),
+      });
+
+      group.updatedAt = new Date();
+      await group.save();
+
+      return group.toObject();
+    } catch (error) {
+      console.error('Error clearing group chat:', error);
+      throw error;
+    }
+  }
+
+  // Get clearedAt timestamp for a user in a group
+  async getClearedAt(groupId, userEmail) {
+    try {
+      const group = await Group.findById(groupId).lean();
+      if (!group || !group.clearedBy) {
+        return null;
+      }
+
+      const clearedEntry = group.clearedBy.find(
+        entry => entry.userEmail === userEmail
+      );
+
+      return clearedEntry?.clearedAt || null;
+    } catch (error) {
+      console.error('Error getting clearedAt for group:', error);
+      return null;
+    }
+  }
 }
 
 module.exports = new GroupService();

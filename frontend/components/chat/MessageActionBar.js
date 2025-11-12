@@ -17,6 +17,8 @@ const MessageActionBar = ({
   onDelete,
   onInfo,
   onClose,
+  onEdit,
+  canEdit,
 }) => {
   const { colors } = useTheme();
 
@@ -46,6 +48,17 @@ const MessageActionBar = ({
           >
             <Text style={styles.actionIcon}>📋</Text>
           </TouchableOpacity>
+
+          {/* Edit - Only show if message can be edited (not read) */}
+          {canEdit && onEdit && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onEdit}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.actionIcon}>✏️</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Reply */}
           <TouchableOpacity
