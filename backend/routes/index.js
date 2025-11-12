@@ -67,6 +67,8 @@ router.post('/contacts/delete', asyncHandler(contactsController.deleteContact.bi
 router.post('/settings/set-password', asyncHandler(settingsController.setPassword.bind(settingsController)));
 router.post('/settings/change-password', asyncHandler(settingsController.changePassword.bind(settingsController)));
 router.get('/settings/password-status', asyncHandler(settingsController.checkPasswordStatus.bind(settingsController)));
+router.get('/settings/offline-mode', asyncHandler(settingsController.getOfflineMode.bind(settingsController)));
+router.post('/settings/offline-mode', asyncHandler(settingsController.toggleOfflineMode.bind(settingsController)));
 
 // Group routes
 router.post('/groups', asyncHandler(groupController.createGroup.bind(groupController)));

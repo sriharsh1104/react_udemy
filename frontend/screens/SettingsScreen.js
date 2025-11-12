@@ -24,6 +24,8 @@ const SettingsScreen = ({ navigation, onBack }) => {
   const [loading, setLoading] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(false);
+  const [offlineModeLoading, setOfflineModeLoading] = useState(false);
   
   // Password states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -42,6 +44,12 @@ const SettingsScreen = ({ navigation, onBack }) => {
       const passwordStatus = await settingsService.checkPasswordStatus();
       if (passwordStatus.success) {
         setHasPassword(passwordStatus.hasPassword);
+      }
+      
+      // Load offline mode status
+      const offlineModeStatus = await settingsService.getOfflineMode();
+      if (offlineModeStatus.success) {
+        setOfflineMode(offlineModeStatus.offlineMode);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -120,6 +128,20 @@ const SettingsScreen = ({ navigation, onBack }) => {
       success: true,
       message: `Theme set to ${mode === 'auto' ? 'Auto (System)' : mode}`,
     }, { successTitle: 'Theme Updated' });
+  };
+
+  const handleToggleOfflineMode = async (enabled) => {
+    setOfflineModeLoading(true);
+    try {
+      const result = await settingsService.toggleOfflineMode(enabled);
+      if (result.success) {
+        setOfflineMode(result.offlineMode);
+      }
+    } catch (error) {
+      console.error('Error toggling offline mode:', error);
+    } finally {
+      setOfflineModeLoading(false);
+    }
   };
 
   if (loading) {
@@ -331,6 +353,45 @@ const SettingsScreen = ({ navigation, onBack }) => {
           </Text>
         </View>
 
+        {/* Offline Mode Section */}
+        <View style={[styles.section, { backgroundColor: colors.receivedMessage }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>👁️ Privacy Mode</Text>
+          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+            When enabled, you'll appear offline to others. Messages you read won't show as read to senders.
+          </Text>
+          
+          <View style={styles.toggleContainer}>
+            <View style={styles.toggleInfo}>
+              <Text style={[styles.toggleLabel, { color: colors.text }]}>
+                Offline Mode
+              </Text>
+              <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
+                {offlineMode 
+                  ? 'You appear offline. Read receipts are disabled.' 
+                  : 'You appear online. Read receipts are enabled.'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.toggleSwitch,
+                offlineMode && styles.toggleSwitchActive,
+                { backgroundColor: offlineMode ? colors.primary : colors.divider }
+              ]}
+              onPress={() => handleToggleOfflineMode(!offlineMode)}
+              disabled={offlineModeLoading}
+              activeOpacity={0.7}
+            >
+              <View style={[
+                styles.toggleThumb,
+                { 
+                  backgroundColor: colors.white,
+                  alignSelf: offlineMode ? 'flex-end' : 'flex-start'
+                }
+              ]} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Invite Link Section */}
         <View style={[styles.section, { backgroundColor: colors.receivedMessage }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>📤 Invite Friends</Text>
@@ -494,6 +555,46 @@ const styles = StyleSheet.create({
   },
   inviteButton: {
     marginTop: SPACING.md,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: SPACING.md,
+  },
+  toggleLabel: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    marginBottom: SPACING.xs,
+  },
+  toggleDescription: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    lineHeight: 18,
+  },
+  toggleSwitch: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    padding: 2,
+  },
+  toggleSwitchActive: {
+    // Active state handled by backgroundColor
+  },
+  toggleThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
 });
 

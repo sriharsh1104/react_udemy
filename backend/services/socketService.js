@@ -86,7 +86,7 @@ class SocketService {
     });
   }
 
-  handleLogin(socket, data) {
+  async handleLogin(socket, data) {
     const { email } = data;
     const timestamp = new Date().toISOString();
     if (email) {
@@ -98,7 +98,12 @@ class SocketService {
         status: 'success',
       });
       
-      // Notify all contacts that this user is now online
+      // Check if user is in offline mode
+      const User = require('../models/User');
+      const user = await User.findOne({ email }).select('offlineMode');
+      const isOfflineMode = user?.offlineMode || false;
+      
+      // Notify all contacts that this user is now online (or offline if offline mode is enabled)
       const Contact = require('../models/Contact');
       Contact.find({ contactEmail: email }).then((contacts) => {
         contacts.forEach((contact) => {
@@ -106,7 +111,7 @@ class SocketService {
           if (contactSocketId) {
             this.io.to(contactSocketId).emit('contactOnlineStatus', {
               contactEmail: email,
-              isOnline: true,
+              isOnline: !isOfflineMode, // Show offline if offline mode is enabled
             });
           }
         });
@@ -588,6 +593,23 @@ class SocketService {
     }
 
     try {
+      // Check if reader is in offline mode
+      const User = require('../models/User');
+      const reader = await User.findOne({ email: readerEmail }).select('offlineMode');
+      const isOfflineMode = reader?.offlineMode || false;
+
+      // If user is in offline mode, don't send read receipts
+      if (isOfflineMode) {
+        console.log(`[${new Date().toISOString()}] 🔕 User ${readerEmail} is in offline mode - read receipt blocked`);
+        // Still mark as read in database (for user's own view), but don't notify sender
+        const message = await chatService.getMessageById(messageId);
+        if (message && message.receiverEmail === readerEmail && message.senderEmail !== readerEmail) {
+          // Mark as read in DB but don't send notification
+          await chatService.markMessageAsRead(messageId, readerEmail);
+        }
+        return; // Exit early - don't send read receipt
+      }
+
       // Get the message to verify it exists and get sender
       const message = await chatService.getMessageById(messageId);
       if (!message) {

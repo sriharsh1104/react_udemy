@@ -23,6 +23,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     default: null, // null means password not set
   },
+  offlineMode: {
+    type: Boolean,
+    default: false, // false means online mode (default)
+  },
   createdAt: {
     type: Date,
     default: Date.now,

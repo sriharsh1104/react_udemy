@@ -460,7 +460,7 @@ const Status = ({ userEmail, contacts = [] }) => {
         ListHeaderComponent={
           <View style={styles.myStatusHeader}>
             <TouchableOpacity
-              style={[styles.myStatusItem, { width: getStatusItemWidth() }]}
+              style={[styles.myStatusItem, { width: getStatusItemWidth(), marginLeft: SPACING.md }]}
               onPress={handleMyStatusPress}
               activeOpacity={0.7}
             >
@@ -561,14 +561,15 @@ const styles = StyleSheet.create({
   },
   statusList: {
     padding: SPACING.md,
-    paddingLeft: SPACING.md,
+    paddingLeft: 0,
     paddingBottom: SPACING.xl,
   },
   myStatusHeader: {
     width: '100%',
     marginBottom: SPACING.lg,
     paddingBottom: SPACING.md,
-    paddingLeft: SPACING.md,
+    paddingLeft: 0,
+    paddingRight: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
     alignItems: 'flex-start',
@@ -633,7 +634,8 @@ const styles = StyleSheet.create({
   statusRow: {
     justifyContent: 'flex-start',
     marginBottom: SPACING.md,
-    paddingLeft: 0,
+    paddingLeft: SPACING.md,
+    paddingRight: SPACING.md,
   },
   statusItem: {
     alignItems: 'center',

@@ -117,6 +117,74 @@ class SettingsService {
       return errorResponse;
     }
   }
+
+  async getOfflineMode() {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/settings/offline-mode`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting offline mode:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection.',
+        offlineMode: false,
+      };
+    }
+  }
+
+  async toggleOfflineMode(offlineMode) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/settings/offline-mode`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          offlineMode,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, {
+        successTitle: 'Offline Mode Updated',
+        errorTitle: 'Failed to Update Offline Mode',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error toggling offline mode:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
 }
 
 export default new SettingsService();
