@@ -758,11 +758,33 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         const fullMessage = messages.find(
           (msg) => (msg.messageId || msg._id) === (messageData.messageId || messageData._id)
         );
+        
+        // Calculate status for group messages
+        let messageStatus = fullMessage?.status || messageData.status || 'sent';
+        if (chatType === 'group' && fullMessage && (fullMessage.isSent || fullMessage.senderEmail === userEmail) && currentGroup && fullMessage.readBy) {
+          const allMembers = currentGroup.members || [];
+          const readBy = fullMessage.readBy || [];
+          const totalMembers = allMembers.length;
+          const readCount = readBy.length;
+          
+          // If all members (except sender) have read, status is 'read'
+          if (readCount >= totalMembers) {
+            messageStatus = 'read';
+          } else if (readCount > 1) {
+            messageStatus = 'delivered';
+          } else {
+            messageStatus = 'sent';
+          }
+        }
+        
         return [
           ...prev,
           {
             ...messageData,
+            ...fullMessage,
             timestamp: fullMessage?.timestamp || messageData.timestamp,
+            status: messageStatus,
+            readBy: fullMessage?.readBy || messageData.readBy || [],
           },
         ];
       }
@@ -771,13 +793,35 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
   // Message action menu handlers (for backward compatibility)
   const handleMenuPress = (messageData) => {
-    // Find the full message object to get timestamp
+    // Find the full message object to get timestamp, status, and readBy
     const fullMessage = messages.find(
       (msg) => (msg.messageId || msg._id) === messageData.messageId
     );
+    
+    // Calculate status for group messages
+    let messageStatus = fullMessage?.status || messageData.status || 'sent';
+    if (chatType === 'group' && fullMessage && (fullMessage.isSent || fullMessage.senderEmail === userEmail) && currentGroup && fullMessage.readBy) {
+      const allMembers = currentGroup.members || [];
+      const readBy = fullMessage.readBy || [];
+      const totalMembers = allMembers.length;
+      const readCount = readBy.length;
+      
+      // If all members (except sender) have read, status is 'read'
+      if (readCount >= totalMembers) {
+        messageStatus = 'read';
+      } else if (readCount > 1) {
+        messageStatus = 'delivered';
+      } else {
+        messageStatus = 'sent';
+      }
+    }
+    
     setSelectedMessage({
       ...messageData,
+      ...fullMessage,
       timestamp: fullMessage?.timestamp || messageData.timestamp,
+      status: messageStatus,
+      readBy: fullMessage?.readBy || messageData.readBy || [],
     });
     setShowMessageMenu(true);
   };
@@ -1154,8 +1198,11 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               if (chatType === 'private') {
                 return msg.status !== 'read';
               }
-              // For group messages: check if no one else has read it
+              // For group messages: check if status is not 'read' AND no one else has read it
               if (chatType === 'group' && currentGroup) {
+                // If status is 'read', cannot edit
+                if (msg.status === 'read') return false;
+                // Check if anyone else has read it
                 const readByOthers = (msg.readBy || []).filter(email => email !== userEmail);
                 return readByOthers.length === 0;
               }
@@ -1242,8 +1289,11 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               if (chatType === 'private') {
                 return msg.status !== 'read';
               }
-              // For group messages: check if no one else has read it
+              // For group messages: check if status is not 'read' AND no one else has read it
               if (chatType === 'group' && currentGroup) {
+                // If status is 'read', cannot edit
+                if (msg.status === 'read') return false;
+                // Check if anyone else has read it
                 const readByOthers = (msg.readBy || []).filter(email => email !== userEmail);
                 return readByOthers.length === 0;
               }
