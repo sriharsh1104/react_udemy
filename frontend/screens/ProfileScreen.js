@@ -242,7 +242,7 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
           >
             <Text style={styles.saveButtonText}>Save Profile</Text>
           </TouchableOpacity>
-      <GLoader visible={saving} message="Saving profile..." />
+      {/* <GLoader visible={saving} message="Saving profile..." /> */}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -465,7 +465,6 @@ class SocketService {
     
     // Send existing messages from MongoDB
     // Get clearedAt timestamp for this user in this group
-    const groupService = require('./groupService');
     const clearedAt = await groupService.getClearedAt(groupId, userEmail);
     
     // Filter out messages before clearedAt timestamp
