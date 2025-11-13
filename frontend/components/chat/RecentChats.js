@@ -30,9 +30,22 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     return email.split('@')[0];
   };
 
-  // Filter contacts based on selected filter and search query
+  // Get archived contacts and groups from props (they come from getRecentChats API)
+  const archivedContacts = useMemo(() => {
+    return contacts.filter(contact => contact.isArchived === true);
+  }, [contacts]);
+
+  const archivedGroups = useMemo(() => {
+    const isGroupArchived = (group) => {
+      if (!group.archivedBy || !Array.isArray(group.archivedBy)) return false;
+      return userEmail && group.archivedBy.includes(userEmail);
+    };
+    return (groups || []).filter(group => isGroupArchived(group));
+  }, [groups, userEmail]);
+
+  // Filter contacts based on selected filter and search query (exclude archived)
   const filteredContacts = useMemo(() => {
-    // Exclude archived chats from all, unread, and favorites filters
+    // Exclude archived contacts from main list
     const nonArchivedContacts = contacts.filter(contact => !contact.isArchived);
     
     let filtered = [];
@@ -43,7 +56,8 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     } else if (filter === 'favorites') {
       filtered = nonArchivedContacts.filter(contact => contact.isFavorite === true);
     } else if (filter === 'archived') {
-      filtered = contacts.filter(contact => contact.isArchived === true);
+      // Show only archived contacts
+      filtered = archivedContacts;
     } else {
       filtered = nonArchivedContacts;
     }
@@ -59,20 +73,19 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     }
     
     return filtered;
-  }, [contacts, filter, searchQuery]);
+  }, [contacts, filter, searchQuery, archivedContacts]);
 
-  // Filter groups based on selected filter and search query
+  // Filter groups based on selected filter and search query (exclude archived)
   const filteredGroups = useMemo(() => {
     const groupsList = groups || [];
     
     // Helper to check if group is archived for current user
     const isGroupArchived = (group) => {
       if (!group.archivedBy || !Array.isArray(group.archivedBy)) return false;
-      // Check if current user's email is in the archivedBy array
       return userEmail && group.archivedBy.includes(userEmail);
     };
     
-    // Exclude archived groups from all, unread, and favorites filters
+    // Exclude archived groups from main list
     const nonArchivedGroups = groupsList.filter(group => !isGroupArchived(group));
     
     let filtered = [];
@@ -83,7 +96,8 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     } else if (filter === 'favorites') {
       filtered = nonArchivedGroups.filter(group => group.isFavorite === true);
     } else if (filter === 'archived') {
-      filtered = groupsList.filter(group => isGroupArchived(group));
+      // Show only archived groups
+      filtered = archivedGroups;
     } else {
       filtered = nonArchivedGroups;
     }
@@ -98,75 +112,56 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     }
     
     return filtered;
-  }, [groups, filter, userEmail, searchQuery]);
+  }, [groups, filter, userEmail, searchQuery, archivedGroups]);
 
-  // Get archived chats separately for "All" filter
-  const archivedContacts = useMemo(() => {
-    let archived = contacts.filter(contact => contact.isArchived === true);
-    
-    // Apply search filter if search query exists
-    if (searchQuery.trim()) {
-      const query = searchQuery.trim().toLowerCase();
-      archived = archived.filter(contact => {
-        const name = (contact.name || getUsernameFromEmail(contact.email)).toLowerCase();
-        const email = (contact.email || '').toLowerCase();
-        return name.includes(query) || email.includes(query);
-      });
-    }
-    
-    return archived;
-  }, [contacts, searchQuery]);
+  // Filter archived contacts/groups based on search query
+  const filteredArchivedContacts = useMemo(() => {
+    if (!searchQuery.trim()) return archivedContacts;
+    const query = searchQuery.trim().toLowerCase();
+    return archivedContacts.filter(contact => {
+      const name = (contact.name || getUsernameFromEmail(contact.email)).toLowerCase();
+      const email = (contact.email || '').toLowerCase();
+      return name.includes(query) || email.includes(query);
+    });
+  }, [archivedContacts, searchQuery]);
 
-  const archivedGroups = useMemo(() => {
-    const groupsList = groups || [];
-    const isGroupArchived = (group) => {
-      if (!group.archivedBy || !Array.isArray(group.archivedBy)) return false;
-      return userEmail && group.archivedBy.includes(userEmail);
-    };
-    
-    let archived = groupsList.filter(group => isGroupArchived(group));
-    
-    // Apply search filter if search query exists
-    if (searchQuery.trim()) {
-      const query = searchQuery.trim().toLowerCase();
-      archived = archived.filter(group => {
-        const name = (group.name || '').toLowerCase();
-        return name.includes(query);
-      });
-    }
-    
-    return archived;
-  }, [groups, userEmail, searchQuery]);
+  const filteredArchivedGroups = useMemo(() => {
+    if (!searchQuery.trim()) return archivedGroups;
+    const query = searchQuery.trim().toLowerCase();
+    return archivedGroups.filter(group => {
+      const name = (group.name || '').toLowerCase();
+      return name.includes(query);
+    });
+  }, [archivedGroups, searchQuery]);
 
   // Combined data for display (groups + filtered contacts)
   const combinedData = useMemo(() => {
     // If archived section is expanded, show only archived chats
-    if (isArchivedExpanded && filter === 'all' && (archivedContacts.length > 0 || archivedGroups.length > 0)) {
-      const archivedGroupsData = archivedGroups.map(g => ({ ...g, type: 'group', isArchived: true }));
-      const archivedContactsData = archivedContacts.map(c => ({ ...c, type: 'contact', isArchived: true }));
+    if (isArchivedExpanded && filter === 'all') {
+      const archivedGroupsData = filteredArchivedGroups.map(g => ({ ...g, type: 'group', isArchived: true }));
+      const archivedContactsData = filteredArchivedContacts.map(c => ({ ...c, type: 'contact', isArchived: true }));
       return [
-        { type: 'section-header', id: 'archived-header' }, // Section header at top
+        { type: 'section-header', id: 'archived-header' },
         ...archivedGroupsData,
         ...archivedContactsData,
       ];
     }
     
-    // Always include filtered groups (they handle their own filtering)
+    // Main list: non-archived groups and contacts
     const groupsData = filteredGroups.map(g => ({ ...g, type: 'group' }));
-    // Include filtered contacts
     const contactsData = (filteredContacts || []).map(c => ({ ...c, type: 'contact' }));
     
-    // If filter is 'all' and there are archived chats, add header at top (but don't show archived chats)
+    // If filter is 'all' and there are archived items, show archived header
     if (filter === 'all' && (archivedContacts.length > 0 || archivedGroups.length > 0)) {
       return [
-        { type: 'section-header', id: 'archived-header' }, // Section header at top
+        { type: 'section-header', id: 'archived-header' },
         ...groupsData,
         ...contactsData,
       ];
     }
     
     return [...groupsData, ...contactsData];
-  }, [filteredGroups, filteredContacts, filter, archivedContacts, archivedGroups, isArchivedExpanded]);
+  }, [filteredGroups, filteredContacts, filter, filteredArchivedContacts, filteredArchivedGroups, isArchivedExpanded, archivedContacts.length, archivedGroups.length]);
 
   const handleToggleFavorite = useCallback(async (contactEmail, e) => {
     e?.stopPropagation(); // Prevent triggering onSelectContact
@@ -233,25 +228,27 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     if (selectedChats.length === 0) return;
     
     try {
-      console.log('🗑️ Hiding chats from Recent Chats:', selectedChats);
+      console.log('🗑️ Deleting chats from Recent Chats:', selectedChats);
       
       for (const chat of selectedChats) {
         if (chat.type === 'contact') {
-          // Archive contact - hides from Recent Chats but keeps in database
-          // Contact will not appear in Recent Chats but can be found in Archived section
-          const result = await contactsService.toggleArchive(chat.id);
-          console.log('🗑️ Archive contact result:', result);
+          // Delete chat - deletes all messages and removes from Recent Chats
+          // Contact remains in database but won't appear in Recent Chats
+          // If user sends new message, chat will reappear as new chat
+          const result = await contactsService.deleteChat(chat.id);
+          console.log('🗑️ Delete chat result:', result);
           
           if (!result.success) {
-            console.error('Failed to archive contact:', chat.id, result.message);
+            console.error('Failed to delete chat:', chat.id, result.message);
           }
         } else if (chat.type === 'group') {
-          // For groups, archive the group (hide from Recent Chats)
-          const result = await groupService.toggleArchive(chat.id);
-          console.log('🗑️ Archive group result:', result);
+          // For groups, we need to implement deleteChat similar to contacts
+          // For now, use clearChat (delete all messages)
+          const result = await groupService.clearChat(chat.id);
+          console.log('🗑️ Clear group chat result:', result);
           
           if (!result.success) {
-            console.error('Failed to archive group:', chat.id, result.message);
+            console.error('Failed to clear group chat:', chat.id, result.message);
           }
         }
       }
@@ -275,7 +272,7 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
       }, 500);
       
     } catch (error) {
-      console.error('❌ Error hiding chats:', error);
+      console.error('❌ Error deleting chats:', error);
     }
   }, [selectedChats, userEmail, onContactsUpdate, onGroupsUpdate]);
 
@@ -727,16 +724,16 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
       )}
 
       {/* Hide from Recent Chats Confirmation Modal */}
-      <ConfirmationModal
-        visible={showDeleteModal}
-        title="Hide from Recent Chats"
-        message={`Are you sure you want to hide ${selectedChats.length} chat(s) from Recent Chats? The chat will be moved to Archived section. You can unarchive it later.`}
-        confirmText="Hide"
-        cancelText="Cancel"
-        onConfirm={handleDeleteConfirm}
-        onCancel={handleDeleteCancel}
-        confirmButtonStyle="destructive"
-      />
+        <ConfirmationModal
+          visible={showDeleteModal}
+          title="Delete Chat"
+          message={`Are you sure you want to delete ${selectedChats.length} chat(s)? All messages will be deleted and the chat will be removed from Recent Chats. If you send a new message, a new chat will start.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+          confirmButtonStyle="destructive"
+        />
     </View>
   );
 };

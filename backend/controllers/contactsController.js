@@ -328,7 +328,280 @@ class ContactsController {
     }
   }
 
-  // Get all contacts for a user
+  // Get recent chats for a user (only contacts/groups with messages, not archived)
+  async getRecentChats(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      const chatService = require('../services/chatService');
+      const Message = require('../models/Message');
+      const groupService = require('../services/groupService');
+      
+      // ========== PRIVATE CONTACTS ==========
+      // Get all users with messages (even if not manually added as contact)
+      const roomsWithMessages = await Message.distinct('roomId', {
+        $or: [
+          { senderEmail: userEmail, messageType: 'private', isDeleted: { $ne: true } },
+          { receiverEmail: userEmail, messageType: 'private', isDeleted: { $ne: true } }
+        ]
+      });
+      
+      // Extract all unique email addresses from roomIds
+      const usersWithMessages = new Set();
+      roomsWithMessages.forEach(roomId => {
+        // RoomId format: "chat_email1_email2" (sorted)
+        // Remove "chat_" prefix first
+        if (roomId.startsWith('chat_')) {
+          const emailsPart = roomId.substring(5); // Remove "chat_" (5 chars)
+          const emails = emailsPart.split('_');
+          emails.forEach(email => {
+            if (email && email !== userEmail) {
+              usersWithMessages.add(email);
+            }
+          });
+        }
+      });
+      
+      // Get manually added contacts (for metadata like isFavorite, isPinned, etc.)
+      const contactList = await contactsService.getContacts(userEmail);
+      
+      const allContactsData = await Promise.all(
+        Array.from(usersWithMessages).map(async (email) => {
+          // Check if this is a manually added contact
+          const manualContact = contactList.find(c => c.contactEmail === email);
+          
+          const profile = await userProfileService.getProfileByEmail(email);
+          // Check if contact is online
+          const socketId = userService.getSocketByEmail(email);
+          const isOnline = !!socketId;
+          // Get unread message count
+          const unreadCount = await chatService.getUnreadCount(userEmail, email);
+          
+          // Get last message for this contact (for sorting and preview)
+          const roomId = chatService.getRoomId(userEmail, email);
+          const lastMessage = await Message.findOne({ 
+            roomId, 
+            messageType: 'private',
+            isDeleted: { $ne: true }
+          })
+            .sort({ timestamp: -1 })
+            .lean();
+          
+          // If no messages found, skip this contact
+          if (!lastMessage) {
+            return null;
+          }
+          
+          let lastMessageText = null;
+          let lastMessageTimestamp = null;
+          if (lastMessage) {
+            lastMessageTimestamp = lastMessage.timestamp;
+            // Try to extract readable message text (handle encrypted messages)
+            try {
+              const parsed = JSON.parse(lastMessage.message);
+              if (parsed && parsed.encrypted) {
+                // Encrypted message - show placeholder
+                lastMessageText = '🔒 Encrypted message';
+              } else if (parsed && parsed.type === 'file') {
+                // File message
+                lastMessageText = parsed.fileType === 'image' ? '📷 Photo' : 
+                                 parsed.fileType === 'video' ? '🎥 Video' : 
+                                 parsed.fileType === 'audio' ? '🎵 Audio' : 
+                                 `📎 ${parsed.fileName || 'File'}`;
+              } else {
+                lastMessageText = lastMessage.message;
+              }
+            } catch (e) {
+              // Not JSON, use as-is
+              lastMessageText = lastMessage.message;
+            }
+          }
+          
+          const isArchived = manualContact?.isArchived || false;
+          
+          return {
+            email,
+            name: profile?.name || email.split('@')[0],
+            exists: !!profile,
+            isOnline,
+            unreadCount,
+            isFavorite: manualContact?.isFavorite || false,
+            isPinned: manualContact?.isPinned || false,
+            isArchived: isArchived,
+            isMuted: manualContact?.isMuted || false,
+            isManuallyAdded: !!manualContact,
+            lastMessage: lastMessageText,
+            lastMessageTimestamp: lastMessageTimestamp,
+          };
+        })
+      );
+      
+      // Filter out null entries (no messages)
+      const allContacts = allContactsData.filter(c => c !== null);
+      
+      // Separate archived and non-archived contacts
+      const validContacts = allContacts.filter(c => !c.isArchived);
+      const archivedContacts = allContacts.filter(c => c.isArchived);
+      
+      // ========== GROUPS ==========
+      // Get all groups where user is a member (from groupService)
+      const allUserGroups = await groupService.getUserGroups(userEmail);
+      
+      // Get all group IDs that have messages (where user is a member)
+      const groupsWithMessages = await Message.distinct('groupId', {
+        messageType: 'group',
+        isDeleted: { $ne: true },
+        groupId: { $in: allUserGroups.map(g => g._id) }
+      });
+      
+      // Convert to Set for easy lookup
+      const groupIdsWithMessages = new Set(
+        groupsWithMessages.map(id => id?.toString()).filter(Boolean)
+      );
+      
+      const allGroupsData = await Promise.all(
+        allUserGroups.map(async (group) => {
+          const groupId = group._id?.toString();
+          if (!groupId) return null;
+          
+          // Skip if group has no messages
+          if (!groupIdsWithMessages.has(groupId)) {
+            return null;
+          }
+          
+          // Get last message for this group
+          const lastMessage = await Message.findOne({ 
+            groupId, 
+            messageType: 'group',
+            isDeleted: { $ne: true }
+          })
+            .sort({ timestamp: -1 })
+            .lean();
+          
+          // If no messages found, skip this group
+          if (!lastMessage) {
+            return null;
+          }
+          
+          // Get unread count
+          const unreadCount = await chatService.getGroupUnreadCount(userEmail, groupId);
+          
+          // Get member profiles
+          const memberProfiles = await Promise.all(
+            (group.members || []).map(async (email) => {
+              const profile = await userProfileService.getProfileByEmail(email);
+              return {
+                email,
+                name: profile?.name || email.split('@')[0],
+              };
+            })
+          );
+          
+          let lastMessageText = null;
+          let lastMessageTimestamp = null;
+          if (lastMessage) {
+            lastMessageTimestamp = lastMessage.timestamp;
+            try {
+              const parsed = JSON.parse(lastMessage.message);
+              if (parsed && parsed.encrypted) {
+                lastMessageText = '🔒 Encrypted message';
+              } else if (parsed && parsed.type === 'file') {
+                lastMessageText = parsed.fileType === 'image' ? '📷 Photo' : 
+                                 parsed.fileType === 'video' ? '🎥 Video' : 
+                                 parsed.fileType === 'audio' ? '🎵 Audio' : 
+                                 `📎 ${parsed.fileName || 'File'}`;
+              } else {
+                lastMessageText = lastMessage.message;
+              }
+            } catch (e) {
+              lastMessageText = lastMessage.message;
+            }
+          }
+          
+          const isArchived = group.archivedBy && group.archivedBy.includes(userEmail);
+          
+          return {
+            _id: group._id,
+            name: group.name,
+            members: memberProfiles,
+            createdBy: group.createdBy,
+            unreadCount,
+            isFavorite: group.favorites && group.favorites.includes(userEmail),
+            isPinned: group.pinnedBy && group.pinnedBy.includes(userEmail),
+            isArchived: isArchived,
+            isMuted: group.mutedBy && group.mutedBy.includes(userEmail),
+            lastMessage: lastMessageText,
+            lastMessageTimestamp: lastMessageTimestamp,
+          };
+        })
+      );
+      
+      // Filter out null entries (no messages)
+      const allGroups = allGroupsData.filter(g => g !== null);
+      
+      // Separate archived and non-archived groups
+      const validGroups = allGroups.filter(g => !g.isArchived);
+      const archivedGroups = allGroups.filter(g => g.isArchived);
+      
+      // ========== COMBINE AND SORT ==========
+      // Combine contacts and groups
+      const allChats = [
+        ...validContacts.map(c => ({ ...c, chatType: 'contact' })),
+        ...validGroups.map(g => ({ ...g, chatType: 'group' }))
+      ];
+      
+      // Sort by last message timestamp (most recent first), then by name
+      allChats.sort((a, b) => {
+        // Pinned chats first
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        
+        // Then by last message timestamp (most recent first)
+        if (a.lastMessageTimestamp && b.lastMessageTimestamp) {
+          return new Date(b.lastMessageTimestamp) - new Date(a.lastMessageTimestamp);
+        }
+        if (a.lastMessageTimestamp) return -1;
+        if (b.lastMessageTimestamp) return 1;
+        
+        // Then by name
+        const nameA = a.name || a.email || '';
+        const nameB = b.name || b.email || '';
+        return nameA.localeCompare(nameB);
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `Found ${allChats.length} recent chat(s)`,
+        contacts: validContacts, // Non-archived contacts with messages
+        groups: validGroups, // Non-archived groups with messages
+        archivedContacts: archivedContacts, // Archived contacts with messages
+        archivedGroups: archivedGroups, // Archived groups with messages
+      });
+    } catch (error) {
+      console.error('Error in getRecentChats:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+  // Get all contacts for a user (manually added contacts only - for contact list)
   async getContacts(req, res) {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
@@ -1024,7 +1297,64 @@ class ContactsController {
     }
   }
 
-  // Clear chat for a user
+  // Delete chat for a user (delete all messages - chat will disappear from Recent Chats)
+  async deleteChat(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
+      const { contactEmail } = req.body;
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+
+      const userEmail = await userService.getUserByToken(token);
+      if (!userEmail) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token',
+        });
+      }
+
+      if (!contactEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Contact email is required',
+        });
+      }
+
+      // Delete all messages for this chat
+      await contactsService.deleteChat(userEmail, contactEmail);
+
+      // Emit socket event to refresh Recent Chats
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      if (io) {
+        const userSocketId = userService.getSocketByEmail(userEmail);
+        if (userSocketId) {
+          io.to(userSocketId).emit('contactsUpdated', {
+            contactEmail: contactEmail,
+            action: 'chat_deleted',
+          });
+        }
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Chat deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error in deleteChat:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+
+  // Clear chat for a user (mark clearedAt timestamp - messages will be filtered but chat remains)
   async clearChat(req, res) {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;

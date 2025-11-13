@@ -8,8 +8,13 @@ class ContactsService {
       const existingContact = await Contact.findOne({ userEmail, contactEmail });
       
       if (existingContact) {
-        // Contact already exists, just update createdAt if needed
-        existingContact.createdAt = existingContact.createdAt || new Date();
+        // Contact already exists - update it
+        // If contact was archived, unarchive it (new message means it should appear in Recent Chats)
+        if (existingContact.isArchived) {
+          existingContact.isArchived = false;
+        }
+        // Update createdAt to reflect latest message exchange
+        existingContact.createdAt = new Date();
         await existingContact.save();
       } else {
         // Create new contact, preserving default values for isMuted, isPinned, etc.
@@ -45,7 +50,7 @@ class ContactsService {
     }
   }
 
-  // Get all contacts for a user
+  // Get all contacts for a user (manually added contacts only)
   async getContacts(userEmail) {
     try {
       const contacts = await Contact.find({ userEmail })
@@ -89,7 +94,7 @@ class ContactsService {
     }
   }
 
-  // Clear chat for a user (mark clearedAt timestamp)
+  // Clear chat for a user (mark clearedAt timestamp - messages will be filtered)
   async clearChat(userEmail, contactEmail) {
     try {
       let contact = await Contact.findOne({ userEmail, contactEmail });
@@ -110,6 +115,38 @@ class ContactsService {
       return contact.toObject();
     } catch (error) {
       console.error('Error clearing chat:', error);
+      throw error;
+    }
+  }
+
+  // Delete chat for a user (delete all messages and mark as deleted)
+  // Contact will remain in database but won't appear in Recent Chats
+  async deleteChat(userEmail, contactEmail) {
+    try {
+      const chatService = require('./chatService');
+      const Message = require('../models/Message');
+      
+      // Get room ID
+      const roomId = chatService.getRoomId(userEmail, contactEmail);
+      
+      // Delete all messages in this room (soft delete - mark as deleted)
+      await Message.updateMany(
+        { roomId, messageType: 'private' },
+        { 
+          $set: { 
+            isDeleted: true,
+            deletedAt: new Date()
+          }
+        }
+      );
+      
+      // Mark contact as deleted (for Recent Chats filtering)
+      // We'll use a special flag or just check if messages exist
+      // Actually, we don't need to mark contact - Recent Chats will filter by messages
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting chat:', error);
       throw error;
     }
   }

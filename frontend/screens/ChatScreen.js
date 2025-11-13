@@ -62,8 +62,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [showGroupInfoModal, setShowGroupInfoModal] = useState(false);
   const [showContactInfoModal, setShowContactInfoModal] = useState(false);
   const [currentGroup, setCurrentGroup] = useState(null);
-  const [contacts, setContacts] = useState([]);
-  const [groups, setGroups] = useState([]);
+  const [contacts, setContacts] = useState([]); // All contacts from getRecentChats (including archived)
+  const [groups, setGroups] = useState([]); // All groups from getRecentChats (including archived)
+  const [allContacts, setAllContacts] = useState([]); // All contacts for Sidebar Contacts section
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState(null);
@@ -97,8 +98,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
   // Load contacts and groups on mount
   useEffect(() => {
-    loadContacts(true); // Show loading only on initial load
-    loadGroups();
+    loadContacts(true); // Show loading only on initial load - this also loads groups via getRecentChats
   }, []);
 
   // Listen for all private messages to refresh contacts list and show notifications
@@ -283,9 +283,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
     // Listen for groups update event from backend
     const handleGroupsUpdated = (data) => {
-      // Only update if we have new data
-      if (data && (data.groups || data.groupId)) {
-        loadGroups(); // Refresh groups list
+      // Always refresh contacts and groups list when we get an update event
+      // This ensures archived groups are removed/added from the list
+      if (data) {
+        loadContacts(false); // Refresh contacts and groups list (getRecentChats returns both)
       }
     };
 
@@ -314,13 +315,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     };
   }, [socket, userEmail]);
 
-  const loadGroups = async () => {
-    const result = await groupService.getGroups();
-    if (result.success) {
-      // Always update groups to ensure favorite status is current
-      setGroups(result.groups || []);
-    }
-  };
 
   // Update contact online status when contactEmail or contacts change
   useEffect(() => {
@@ -363,8 +357,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             // Only mark as read if there are unread messages
             if (result.group.unreadCount > 0) {
               groupService.markMessagesAsRead(groupId).then(() => {
-                // Reload groups to update unread count (but don't trigger this useEffect)
-                loadGroups();
+                // Reload contacts and groups to update unread count (but don't trigger this useEffect)
+                loadContacts(false);
               });
             }
           }
@@ -374,26 +368,49 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactEmail, groupId, chatType]); // Removed 'groups' from deps to prevent infinite loop
 
+  // Load recent chats for Recent Chats section (only getRecentChats API - includes archived data)
   const loadContacts = async (showLoading = false) => {
     if (showLoading) {
       setLoadingContacts(true);
     }
     try {
-      const result = await contactsService.getContacts();
+      // Get recent chats (includes both non-archived and archived contacts/groups)
+      // This API returns: contacts, groups, archivedContacts, archivedGroups
+      const recentChatsResult = await contactsService.getRecentChats();
       
-      if (result.success) {
-        const newContacts = result.contacts || [];
-        // Always update contacts list (don't check for changes to ensure deleted contacts are removed)
-        setContacts(newContacts);
+      if (recentChatsResult.success) {
+        // Combine non-archived and archived contacts
+        const nonArchivedContacts = recentChatsResult.contacts || [];
+        const archivedContacts = recentChatsResult.archivedContacts || [];
+        const allContactsCombined = [...nonArchivedContacts, ...archivedContacts];
+        setContacts(allContactsCombined);
+        
+        // Combine non-archived and archived groups
+        const nonArchivedGroups = recentChatsResult.groups || [];
+        const archivedGroups = recentChatsResult.archivedGroups || [];
+        const allGroupsCombined = [...nonArchivedGroups, ...archivedGroups];
+        setGroups(allGroupsCombined);
       } else {
-        console.error('❌ Failed to load contacts:', result.message);
+        console.error('❌ Failed to load recent chats:', recentChatsResult.message);
       }
     } catch (error) {
-      console.error('❌ Error loading contacts:', error);
+      console.error('❌ Error loading recent chats:', error);
     } finally {
       if (showLoading) {
         setLoadingContacts(false);
       }
+    }
+  };
+
+  // Load all contacts for Sidebar Contacts section (only when Sidebar is opened)
+  const loadAllContacts = async () => {
+    try {
+      const allContactsResult = await contactsService.getContacts();
+      if (allContactsResult.success) {
+        setAllContacts(allContactsResult.contacts || []);
+      }
+    } catch (error) {
+      console.error('❌ Error loading all contacts:', error);
     }
   };
 
@@ -582,6 +599,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
   const handleNewChat = () => {
     setShowSidebar(true);
+    // Load all contacts when Sidebar (Contacts section) is opened
+    loadAllContacts();
   };
 
   const handleSaveContact = async (email) => {
@@ -1220,8 +1239,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         return (
           <>
             <RecentChats
-              contacts={contacts}
-              groups={groups}
+              contacts={contacts} // Use contacts from getRecentChats (not archived, with messages)
+              groups={groups} // Use groups from getRecentChats (not archived, with messages)
               onSelectContact={handleSelectContact}
               onSelectGroup={handleSelectGroup}
               onNewChat={handleNewChat}
@@ -1229,7 +1248,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               onSaveContact={handleSaveContact}
               onInvite={handleInvite}
               onContactsUpdate={loadContacts}
-              onGroupsUpdate={loadGroups}
+              onGroupsUpdate={loadContacts}
               userEmail={userEmail}
             />
 
@@ -1456,14 +1475,18 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             onProfilePress={onProfilePress}
             onSettingsPress={onSettingsPress}
             onLogoutPress={onLogoutPress}
-            onSidebarPress={() => setShowSidebar(true)}
+            onSidebarPress={() => {
+              setShowSidebar(true);
+              // Load all contacts when Sidebar (Contacts section) is opened
+              loadAllContacts();
+            }}
           />
           
           <Sidebar
             visible={showSidebar}
             onClose={() => setShowSidebar(false)}
             onSelectContact={handleSelectContact}
-            contacts={contacts}
+            contacts={allContacts} // All contacts for Sidebar Contacts section
           />
           
           <View style={styles.contentContainer}>
@@ -1527,7 +1550,11 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onProfilePress={onProfilePress}
         onSettingsPress={onSettingsPress}
         onLogoutPress={onLogoutPress}
-        onSidebarPress={() => setShowSidebar(true)}
+        onSidebarPress={() => {
+          setShowSidebar(true);
+          // Load all contacts when Sidebar (Contacts section) is opened
+          loadAllContacts();
+        }}
         onBackPress={() => {
           setContactEmail(null);
           setGroupId(null);

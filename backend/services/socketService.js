@@ -276,13 +276,25 @@ class SocketService {
     try {
       const contactsService = require('./contactsService');
       
-      // Add contactEmail as a contact for sender (if not exists)
-      await contactsService.addContact(senderEmail, contactEmail);
+      // Add contactEmail as a contact for sender (if not exists or unarchive if archived)
+      const senderContactUpdated = await contactsService.addContact(senderEmail, contactEmail);
       
-      // Add senderEmail as a contact for receiver (if not exists)
+      // Add senderEmail as a contact for receiver (if not exists or unarchive if archived)
       await contactsService.addContact(contactEmail, senderEmail);
       
       console.log(`[${timestamp}] ✅ CONTACTS AUTO-CREATED/UPDATED for message exchange`);
+      
+      // Emit contactsUpdated event to sender immediately after unarchiving
+      // This ensures the contact appears in Recent Chats right away
+      const senderSocketId = userService.getSocketByEmail(senderEmail);
+      if (senderSocketId) {
+        this.io.to(senderSocketId).emit('contactsUpdated', {
+          contactEmail: contactEmail,
+          action: 'contact_unarchived',
+          messageId: null, // Message not saved yet, will be saved next
+        });
+        console.log(`[${timestamp}] 🔔 CONTACTS_UPDATED event emitted to sender (unarchive)`);
+      }
     } catch (contactError) {
       // Log but don't fail - contact creation is not critical for message delivery
       console.log(`[${timestamp}] ⚠️ Contact auto-creation warning:`, contactError.message);
@@ -548,6 +560,34 @@ class SocketService {
     if (!isMember) {
       console.log(`User ${senderEmail} tried to send message to group ${groupId} but is not a member`);
       return;
+    }
+
+    // Unarchive group for sender if it was archived (new message means it should appear in Recent Chats)
+    let groupUnarchived = false;
+    try {
+      const Group = require('../models/Group');
+      const group = await Group.findById(groupId);
+      if (group && group.archivedBy && group.archivedBy.includes(senderEmail)) {
+        group.archivedBy = group.archivedBy.filter(email => email !== senderEmail);
+        group.updatedAt = new Date();
+        await group.save();
+        groupUnarchived = true;
+        console.log(`✅ Group ${groupId} unarchived for user ${senderEmail} (new message sent)`);
+        
+        // Emit groupsUpdated event to sender immediately after unarchiving
+        // This ensures the group appears in Recent Chats right away
+        const senderSocketId = userService.getSocketByEmail(senderEmail);
+        if (senderSocketId) {
+          this.io.to(senderSocketId).emit('groupsUpdated', {
+            groupId: groupId,
+            action: 'group_unarchived',
+          });
+          console.log(`🔔 GROUPS_UPDATED event emitted to sender (unarchive)`);
+        }
+      }
+    } catch (error) {
+      // Log but don't fail - unarchiving is not critical for message delivery
+      console.log(`⚠️ Error unarchiving group:`, error.message);
     }
 
     // Add message to MongoDB

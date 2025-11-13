@@ -117,6 +117,44 @@ class ContactsService {
     }
   }
 
+  async getRecentChats() {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/recent-chats`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      // Don't show toast for getRecentChats (silent operation)
+      if (!data.success) {
+        showToastFromResponse(data, { 
+          errorTitle: 'Failed to Load Recent Chats',
+          showSuccess: false,
+        });
+      }
+      return data;
+    } catch (error) {
+      console.error('Error getting recent chats:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
   async addContact(contactEmail) {
     try {
       const token = await AsyncStorage.getItem('authToken');
@@ -498,6 +536,44 @@ class ContactsService {
       return data;
     } catch (error) {
       console.error('Error clearing chat:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
+  async deleteChat(contactEmail) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/delete-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          contactEmail,
+        }),
+      });
+
+      const data = await response.json();
+      showToastFromResponse(data, { 
+        successTitle: 'Chat Deleted',
+        errorTitle: 'Failed to Delete Chat',
+      });
+      return data;
+    } catch (error) {
+      console.error('Error deleting chat:', error);
       const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',

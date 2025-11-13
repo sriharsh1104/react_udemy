@@ -51,6 +51,7 @@ router.get('/contacts/check', asyncHandler(contactsController.checkUserExists.bi
 router.get('/contacts/check-phone', asyncHandler(contactsController.checkPhoneRegistered.bind(contactsController)));
 router.post('/contacts/check-phones-batch', asyncHandler(contactsController.checkPhonesBatch.bind(contactsController)));
 router.get('/contacts', asyncHandler(contactsController.getContacts.bind(contactsController)));
+router.get('/contacts/recent-chats', asyncHandler(contactsController.getRecentChats.bind(contactsController)));
 router.post('/contacts', asyncHandler(contactsController.addContact.bind(contactsController)));
 router.post('/contacts/toggle-favorite', asyncHandler(contactsController.toggleFavorite.bind(contactsController)));
 router.delete('/contacts', asyncHandler(contactsController.removeContact.bind(contactsController)));
@@ -59,6 +60,7 @@ router.get('/contacts/invite-link', asyncHandler(contactsController.generateInvi
 router.post('/contacts/delete-message', asyncHandler(contactsController.deleteMessage.bind(contactsController)));
 router.post('/contacts/edit-message', asyncHandler(contactsController.editMessage.bind(contactsController)));
 router.post('/contacts/clear-chat', asyncHandler(contactsController.clearChat.bind(contactsController)));
+router.post('/contacts/delete-chat', asyncHandler(contactsController.deleteChat.bind(contactsController)));
 router.get('/contacts/message-info/:messageId', asyncHandler(contactsController.getMessageInfo.bind(contactsController)));
 router.post('/contacts/toggle-pin', asyncHandler(contactsController.togglePin.bind(contactsController)));
 router.post('/contacts/toggle-archive', asyncHandler(contactsController.toggleArchive.bind(contactsController)));
