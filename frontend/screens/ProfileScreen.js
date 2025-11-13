@@ -37,6 +37,14 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   const [listType, setListType] = useState(null); // 'followers' or 'following'
   const [listData, setListData] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
+  
+  // Track initial values to detect changes
+  const [initialValues, setInitialValues] = useState({
+    name: '',
+    age: '',
+    phone1: '',
+    phone2: '',
+  });
 
   useEffect(() => {
     // Update profileCompleteStatus when prop changes
@@ -47,10 +55,24 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     // Only load profile if not passed as prop (to avoid double API call)
     if (initialProfile) {
       // Use initial profile data
-      setName(initialProfile.name || '');
-      setAge(initialProfile.age ? initialProfile.age.toString() : '');
-      setPhone1(initialProfile.phoneNumbers?.[0] || '');
-      setPhone2(initialProfile.phoneNumbers?.[1] || '');
+      const initialName = initialProfile.name || '';
+      const initialAge = initialProfile.age ? initialProfile.age.toString() : '';
+      const initialPhone1 = initialProfile.phoneNumbers?.[0] || '';
+      const initialPhone2 = initialProfile.phoneNumbers?.[1] || '';
+      
+      setName(initialName);
+      setAge(initialAge);
+      setPhone1(initialPhone1);
+      setPhone2(initialPhone2);
+      
+      // Store initial values for change detection
+      setInitialValues({
+        name: initialName,
+        age: initialAge,
+        phone1: initialPhone1,
+        phone2: initialPhone2,
+      });
+      
       setProfileCompleteStatus(initialProfile.isProfileComplete || false);
       setFollowersCount(initialProfile.followersCount || 0);
       setFollowingCount(initialProfile.followingCount || 0);
@@ -102,16 +124,53 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     const result = await profileService.getProfile();
     
     if (result.success && result.profile) {
-      setName(result.profile.name || '');
-      setAge(result.profile.age ? result.profile.age.toString() : '');
-      setPhone1(result.profile.phoneNumbers?.[0] || '');
-      setPhone2(result.profile.phoneNumbers?.[1] || '');
+      const initialName = result.profile.name || '';
+      const initialAge = result.profile.age ? result.profile.age.toString() : '';
+      const initialPhone1 = result.profile.phoneNumbers?.[0] || '';
+      const initialPhone2 = result.profile.phoneNumbers?.[1] || '';
+      
+      setName(initialName);
+      setAge(initialAge);
+      setPhone1(initialPhone1);
+      setPhone2(initialPhone2);
+      
+      // Store initial values for change detection
+      setInitialValues({
+        name: initialName,
+        age: initialAge,
+        phone1: initialPhone1,
+        phone2: initialPhone2,
+      });
+      
       setProfileCompleteStatus(result.profile.isProfileComplete || false);
       setFollowersCount(result.profile.followersCount || 0);
       setFollowingCount(result.profile.followingCount || 0);
       setFollowingList(result.profile.followingList || []);
     }
     setInitialLoading(false);
+  };
+  
+  // Check if any field has changed from initial values
+  const hasChanges = () => {
+    return (
+      name.trim() !== initialValues.name.trim() ||
+      age.trim() !== initialValues.age.trim() ||
+      phone1.trim() !== initialValues.phone1.trim() ||
+      phone2.trim() !== initialValues.phone2.trim()
+    );
+  };
+  
+  // Determine if save button should be disabled
+  const isSaveDisabled = () => {
+    // If profile is complete and no changes made, disable save button
+    if (profileCompleteStatus && !hasChanges()) {
+      return true;
+    }
+    // If saving in progress, disable
+    if (saving) {
+      return true;
+    }
+    return false;
   };
 
   const handleSave = async () => {
@@ -166,6 +225,15 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       if (result.profile?.followingList !== undefined) {
         setFollowingList(result.profile.followingList);
       }
+      
+      // Update initial values after successful save to reset change detection
+      setInitialValues({
+        name: name.trim(),
+        age: age.trim(),
+        phone1: phoneNumbers[0] || '',
+        phone2: phoneNumbers[1] || '',
+      });
+      
       // Directly navigate to chat section on success
       // Toast already shown by profileService
       onBack();
@@ -420,9 +488,9 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
           </View>
 
           <TouchableOpacity
-            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            style={[styles.saveButton, isSaveDisabled() && styles.saveButtonDisabled]}
             onPress={handleSave}
-            disabled={saving}
+            disabled={isSaveDisabled()}
             activeOpacity={0.8}
           >
             <Text style={styles.saveButtonText}>Save Profile</Text>
