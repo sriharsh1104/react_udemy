@@ -100,8 +100,14 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat, hideUsername = false, onStatusToggle }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+
+  const handleStatusPress = () => {
+    if (onStatusToggle && !isGroup) {
+      onStatusToggle();
+    }
+  };
 
   return (
     <>
@@ -129,14 +135,23 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
             disabled={isGroup ? (!onGroupInfoPress) : (!onContactInfoPress)}
             activeOpacity={(isGroup && onGroupInfoPress) || (!isGroup && onContactInfoPress) ? 0.7 : 1}
           >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {isGroup ? '👥' : (username ? username.charAt(0).toUpperCase() : 'U')}
-              </Text>
-            </View>
+            {!hideUsername && (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {isGroup ? '👥' : (username ? username.charAt(0).toUpperCase() : 'U')}
+                </Text>
+              </View>
+            )}
             <View style={styles.textContainer}>
-              <Text style={styles.title} numberOfLines={1}>{username || 'Chat'}</Text>
-              <View style={styles.statusContainer}>
+              {!hideUsername && (
+                <Text style={styles.title} numberOfLines={1}>{username || 'Chat'}</Text>
+              )}
+              <TouchableOpacity 
+                style={styles.statusContainer}
+                onPress={handleStatusPress}
+                disabled={isGroup || !onStatusToggle}
+                activeOpacity={onStatusToggle && !isGroup ? 0.7 : 1}
+              >
                 {!isGroup && (
                   <>
                 <View style={[styles.statusDot, isOnline && styles.statusDotOnline]} />
@@ -150,7 +165,7 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
                     Tap to view group info
                   </Text>
                 )}
-              </View>
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
           <TouchableOpacity 

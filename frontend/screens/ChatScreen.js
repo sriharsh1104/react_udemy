@@ -33,6 +33,7 @@ import Status from '../components/chat/Status';
 import contactsService from '../services/contactsService';
 import groupService from '../services/groupService';
 import fileUploadService from '../services/fileUploadService';
+import settingsService from '../services/settingsService';
 import { Alert } from 'react-native';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import * as Clipboard from 'expo-clipboard';
@@ -82,9 +83,13 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [showClearChatModal, setShowClearChatModal] = useState(false);
   const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
+  const [offlineMode, setOfflineMode] = useState(false);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket(userEmail);
+  
+  // Calculate actual online status (online only if connected AND not in offline mode)
+  const actualOnlineStatus = isConnected && !offlineMode;
   const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage } = useChat(userEmail, contactEmail, () => {
     // Backend will send contactsUpdated event, no need to call API
   });
@@ -99,7 +104,33 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   // Load contacts and groups on mount
   useEffect(() => {
     loadContacts(true); // Show loading only on initial load - this also loads groups via getRecentChats
+    loadOfflineMode(); // Load offline mode status
   }, []);
+  
+  // Load offline mode status
+  const loadOfflineMode = async () => {
+    try {
+      const result = await settingsService.getOfflineMode();
+      if (result.success) {
+        setOfflineMode(result.offlineMode || false);
+      }
+    } catch (error) {
+      console.error('Error loading offline mode:', error);
+    }
+  };
+  
+  // Handle status toggle (online/offline)
+  const handleStatusToggle = async () => {
+    try {
+      const newOfflineMode = !offlineMode;
+      const result = await settingsService.toggleOfflineMode(newOfflineMode);
+      if (result.success) {
+        setOfflineMode(newOfflineMode);
+      }
+    } catch (error) {
+      console.error('Error toggling offline mode:', error);
+    }
+  };
 
   // Listen for all private messages to refresh contacts list and show notifications
   useEffect(() => {
@@ -1471,7 +1502,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         >
           <ChatHeader 
             username={getUsernameFromEmail(userEmail)} 
-            isOnline={isConnected} 
+            isOnline={actualOnlineStatus}
+            hideUsername={true}
+            onStatusToggle={handleStatusToggle}
             onProfilePress={onProfilePress}
             onSettingsPress={onSettingsPress}
             onLogoutPress={onLogoutPress}
