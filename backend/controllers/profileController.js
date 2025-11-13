@@ -84,7 +84,7 @@ class ProfileController {
   async getContactProfile(req, res) {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
-      const { email } = req.params;
+      const { email } = req.body;
       
       if (!token) {
         return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');

@@ -33,7 +33,7 @@ router.get('/profile', asyncHandler(async (req, res) => {
   await profileController.getProfile(req, res);
 }));
 
-router.get('/profile/:email', asyncHandler(async (req, res) => {
+router.post('/profile/contact', asyncHandler(async (req, res) => {
   await profileController.getContactProfile(req, res);
 }));
 
@@ -47,7 +47,7 @@ router.post('/profile', asyncHandler(async (req, res) => {
 
 // Contacts routes
 router.get('/contacts/search', asyncHandler(contactsController.searchUsers.bind(contactsController)));
-router.get('/contacts/check', asyncHandler(contactsController.checkUserExists.bind(contactsController)));
+router.post('/contacts/check', asyncHandler(contactsController.checkUserExists.bind(contactsController)));
 router.get('/contacts/check-phone', asyncHandler(contactsController.checkPhoneRegistered.bind(contactsController)));
 router.post('/contacts/check-phones-batch', asyncHandler(contactsController.checkPhonesBatch.bind(contactsController)));
 router.get('/contacts', asyncHandler(contactsController.getContacts.bind(contactsController)));
@@ -117,7 +117,7 @@ router.post('/feed/comment', feedController.addComment);
 router.get('/feed/comments/:statusId', feedController.getComments);
 router.post('/feed/caption', feedController.updateCaption);
 router.get('/feed/search', feedController.searchProfiles);
-router.get('/feed/profile/:email', feedController.getProfile);
+router.post('/feed/profile', feedController.getProfile);
 router.post('/feed/follow', feedController.followUser);
 router.post('/feed/unfollow', feedController.unfollowUser);
 router.post('/feed/accept-request', feedController.acceptFollowRequest);

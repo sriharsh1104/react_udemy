@@ -167,7 +167,7 @@ class ContactsController {
   async checkUserExists(req, res) {
     try {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
-      const { email } = req.query;
+      const { email } = req.body;
 
       if (!token) {
         return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');

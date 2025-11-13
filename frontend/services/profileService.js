@@ -133,12 +133,13 @@ class ProfileService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/profile/${encodeURIComponent(contactEmail)}`, {
-        method: 'GET',
+      const response = await fetch(`${API_CONFIG.API_BASE}/profile/contact`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        body: JSON.stringify({ email: contactEmail }),
       });
 
       const data = await response.json();

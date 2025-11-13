@@ -51,12 +51,13 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check?email=${encodeURIComponent(email)}`, {
-        method: 'GET',
+      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        body: JSON.stringify({ email }),
       });
 
       const data = await response.json();

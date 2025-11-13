@@ -91,13 +91,14 @@ class FeedService {
       }
 
       const response = await fetch(
-        `${API_CONFIG.API_BASE}/feed/profile/${encodeURIComponent(email)}`,
+        `${API_CONFIG.API_BASE}/feed/profile`,
         {
-          method: 'GET',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
+          body: JSON.stringify({ email }),
         }
       );
 

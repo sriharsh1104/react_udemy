@@ -175,7 +175,7 @@ class FeedController {
   getProfile = [
     verifyToken,
     asyncHandler(async (req, res) => {
-      const { email } = req.params;
+      const { email } = req.body;
       
       if (!email) {
         return sendError(res, HTTP_STATUS.BAD_REQUEST, 'User email is required');

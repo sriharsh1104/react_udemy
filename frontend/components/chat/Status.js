@@ -460,7 +460,7 @@ const Status = ({ userEmail, contacts = [] }) => {
         ListHeaderComponent={
           <View style={styles.myStatusHeader}>
             <TouchableOpacity
-              style={[styles.myStatusItem, { width: getStatusItemWidth(), marginLeft: SPACING.md }]}
+              style={[styles.myStatusItem, { width: getStatusItemWidth(), marginLeft: 4 }]}
               onPress={handleMyStatusPress}
               activeOpacity={0.7}
             >
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
   statusRow: {
     justifyContent: 'flex-start',
     marginBottom: SPACING.md,
-    paddingLeft: SPACING.md,
+    paddingLeft: 4,
     paddingRight: SPACING.md,
   },
   statusItem: {
