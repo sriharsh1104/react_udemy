@@ -79,13 +79,15 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [activeBottomTab, setActiveBottomTab] = useState('chat'); // 'chat', 'feed', 'status', 'call'
   const [editingMessage, setEditingMessage] = useState(null); // Track message being edited
   const [showClearChatModal, setShowClearChatModal] = useState(false);
+  const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket(userEmail);
-  const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead } = useChat(userEmail, contactEmail, () => {
+  const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage } = useChat(userEmail, contactEmail, () => {
     // Backend will send contactsUpdated event, no need to call API
   });
-  const { messages: groupMessages, typingUsers, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping } = useGroupChat(userEmail, groupId);
+  const { messages: groupMessages, typingUsers, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping, removePendingMessage: removeGroupPendingMessage } = useGroupChat(userEmail, groupId);
   
   // Use appropriate messages and functions based on chat type
   const messages = chatType === 'group' ? groupMessages : privateMessages;
@@ -832,41 +834,93 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     setShowMessageMenu(true);
   };
 
-  const handleDeleteMessage = async () => {
-    if (!selectedMessage || !selectedMessage.messageId) return;
+  const handleDeleteMessage = () => {
+    if (!selectedMessage) return;
     
-    Alert.alert(
-      'Delete Message',
-      'Are you sure you want to delete this message?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              let result;
-              if (chatType === 'group') {
-                result = await groupService.deleteMessage(selectedMessage.messageId);
-              } else {
-                result = await contactsService.deleteMessage(selectedMessage.messageId);
-              }
-              
-              if (result.success) {
-                // Clear editing state if deleting the message being edited
-                if (editingMessage && editingMessage.messageId === selectedMessage.messageId) {
-                  setEditingMessage(null);
-                  setInputMessage('');
-                }
-                // Socket event will handle the UI update
-              }
-            } catch (error) {
-              console.error('Error deleting message:', error);
-            }
-          },
-        },
-      ]
-    );
+    // Check if message can be undone
+    // Can undo if: message is sent by user AND has no messageId (never saved to server)
+    // OR messageId exists but status is still 'sent' (saved but not delivered to receiver)
+    const canUndo = selectedMessage.isSent && 
+                    (!selectedMessage.messageId || 
+                     (selectedMessage.messageId && selectedMessage.status === 'sent'));
+    
+    // Always show modal, but with different text based on canUndo
+    setMessageToDelete(selectedMessage);
+    setShowDeleteMessageModal(true);
+  };
+
+  const handleDeleteMessageConfirm = async () => {
+    setShowDeleteMessageModal(false);
+    
+    if (!messageToDelete) return;
+    
+    // Check if message can be undone
+    // Can undo if: message has no messageId (never saved to server)
+    // If messageId exists, it's already in database, so we need to delete it
+    const canUndo = messageToDelete.isSent && !messageToDelete.messageId;
+    
+    if (canUndo) {
+      // Undo: Remove message from UI (it was never sent to server)
+      // This happens when network is off or emit failed
+      console.log('↩️ Undoing message - removing from UI (never sent to server):', messageToDelete);
+      
+      // Remove from messages array using hook function
+      if (chatType === 'group') {
+        // For group chat, use the removePendingMessage function
+        if (removeGroupPendingMessage) {
+          removeGroupPendingMessage(messageToDelete);
+          showSuccessToast('Message removed');
+        }
+      } else {
+        // For private chat, use the removePendingMessage function
+        if (removePrivatePendingMessage) {
+          removePrivatePendingMessage(messageToDelete);
+          showSuccessToast('Message removed');
+        }
+      }
+      
+      setSelectedMessage(null);
+      setMessageToDelete(null);
+    } else {
+      // Delete: Message is already in database, call API to delete it
+      // This will show "This message is deleted" to all users
+      if (!messageToDelete.messageId) {
+        console.error('Cannot delete message without messageId');
+        return;
+      }
+      
+      try {
+        console.log('🗑️ Deleting message from server:', messageToDelete.messageId);
+        let result;
+        if (chatType === 'group') {
+          result = await groupService.deleteMessage(messageToDelete.messageId);
+        } else {
+          result = await contactsService.deleteMessage(messageToDelete.messageId);
+        }
+        
+        if (result.success) {
+          console.log('✅ Message deleted successfully');
+          // Clear editing state if deleting the message being edited
+          if (editingMessage && editingMessage.messageId === messageToDelete.messageId) {
+            setEditingMessage(null);
+            setInputMessage('');
+          }
+          // Socket event will handle the UI update (will show "This message is deleted")
+        } else {
+          console.error('❌ Failed to delete message:', result.message);
+        }
+      } catch (error) {
+        console.error('❌ Error deleting message:', error);
+      }
+    }
+    
+    setSelectedMessage(null);
+    setMessageToDelete(null);
+  };
+
+  const handleDeleteMessageCancel = () => {
+    setShowDeleteMessageModal(false);
+    setMessageToDelete(null);
   };
 
   const handleForwardMessage = () => {
@@ -970,8 +1024,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     if (selectedMessages.length === 0) return;
     const messageToDelete = selectedMessages[0];
     setSelectedMessage(messageToDelete);
-    handleDeleteMessage();
     setSelectedMessages([]);
+    // handleDeleteMessage will show the confirmation modal
+    handleDeleteMessage();
   };
 
   const handleActionBarInfo = () => {
@@ -1594,6 +1649,24 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         cancelText="Cancel"
         onConfirm={handleClearChatConfirm}
         onCancel={handleClearChatCancel}
+        confirmButtonStyle="destructive"
+      />
+
+      {/* Delete Message Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteMessageModal}
+        title={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
+          ? "Undo Message" 
+          : "Delete Message"}
+        message={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
+          ? "This message hasn't been sent to the server yet. Remove it?"
+          : "Are you sure you want to delete this message? This will show 'This message is deleted' to all users."}
+        confirmText={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
+          ? "Undo"
+          : "Delete"}
+        cancelText="Cancel"
+        onConfirm={handleDeleteMessageConfirm}
+        onCancel={handleDeleteMessageCancel}
         confirmButtonStyle="destructive"
       />
     </KeyboardAvoidingView>

@@ -372,11 +372,28 @@ export const useGroupChat = (userEmail, groupId) => {
     }
   };
 
+  // Function to remove a pending message (undo)
+  const removePendingMessage = (messageToRemove) => {
+    setMessages((prev) => {
+      return prev.filter(msg => {
+        // Remove if it matches the message (by content, timestamp, and sender)
+        return !(
+          msg.message === messageToRemove.message &&
+          msg.senderEmail === messageToRemove.senderEmail &&
+          msg.isSent === messageToRemove.isSent &&
+          Math.abs(new Date(msg.timestamp) - new Date(messageToRemove.timestamp)) < 1000 &&
+          !msg.messageId // Only remove pending messages (no messageId)
+        );
+      });
+    });
+  };
+
   return {
     messages,
     typingUsers,
     sendMessage,
     sendTyping,
+    removePendingMessage,
   };
 };
 
