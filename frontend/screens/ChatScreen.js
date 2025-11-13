@@ -164,11 +164,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               await contactsService.markMessagesAsRead(notificationSenderEmail);
             },
             onReply: async (replyMessage) => {
-              console.log('📨 ChatScreen: onReply callback called', {
-                replyMessage: replyMessage,
-                senderEmail: notificationSenderEmail,
-                userEmail: userEmail
-              });
               
               // Send reply message directly
               if (replyMessage && replyMessage.trim()) {
@@ -188,12 +183,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                     console.error('❌ Socket not connected. Connection state:', currentSocket.connected);
                     return;
                   }
-                  
-                  console.log('📤 ChatScreen: Starting reply send process...', {
-                    to: notificationSenderEmail,
-                    from: userEmail,
-                    socketConnected: currentSocket.connected
-                  });
                   
                   // Ensure user is logged in via socket (important for message delivery)
                   const loginSuccess = socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
@@ -253,16 +242,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                       isTyping: false,
                     });
                     
-                    console.log('✅ ChatScreen: Reply message emitted successfully:', {
-                      to: notificationSenderEmail,
-                      from: userEmail,
-                      messagePreview: messageText.substring(0, 50),
-                      encryptedLength: encryptedMessage.length,
-                      socketConnected: currentSocket.connected
-                    });
                   }
-                  
-                  console.log('✅ ChatScreen: Reply sent successfully to:', notificationSenderEmail, 'Message:', messageText);
                   
                   // Backend will send contactsUpdated event, no need to call API
                   
@@ -296,7 +276,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
     // Listen for contacts update event from backend
     const handleContactsUpdated = (data) => {
-      console.log('📬 Contacts updated via socket:', data);
       // Always refresh contacts list when we get an update event
       // This ensures deleted contacts are removed from the list
       loadContacts(false); // Refresh contacts list
@@ -304,7 +283,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
     // Listen for groups update event from backend
     const handleGroupsUpdated = (data) => {
-      console.log('📬 Groups updated via socket:', data);
       // Only update if we have new data
       if (data && (data.groups || data.groupId)) {
         loadGroups(); // Refresh groups list
@@ -313,7 +291,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
     // Listen for contact online status changes
     const handleContactOnlineStatus = (data) => {
-      console.log('🟢 Contact online status changed:', data);
       if (data && data.contactEmail) {
         // Update specific contact's online status without full refresh
         setContacts((prev) =>
@@ -403,12 +380,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
     try {
       const result = await contactsService.getContacts();
-      console.log('📋 Load contacts result:', { success: result.success, count: result.contacts?.length });
       
       if (result.success) {
         const newContacts = result.contacts || [];
-        console.log('📋 Setting contacts:', newContacts.length, 'contacts');
-        
         // Always update contacts list (don't check for changes to ensure deleted contacts are removed)
         setContacts(newContacts);
       } else {
@@ -860,9 +834,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     const canUndo = messageToDelete.isSent && !messageToDelete.messageId;
     
     if (canUndo) {
-      // Undo: Remove message from UI (it was never sent to server)
-      // This happens when network is off or emit failed
-      console.log('↩️ Undoing message - removing from UI (never sent to server):', messageToDelete);
       
       // Remove from messages array using hook function
       if (chatType === 'group') {
@@ -890,7 +861,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       }
       
       try {
-        console.log('🗑️ Deleting message from server:', messageToDelete.messageId);
         let result;
         if (chatType === 'group') {
           result = await groupService.deleteMessage(messageToDelete.messageId);
@@ -899,7 +869,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         }
         
         if (result.success) {
-          console.log('✅ Message deleted successfully');
           // Clear editing state if deleting the message being edited
           if (editingMessage && editingMessage.messageId === messageToDelete.messageId) {
             setEditingMessage(null);
@@ -1040,19 +1009,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   };
 
   const handleClearChat = () => {
-    console.log('🗑️ CLEAR CHAT CLICKED:', {
-      chatType,
-      contactEmail,
-      groupId,
-      userEmail,
-      socketConnected: socket?.connected,
-      socketId: socket?.id,
-    });
-
     // Determine chat type if not set (fallback logic)
     const actualChatType = chatType || (groupId ? 'group' : contactEmail ? 'private' : null);
-    console.log('🔍 DETERMINED CHAT TYPE:', { chatType, actualChatType, groupId, contactEmail });
-
     if (!actualChatType) {
       console.error('❌ Cannot determine chat type!');
       // Show error using modal
@@ -1079,13 +1037,11 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   };
 
   const handleClearChatCancel = () => {
-    console.log('❌ User cancelled clear chat');
     setShowClearChatModal(false);
   };
 
   const executeClearChat = async (actualChatType) => {
     try {
-      console.log('🗑️ CLEAR CHAT CONFIRMED - Starting API call...', { actualChatType });
       let result;
       
       if (actualChatType === 'group') {
@@ -1094,7 +1050,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           // Could show error modal here if needed
           return;
         }
-        console.log('🗑️ Clearing group chat:', groupId);
         result = await groupService.clearChat(groupId);
       } else {
         // Private chat
@@ -1103,17 +1058,12 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           // Could show error modal here if needed
           return;
         }
-        console.log('🗑️ Clearing private chat:', contactEmail);
         result = await contactsService.clearChat(contactEmail);
       }
       
-      console.log('🗑️ CLEAR CHAT API RESPONSE:', result);
-      
       if (result.success) {
-        console.log('✅ API call successful, waiting for socket event...');
         // Fallback: If socket event doesn't arrive within 2 seconds, manually clear
         setTimeout(() => {
-          console.log('⏰ Fallback: Manually clearing messages after 2 seconds');
           if (actualChatType === 'group') {
             // For group chat, we need to reload via socket
             if (groupId) {

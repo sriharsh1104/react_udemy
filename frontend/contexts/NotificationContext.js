@@ -27,14 +27,6 @@ export const NotificationProvider = ({ children }) => {
       onReply: notification.onReply, // IMPORTANT: Add onReply callback
     };
 
-    console.log('📝 NotificationContext: Adding notification', {
-      id,
-      senderEmail: notification.senderEmail,
-      hasOnReply: !!notification.onReply,
-      hasOnPress: !!notification.onPress,
-      hasOnMarkAsRead: !!notification.onMarkAsRead,
-    });
-
     setNotifications((prev) => {
       // Remove any existing notification from the same sender
       const filtered = prev.filter(n => n.senderEmail !== notification.senderEmail);

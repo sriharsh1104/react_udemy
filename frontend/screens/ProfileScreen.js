@@ -53,8 +53,6 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   };
 
   const handleSave = async () => {
-    console.log('💾 handleSave called');
-    
     // Validate required fields for mandatory profile
     if (isMandatory && (!name.trim() || !phone1.trim())) {
       Alert.alert('Required Fields', 'Please fill Name and at least one Phone Number to continue');
@@ -82,7 +80,6 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       }
     }
 
-    console.log('✅ Validation passed, calling updateProfile');
     setSaving(true);
     
     try {
@@ -91,8 +88,6 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       age: age ? parseInt(age) : null,
       phoneNumbers,
     });
-
-      console.log('📥 updateProfile result:', result);
 
     if (result.success) {
       // Directly navigate to chat section on success
