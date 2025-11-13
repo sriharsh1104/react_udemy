@@ -6,6 +6,7 @@ const connectDB = require('./config/database');
 const routes = require('./routes');
 const SocketService = require('./services/socketService');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { HTTP_STATUS } = require('./constants');
 
 const app = express();
 const server = http.createServer(app);
@@ -69,8 +70,9 @@ app.use('/api', (req, res, next) => {
 
 // Root route - for health check and server info
 app.get('/', (req, res) => {
-  res.status(200).json({
-    status: 'success',
+  res.status(HTTP_STATUS.OK).json({
+    success: true,
+    status: HTTP_STATUS.OK,
     message: 'Chat App Backend API is running!',
     version: '1.0.0',
     endpoints: {

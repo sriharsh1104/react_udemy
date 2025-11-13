@@ -10,6 +10,7 @@ const { HTTP_STATUS } = require('../constants');
 const sendSuccess = (res, statusCode = HTTP_STATUS.OK, message, data = null) => {
   const response = {
     success: true,
+    status: statusCode,
     message,
   };
   
@@ -29,6 +30,7 @@ const sendSuccess = (res, statusCode = HTTP_STATUS.OK, message, data = null) => 
 const sendError = (res, statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR, message) => {
   return res.status(statusCode).json({
     success: false,
+    status: statusCode,
     message,
   });
 };

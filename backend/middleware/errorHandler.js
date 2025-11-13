@@ -1,8 +1,12 @@
+const { HTTP_STATUS } = require('../constants');
+
 const errorHandler = (err, req, res, next) => {
   console.error('Error:', err);
   
-  res.status(err.status || 500).json({
-    status: 'error',
+  const statusCode = err.status || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+  res.status(statusCode).json({
+    success: false,
+    status: statusCode,
     message: err.message || 'Internal server error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
@@ -27,8 +31,9 @@ const notFoundHandler = (req, res) => {
   
   console.log('Available routes:', availableRoutes.length > 0 ? availableRoutes.join(', ') : 'unknown');
   
-  res.status(404).json({
-    status: 'error',
+  res.status(HTTP_STATUS.NOT_FOUND).json({
+    success: false,
+    status: HTTP_STATUS.NOT_FOUND,
     message: `Route ${req.method} ${req.originalUrl} not found`,
     hint: 'API endpoints are available under /api. Try /api/health for health check.',
     availableRoutes: availableRoutes.length > 0 ? availableRoutes.slice(0, 10) : ['GET /', 'GET /api/health']
