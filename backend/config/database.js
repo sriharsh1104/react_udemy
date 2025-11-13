@@ -14,6 +14,19 @@ const connectDB = async () => {
       // Connection options for better reliability
       serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
       socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+      
+      // Connection pooling configuration for scalability
+      maxPoolSize: 50, // Maximum number of connections in the pool (default: 100)
+      minPoolSize: 5, // Minimum number of connections to maintain (default: 0)
+      maxIdleTimeMS: 30000, // Close connections after 30s of inactivity
+      connectTimeoutMS: 10000, // Timeout after 10s when connecting
+      
+      // Retry configuration
+      retryWrites: true, // Retry write operations on network errors
+      retryReads: true, // Retry read operations on network errors
+      
+      // Note: bufferCommands defaults to true, which buffers commands until connection is ready
+      // This is safer for production - commands will wait for connection
     });
     
     console.log('✅ MongoDB Connected:', conn.connection.host);

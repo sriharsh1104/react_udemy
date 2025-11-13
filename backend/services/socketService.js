@@ -22,10 +22,21 @@ class SocketService {
   setupSocketHandlers() {
     this.io.on('connection', (socket) => {
       const timestamp = new Date().toISOString();
+      
+      // Track socket connection for cleanup
+      socket.connectedAt = Date.now();
 
       // Handle user login (associate email with socket)
       socket.on('login', (data) => {
         this.handleLogin(socket, data);
+      });
+      
+      // Handle socket errors to prevent crashes
+      socket.on('error', (error) => {
+        console.error(`[${timestamp}] ❌ SOCKET ERROR:`, {
+          socketId: socket.id,
+          error: error.message,
+        });
       });
 
       // Handle joining a private chat room
@@ -412,11 +423,17 @@ class SocketService {
 
   handleDisconnect(socket) {
     const timestamp = new Date().toISOString();
-    const email = this.getEmailFromSocket(socket.id);
+    const socketId = socket.id;
+    
+    // COMPREHENSIVE CLEANUP: Remove socket from all maps to prevent memory leaks
+    const email = userService.cleanupSocket(socketId);
     
     if (email) {
-      userService.removeEmailToSocket(email);
-      userService.removeUser(socket.id);      
+      console.log(`[${timestamp}] 🔌 SOCKET DISCONNECTED:`, {
+        socketId,
+        email,
+      });
+      
       // Notify all contacts that this user is now offline
       // OPTIMIZED: Batch socket lookups to avoid N+1 queries
       const Contact = require('../models/Contact');
@@ -447,7 +464,14 @@ class SocketService {
       });
     } else {
       console.log(`[${timestamp}] 🔌 SOCKET DISCONNECTED (no email):`, {
-        socketId: socket.id,
+        socketId,
+      });
+    }
+    
+    // Additional cleanup: Leave all rooms this socket was in
+    if (socket.rooms) {
+      socket.rooms.forEach((roomId) => {
+        socket.leave(roomId);
       });
     }
   }
