@@ -14,6 +14,7 @@ import {
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 import groupService from '../../services/groupService';
 import profileService from '../../services/profileService';
+import feedService from '../../services/feedService';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -33,11 +34,14 @@ const ContactInfoModal = ({
   const [showAllGroups, setShowAllGroups] = useState(false);
   const [showAllMedia, setShowAllMedia] = useState(false);
   const [contactProfile, setContactProfile] = useState(null);
+  const [followStatus, setFollowStatus] = useState('not_following');
+  const [isPrivate, setIsPrivate] = useState(false);
 
   useEffect(() => {
     if (visible && contactEmail && userEmail) {
       loadContactInfo();
       loadContactProfile();
+      loadFollowStatus();
     } else {
       // Reset when modal closes
       setCommonGroups([]);
@@ -45,6 +49,8 @@ const ContactInfoModal = ({
       setShowAllGroups(false);
       setShowAllMedia(false);
       setContactProfile(null);
+      setFollowStatus('not_following');
+      setIsPrivate(false);
     }
   }, [visible, contactEmail, userEmail]);
 
@@ -56,6 +62,40 @@ const ContactInfoModal = ({
       }
     } catch (error) {
       console.error('Error loading contact profile:', error);
+    }
+  };
+
+  const loadFollowStatus = async () => {
+    try {
+      const result = await feedService.getProfile(contactEmail);
+      if (result.success && result.profile) {
+        setFollowStatus(result.profile.followStatus || 'not_following');
+        setIsPrivate(result.profile.isPrivate || false);
+      }
+    } catch (error) {
+      console.error('Error loading follow status:', error);
+    }
+  };
+
+  const handleFollow = async () => {
+    try {
+      const result = await feedService.followUser(contactEmail);
+      if (result.success) {
+        setFollowStatus(result.status || 'accepted');
+      }
+    } catch (error) {
+      console.error('Error following user:', error);
+    }
+  };
+
+  const handleUnfollow = async () => {
+    try {
+      const result = await feedService.unfollowUser(contactEmail);
+      if (result.success) {
+        setFollowStatus('not_following');
+      }
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
     }
   };
 
@@ -170,6 +210,42 @@ const ContactInfoModal = ({
                     </Text>
                   ))}
                 </View>
+              )}
+
+              {/* Follow/Unfollow Button */}
+              {contactEmail !== userEmail && (
+                <TouchableOpacity
+                  style={[
+                    styles.followButton,
+                    followStatus === 'accepted' 
+                      ? { backgroundColor: COLORS.receivedMessage, borderColor: COLORS.divider, borderWidth: 1 }
+                      : { backgroundColor: COLORS.primary }
+                  ]}
+                  onPress={() => {
+                    if (followStatus === 'accepted') {
+                      handleUnfollow();
+                    } else if (followStatus === 'pending') {
+                      Alert.alert('Follow Request', 'Follow request already sent. Waiting for approval.');
+                    } else {
+                      handleFollow();
+                    }
+                  }}
+                >
+                  <Text style={[
+                    styles.followButtonText,
+                    { 
+                      color: followStatus === 'accepted' 
+                        ? COLORS.text 
+                        : COLORS.white 
+                    }
+                  ]}>
+                    {followStatus === 'accepted' 
+                      ? 'Following' 
+                      : followStatus === 'pending'
+                      ? 'Requested'
+                      : 'Follow'}
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
 
@@ -498,6 +574,19 @@ const styles = StyleSheet.create({
   clearChatText: {
     fontSize: TYPOGRAPHY.fontSize.md,
     color: '#EF4444',
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  followButton: {
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 120,
+  },
+  followButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });
