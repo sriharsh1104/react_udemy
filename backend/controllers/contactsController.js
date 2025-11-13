@@ -1397,15 +1397,6 @@ class ContactsController {
         const room = io.sockets.adapter.rooms.get(roomId);
         const socketsInRoom = room?.size || 0;
         
-        console.log('🔔 EMITTING chatCleared EVENT:', {
-          roomId,
-          clearedBy: userEmail,
-          contactEmail,
-          socketsInRoom,
-          userSocketId,
-          userSocketExists: userSocketId ? !!io.sockets.sockets.get(userSocketId) : false,
-        });
-        
         // First, try to emit directly to user's socket (most reliable)
         if (userSocketId) {
           const userSocket = io.sockets.sockets.get(userSocketId);

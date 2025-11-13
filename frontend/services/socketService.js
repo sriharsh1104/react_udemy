@@ -16,7 +16,6 @@ class SocketService {
     }
 
     if (!this.socket) {
-      console.log('🔌 Connecting to socket:', API_CONFIG.SOCKET_URL);
       this.socket = io(API_CONFIG.SOCKET_URL, {
         transports: ['websocket', 'polling'], // Allow fallback to polling for mobile
         reconnection: true,
@@ -93,7 +92,6 @@ class SocketService {
     }
 
     const handleAppStateChange = (nextAppState) => {
-      console.log('📱 App state changed:', this.appState, '->', nextAppState);
       
       if (this.appState.match(/inactive|background/) && nextAppState === 'active') {
         // App came to foreground

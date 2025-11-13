@@ -228,15 +228,12 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     if (selectedChats.length === 0) return;
     
     try {
-      console.log('🗑️ Deleting chats from Recent Chats:', selectedChats);
-      
             for (const chat of selectedChats) {
               if (chat.type === 'contact') {
           // Delete chat - deletes all messages and removes from Recent Chats
           // Contact remains in database but won't appear in Recent Chats
           // If user sends new message, chat will reappear as new chat
           const result = await contactsService.deleteChat(chat.id);
-          console.log('🗑️ Delete chat result:', result);
           
           if (!result.success) {
             console.error('Failed to delete chat:', chat.id, result.message);

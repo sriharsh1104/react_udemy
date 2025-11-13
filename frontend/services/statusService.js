@@ -14,15 +14,6 @@ class StatusService {
           message: 'No token found',
         };
       }
-
-      console.log('Uploading status:', {
-        uri: file.uri,
-        type: type,
-        fileType: file.type,
-        name: file.name,
-        platform: Platform.OS,
-      });
-
       // Create form data
       const formData = new FormData();
       
@@ -63,8 +54,6 @@ class StatusService {
         });
         formData.append('type', type);
       }
-
-      console.log('Sending status upload request...');
       
       const response = await fetch(`${API_CONFIG.API_BASE}/status/upload`, {
         method: 'POST',
@@ -75,10 +64,7 @@ class StatusService {
         body: formData,
       });
 
-      console.log('Status upload response status:', response.status);
-
       const data = await response.json();
-      console.log('Status upload response:', data);
       
       if (!data.success) {
         showToastFromResponse(data, { errorTitle: 'Upload Failed' });

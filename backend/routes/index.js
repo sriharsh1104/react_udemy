@@ -124,36 +124,5 @@ router.post('/feed/accept-request', feedController.acceptFollowRequest);
 router.post('/feed/reject-request', feedController.rejectFollowRequest);
 router.get('/feed/pending-requests', feedController.getPendingRequests);
 
-console.log('Routes registered:');
-console.log('  POST /api/auth/register');
-console.log('  POST /api/auth/send-otp');
-console.log('  POST /api/auth/verify-otp');
-console.log('  POST /api/auth/login-password');
-console.log('  POST /api/auth/forget-password');
-console.log('  POST /api/auth/reset-password');
-console.log('  POST /api/auth/logout');
-console.log('  GET /api/profile');
-console.log('  GET /api/profile/:email');
-console.log('  PUT /api/profile');
-console.log('  POST /api/profile');
-console.log('  GET /api/contacts/search');
-console.log('  GET /api/contacts/check');
-console.log('  GET /api/contacts');
-console.log('  POST /api/contacts');
-console.log('  POST /api/contacts/toggle-favorite');
-console.log('  DELETE /api/contacts');
-console.log('  POST /api/contacts/mark-read');
-console.log('  GET /api/contacts/invite-link');
-console.log('  POST /api/settings/set-password');
-console.log('  POST /api/settings/change-password');
-console.log('  GET /api/settings/password-status');
-console.log('  POST /api/groups');
-console.log('  GET /api/groups');
-console.log('  GET /api/groups/:groupId');
-console.log('  POST /api/groups/add-members');
-console.log('  POST /api/groups/remove-member');
-console.log('  PUT /api/groups/update-name');
-console.log('  DELETE /api/groups');
-
 module.exports = router;
 

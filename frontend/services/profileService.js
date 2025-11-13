@@ -85,10 +85,6 @@ class ProfileService {
         },
         body: JSON.stringify(profileData),
       });
-
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response ok:', response.ok);
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Response error:', errorText);

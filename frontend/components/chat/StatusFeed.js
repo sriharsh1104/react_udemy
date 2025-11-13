@@ -887,7 +887,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
               styles.feedModeText,
               { color: feedMode === 'private' ? colors.white : colors.text }
             ]}>
-              Following
+              Private
             </Text>
           </TouchableOpacity>
         </View>
