@@ -2,6 +2,7 @@ const groupService = require('../services/groupService');
 const userService = require('../services/userService');
 const userProfileService = require('../services/userProfileService');
 const chatService = require('../services/chatService');
+const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
 class GroupController {
   // Create a new group
@@ -11,32 +12,20 @@ class GroupController {
       const { name, members } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!name || !name.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group name is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group name is required');
       }
 
       if (!members || !Array.isArray(members) || members.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'At least one member is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'At least one member is required');
       }
 
       // Validate that all members exist
@@ -49,10 +38,7 @@ class GroupController {
       }
 
       if (validMembers.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No valid members found',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'No valid members found');
       }
 
       const group = await groupService.createGroup(name, userEmail, validMembers);
@@ -75,17 +61,12 @@ class GroupController {
         });
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Group created successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Group created successfully', {
         group,
       });
     } catch (error) {
       console.error('Error in createGroup:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -95,18 +76,12 @@ class GroupController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       const groups = await groupService.getUserGroups(userEmail);
@@ -148,17 +123,12 @@ class GroupController {
         })
       );
 
-      res.status(200).json({
-        success: true,
-        message: `Found ${enrichedGroups.length} group(s)`,
+      return sendSuccess(res, HTTP_STATUS.OK, `Found ${enrichedGroups.length} group(s)`, {
         groups: enrichedGroups,
       });
     } catch (error) {
       console.error('Error in getGroups:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -169,35 +139,23 @@ class GroupController {
       const { groupId } = req.params;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       const group = await groupService.getGroupById(groupId);
       if (!group) {
-        return res.status(404).json({
-          success: false,
-          message: 'Group not found',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Group not found');
       }
 
       // Check if user is a member
       const isMember = await groupService.isMember(groupId, userEmail);
       if (!isMember) {
-        return res.status(403).json({
-          success: false,
-          message: 'You are not a member of this group',
-        });
+        return sendError(res, HTTP_STATUS.FORBIDDEN, 'You are not a member of this group');
       }
 
       // Enrich with member profiles
@@ -211,8 +169,7 @@ class GroupController {
         })
       );
 
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Group retrieved successfully', {
         group: {
           ...group,
           members: memberProfiles,
@@ -220,10 +177,7 @@ class GroupController {
       });
     } catch (error) {
       console.error('Error in getGroup:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -234,25 +188,16 @@ class GroupController {
       const { groupId, members } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!members || !Array.isArray(members) || members.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'At least one member is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'At least one member is required');
       }
 
       // Validate that all members exist
@@ -265,25 +210,17 @@ class GroupController {
       }
 
       if (validMembers.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No valid members found',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'No valid members found');
       }
 
       const group = await groupService.addMembers(groupId, userEmail, validMembers);
 
-      res.status(200).json({
-        success: true,
-        message: 'Members added successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Members added successfully', {
         group,
       });
     } catch (error) {
       console.error('Error in addMembers:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -294,40 +231,26 @@ class GroupController {
       const { groupId, memberEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!memberEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Member email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Member email is required');
       }
 
       const group = await groupService.removeMember(groupId, userEmail, memberEmail);
 
-      res.status(200).json({
-        success: true,
-        message: 'Member removed successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Member removed successfully', {
         group,
       });
     } catch (error) {
       console.error('Error in removeMember:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -338,40 +261,26 @@ class GroupController {
       const { groupId, name } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!name || !name.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group name is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group name is required');
       }
 
       const group = await groupService.updateGroupName(groupId, userEmail, name);
 
-      res.status(200).json({
-        success: true,
-        message: 'Group name updated successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Group name updated successfully', {
         group,
       });
     } catch (error) {
       console.error('Error in updateGroupName:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -382,32 +291,20 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       await groupService.deleteGroup(groupId, userEmail);
 
-      res.status(200).json({
-        success: true,
-        message: 'Group deleted successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Group deleted successfully');
     } catch (error) {
       console.error('Error in deleteGroup:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -418,25 +315,16 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group ID is required');
       }
 
       const group = await groupService.toggleFavorite(groupId, userEmail);
@@ -444,9 +332,7 @@ class GroupController {
       // Check if user has favorited this group
       const isFavorite = group.favorites && group.favorites.includes(userEmail);
 
-      res.status(200).json({
-        success: true,
-        message: isFavorite ? 'Group marked as favorite' : 'Group removed from favorites',
+      return sendSuccess(res, HTTP_STATUS.OK, isFavorite ? 'Group marked as favorite' : 'Group removed from favorites', {
         group: {
           _id: group._id,
           name: group.name,
@@ -455,10 +341,7 @@ class GroupController {
       });
     } catch (error) {
       console.error('Error in toggleFavorite:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -469,25 +352,16 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group ID is required');
       }
 
       const result = await chatService.markGroupMessagesAsRead(userEmail, groupId);
@@ -532,16 +406,10 @@ class GroupController {
         }
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Messages marked as read',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Messages marked as read');
     } catch (error) {
       console.error('Error in markGroupMessagesAsRead:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -552,41 +420,28 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group ID is required');
       }
 
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:19006';
       const result = await groupService.generateInviteLink(groupId, userEmail, frontendUrl);
 
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Invite link generated successfully', {
         inviteLink: result.inviteLink,
         expiresAt: result.expiresAt,
       });
     } catch (error) {
       console.error('Error in generateInviteLink:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -597,42 +452,28 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group ID is required');
       }
 
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:19006';
       const result = await groupService.resetInviteLink(groupId, userEmail, frontendUrl);
 
-      res.status(200).json({
-        success: true,
-        message: 'Invite link reset successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Invite link reset successfully', {
         inviteLink: result.inviteLink,
         expiresAt: result.expiresAt,
       });
     } catch (error) {
       console.error('Error in resetInviteLink:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -643,48 +484,32 @@ class GroupController {
       const { inviteToken } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!inviteToken) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invite token is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Invite token is required');
       }
 
       const result = await groupService.joinGroupViaLink(inviteToken, userEmail);
 
       if (result.alreadyMember) {
-        return res.status(200).json({
-          success: true,
-          message: 'You are already a member of this group',
+        return sendSuccess(res, HTTP_STATUS.OK, 'You are already a member of this group', {
           group: result.group,
         });
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Successfully joined the group',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Successfully joined the group', {
         group: result.group,
       });
     } catch (error) {
       console.error('Error in joinGroupViaLink:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -694,24 +519,17 @@ class GroupController {
       const { inviteToken } = req.params;
 
       if (!inviteToken) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invite token is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Invite token is required');
       }
 
       const group = await groupService.getGroupByInviteToken(inviteToken);
 
       if (!group) {
-        return res.status(404).json({
-          success: false,
-          message: 'Invalid or expired invite link',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Invalid or expired invite link');
       }
 
       // Return only basic info (name, member count) without member emails for privacy
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Group info retrieved successfully', {
         group: {
           _id: group._id,
           name: group.name,
@@ -720,10 +538,7 @@ class GroupController {
       });
     } catch (error) {
       console.error('Error in getGroupByInviteToken:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -734,25 +549,16 @@ class GroupController {
       const { messageId, groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!messageId || !groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Message ID and Group ID are required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Message ID and Group ID are required');
       }
 
       const chatService = require('../services/chatService');
@@ -770,17 +576,12 @@ class GroupController {
         });
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Message pinned successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Message pinned successfully', {
         pinnedMessage: message,
       });
     } catch (error) {
       console.error('Error in pinMessage:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -791,25 +592,16 @@ class GroupController {
       const { messageId, groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!messageId || !groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Message ID and Group ID are required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Message ID and Group ID are required');
       }
 
       const chatService = require('../services/chatService');
@@ -827,17 +619,12 @@ class GroupController {
         });
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Message unpinned successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Message unpinned successfully', {
         unpinnedMessage: message,
       });
     } catch (error) {
       console.error('Error in unpinMessage:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -848,49 +635,33 @@ class GroupController {
       const { groupId } = req.params;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group ID is required');
       }
 
       // Verify user is a member of the group
       const isMember = await groupService.isMember(groupId, userEmail);
       if (!isMember) {
-        return res.status(403).json({
-          success: false,
-          message: 'You are not a member of this group',
-        });
+        return sendError(res, HTTP_STATUS.FORBIDDEN, 'You are not a member of this group');
       }
 
       const chatService = require('../services/chatService');
       const pinnedMessages = await chatService.getPinnedMessages(groupId);
 
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Pinned messages retrieved successfully', {
         pinnedMessages,
       });
     } catch (error) {
       console.error('Error in getPinnedMessages:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -901,25 +672,16 @@ class GroupController {
       const { messageId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!messageId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Message ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Message ID is required');
       }
 
       const chatService = require('../services/chatService');
@@ -936,16 +698,10 @@ class GroupController {
           });
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Message deleted successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Message deleted successfully');
     } catch (error) {
       console.error('Error in deleteMessage:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -956,25 +712,16 @@ class GroupController {
       const { messageId, newMessage } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!messageId || !newMessage) {
-        return res.status(400).json({
-          success: false,
-          message: 'Message ID and new message are required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Message ID and new message are required');
       }
 
       const chatService = require('../services/chatService');
@@ -993,17 +740,12 @@ class GroupController {
         });
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Message edited successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Message edited successfully', {
         data: editedMessage,
       });
     } catch (error) {
       console.error('Error in editMessage:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1014,25 +756,16 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group ID is required');
       }
 
       await groupService.clearChat(groupId, userEmail);
@@ -1090,16 +823,10 @@ class GroupController {
         console.error('❌ Socket IO instance not available!');
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Chat cleared successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Chat cleared successfully');
     } catch (error) {
       console.error('Error in clearChat:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1110,44 +837,29 @@ class GroupController {
       const { messageId } = req.params;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!messageId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Message ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Message ID is required');
       }
 
       const message = await chatService.getMessageById(messageId);
 
       if (!message) {
-        return res.status(404).json({
-          success: false,
-          message: 'Message not found',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Message not found');
       }
 
       // Check if user is a member of the group
       if (message.groupId) {
         const isMember = await groupService.isMember(message.groupId.toString(), userEmail);
         if (!isMember) {
-          return res.status(403).json({
-            success: false,
-            message: 'You are not a member of this group',
-          });
+          return sendError(res, HTTP_STATUS.FORBIDDEN, 'You are not a member of this group');
         }
       }
 
@@ -1197,8 +909,7 @@ class GroupController {
         }
       }
 
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Message info retrieved successfully', {
         messageInfo: {
           messageId: message._id,
           senderEmail: message.senderEmail,
@@ -1213,10 +924,7 @@ class GroupController {
       });
     } catch (error) {
       console.error('Error in getMessageInfo:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1227,41 +935,26 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group ID is required');
       }
 
       const group = await groupService.getGroupById(groupId);
       if (!group) {
-        return res.status(404).json({
-          success: false,
-          message: 'Group not found',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Group not found');
       }
 
       const isMember = await groupService.isMember(groupId, userEmail);
       if (!isMember) {
-        return res.status(403).json({
-          success: false,
-          message: 'You are not a member of this group',
-        });
+        return sendError(res, HTTP_STATUS.FORBIDDEN, 'You are not a member of this group');
       }
 
       const isPinned = group.pinnedBy && group.pinnedBy.includes(userEmail);
@@ -1275,9 +968,7 @@ class GroupController {
       }
       await group.save();
 
-      res.status(200).json({
-        success: true,
-        message: !isPinned ? 'Group pinned' : 'Group unpinned',
+      return sendSuccess(res, HTTP_STATUS.OK, !isPinned ? 'Group pinned' : 'Group unpinned', {
         group: {
           _id: group._id,
           isPinned: !isPinned,
@@ -1285,10 +976,7 @@ class GroupController {
       });
     } catch (error) {
       console.error('Error in togglePin:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1299,41 +987,26 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group ID is required');
       }
 
       const group = await groupService.getGroupById(groupId);
       if (!group) {
-        return res.status(404).json({
-          success: false,
-          message: 'Group not found',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Group not found');
       }
 
       const isMember = await groupService.isMember(groupId, userEmail);
       if (!isMember) {
-        return res.status(403).json({
-          success: false,
-          message: 'You are not a member of this group',
-        });
+        return sendError(res, HTTP_STATUS.FORBIDDEN, 'You are not a member of this group');
       }
 
       const isArchived = group.archivedBy && group.archivedBy.includes(userEmail);
@@ -1347,9 +1020,7 @@ class GroupController {
       }
       await group.save();
 
-      res.status(200).json({
-        success: true,
-        message: !isArchived ? 'Group archived' : 'Group unarchived',
+      return sendSuccess(res, HTTP_STATUS.OK, !isArchived ? 'Group archived' : 'Group unarchived', {
         group: {
           _id: group._id,
           isArchived: !isArchived,
@@ -1357,10 +1028,7 @@ class GroupController {
       });
     } catch (error) {
       console.error('Error in toggleArchive:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1371,41 +1039,26 @@ class GroupController {
       const { groupId, mutedUntil } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!groupId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Group ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Group ID is required');
       }
 
       const group = await groupService.getGroupById(groupId);
       if (!group) {
-        return res.status(404).json({
-          success: false,
-          message: 'Group not found',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Group not found');
       }
 
       const isMember = await groupService.isMember(groupId, userEmail);
       if (!isMember) {
-        return res.status(403).json({
-          success: false,
-          message: 'You are not a member of this group',
-        });
+        return sendError(res, HTTP_STATUS.FORBIDDEN, 'You are not a member of this group');
       }
 
       const isMuted = group.mutedBy && group.mutedBy.includes(userEmail);
@@ -1436,9 +1089,7 @@ class GroupController {
       }
       await group.save();
 
-      res.status(200).json({
-        success: true,
-        message: !isMuted ? 'Group muted' : 'Group unmuted',
+      return sendSuccess(res, HTTP_STATUS.OK, !isMuted ? 'Group muted' : 'Group unmuted', {
         group: {
           _id: group._id,
           isMuted: !isMuted,
@@ -1446,10 +1097,7 @@ class GroupController {
       });
     } catch (error) {
       console.error('Error in toggleMute:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 }

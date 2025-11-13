@@ -4,6 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const File = require('../models/File');
 const userService = require('../services/userService');
+const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -47,19 +48,19 @@ const verifyToken = async (req, res, next) => {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return res.status(401).json({ success: false, message: 'No token provided' });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'No token provided');
     }
     
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid or expired token');
     }
     
     req.userEmail = userEmail;
     next();
   } catch (error) {
     console.error('Token verification error:', error);
-    res.status(401).json({ success: false, message: 'Token verification failed' });
+    return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Token verification failed');
   }
 };
 
@@ -72,10 +73,7 @@ class FileController {
       upload.single('file')(req, res, (err) => {
         if (err) {
           console.error('Multer error:', err);
-          return res.status(400).json({ 
-            success: false, 
-            message: err.message || 'File upload error' 
-          });
+          return sendError(res, HTTP_STATUS.BAD_REQUEST, err.message || 'File upload error');
         }
         next();
       });
@@ -94,7 +92,7 @@ class FileController {
             body: req.body,
             headers: req.headers,
           });
-          return res.status(400).json({ success: false, message: 'No file uploaded' });
+          return sendError(res, HTTP_STATUS.BAD_REQUEST, 'No file uploaded');
         }
         
         const { type } = req.body;
@@ -103,7 +101,7 @@ class FileController {
           if (req.file && req.file.path) {
             fs.unlinkSync(req.file.path);
           }
-          return res.status(400).json({ success: false, message: 'Invalid file type' });
+          return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Invalid file type');
         }
         
         // Generate unique file ID
@@ -122,20 +120,18 @@ class FileController {
         
         await fileRecord.save();
         
-        res.json({
-          success: true,
+        return sendSuccess(res, HTTP_STATUS.OK, 'File uploaded successfully', {
           fileId,
           fileName: req.file.originalname,
           fileType: type,
           fileSize: req.file.size,
-          message: 'File uploaded successfully',
         });
       } catch (error) {
         console.error('File upload error:', error);
         if (req.file) {
           fs.unlinkSync(req.file.path);
         }
-        res.status(500).json({ success: false, message: 'File upload failed' });
+        return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'File upload failed');
       }
     },
   ];
@@ -149,11 +145,11 @@ class FileController {
         
         const fileRecord = await File.findOne({ fileId });
         if (!fileRecord) {
-          return res.status(404).json({ success: false, message: 'File not found' });
+          return sendError(res, HTTP_STATUS.NOT_FOUND, 'File not found');
         }
         
         if (!fs.existsSync(fileRecord.filePath)) {
-          return res.status(404).json({ success: false, message: 'File not found on server' });
+          return sendError(res, HTTP_STATUS.NOT_FOUND, 'File not found on server');
         }
         
         // Mark as downloaded
@@ -166,7 +162,7 @@ class FileController {
         res.download(fileRecord.filePath, fileRecord.fileName, (err) => {
           if (err) {
             console.error('File download error:', err);
-            res.status(500).json({ success: false, message: 'File download failed' });
+            return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'File download failed');
           } else {
             // Delete file from server after successful download
             setTimeout(() => {
@@ -179,7 +175,7 @@ class FileController {
         });
       } catch (error) {
         console.error('File download error:', error);
-        res.status(500).json({ success: false, message: 'File download failed' });
+        return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'File download failed');
       }
     },
   ];
@@ -193,12 +189,12 @@ class FileController {
         
         const fileRecord = await File.findOne({ fileId });
         if (!fileRecord) {
-          return res.status(404).json({ success: false, message: 'File not found' });
+          return sendError(res, HTTP_STATUS.NOT_FOUND, 'File not found');
         }
         
         // Check if user has permission (uploaded by them)
         if (fileRecord.uploadedBy !== req.userEmail) {
-          return res.status(403).json({ success: false, message: 'Permission denied' });
+          return sendError(res, HTTP_STATUS.FORBIDDEN, 'Permission denied');
         }
         
         // Delete file from filesystem
@@ -209,10 +205,10 @@ class FileController {
         // Delete from database
         await fileRecord.deleteOne();
         
-        res.json({ success: true, message: 'File deleted successfully' });
+        return sendSuccess(res, HTTP_STATUS.OK, 'File deleted successfully');
       } catch (error) {
         console.error('File deletion error:', error);
-        res.status(500).json({ success: false, message: 'File deletion failed' });
+        return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'File deletion failed');
       }
     },
   ];

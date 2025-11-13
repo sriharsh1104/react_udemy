@@ -1,6 +1,7 @@
 const contactsService = require('../services/contactsService');
 const userService = require('../services/userService');
 const userProfileService = require('../services/userProfileService');
+const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
 class ContactsController {
   // Check if phone number is registered in app
@@ -10,25 +11,16 @@ class ContactsController {
       const { phone } = req.query;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!phone) {
-        return res.status(400).json({
-          success: false,
-          message: 'Phone number is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Phone number is required');
       }
 
       // Normalize phone number (remove spaces, +, etc.)
@@ -39,26 +31,19 @@ class ContactsController {
       
       if (email) {
         const profile = await userProfileService.getProfileByEmail(email);
-        return res.status(200).json({
-          success: true,
-          message: 'User is registered on the platform',
+        return sendSuccess(res, HTTP_STATUS.OK, 'User is registered on the platform', {
           registered: true,
           email,
           name: profile?.name || email.split('@')[0],
         });
       }
 
-      return res.status(200).json({
-        success: true,
-        message: 'User is not registered on the platform',
+      return sendSuccess(res, HTTP_STATUS.OK, 'User is not registered on the platform', {
         registered: false,
       });
     } catch (error) {
       console.error('Error in checkPhoneRegistered:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -69,25 +54,16 @@ class ContactsController {
       const { phones } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!phones || !Array.isArray(phones)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Phones array is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Phones array is required');
       }
 
       const results = await Promise.all(
@@ -112,17 +88,12 @@ class ContactsController {
         })
       );
 
-      return res.status(200).json({
-        success: true,
-        message: `Checked ${phones.length} phone number(s)`,
+      return sendSuccess(res, HTTP_STATUS.OK, `Checked ${phones.length} phone number(s)`, {
         results,
       });
     } catch (error) {
       console.error('Error in checkPhonesBatch:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -133,25 +104,16 @@ class ContactsController {
       const { query } = req.query;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!query || query.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Search query is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Search query is required');
       }
 
       const searchQuery = query.trim().toLowerCase();
@@ -159,10 +121,7 @@ class ContactsController {
       // PRIVACY: Only allow exact email match (no partial search to protect user privacy)
       // Check if it's a valid email format
       if (!searchQuery.includes('@')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please enter a complete email address',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please enter a complete email address');
       }
 
       // Check User model directly (for registered users, even without profile)
@@ -178,26 +137,19 @@ class ContactsController {
       }
       
       if (!user) {
-        return res.status(200).json({
-          success: true,
-          message: 'User not found',
+        return sendSuccess(res, HTTP_STATUS.OK, 'User not found', {
           results: [],
         });
       }
 
       // Skip if searching for self
       if (user.email.toLowerCase() === userEmail.toLowerCase()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot search for yourself',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Cannot search for yourself');
       }
 
       const isContact = await contactsService.hasContact(userEmail, user.email);
       
-      res.status(200).json({
-        success: true,
-        message: 'User found',
+      return sendSuccess(res, HTTP_STATUS.OK, 'User found', {
         results: [{
           email: user.email,
           name: user.name || user.email.split('@')[0],
@@ -207,10 +159,7 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in searchUsers:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -221,33 +170,22 @@ class ContactsController {
       const { email } = req.query;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!email) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email is required');
       }
 
       const profile = await userProfileService.getProfileByEmail(email);
       const exists = !!profile;
 
-      res.status(200).json({
-        success: true,
-        message: exists ? 'User exists on the platform' : 'User does not exist on the platform',
+      return sendSuccess(res, HTTP_STATUS.OK, exists ? 'User exists on the platform' : 'User does not exist on the platform', {
         exists,
         user: exists ? {
           email,
@@ -256,10 +194,7 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in checkUserExists:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -270,32 +205,20 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       if (contactEmail === userEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot add yourself as a contact',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Cannot add yourself as a contact');
       }
 
       const contacts = await contactsService.addContact(userEmail, contactEmail);
@@ -314,17 +237,12 @@ class ContactsController {
         }
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Contact added successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Contact added successfully', {
         contacts,
       });
     } catch (error) {
       console.error('Error in addContact:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -334,18 +252,12 @@ class ContactsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       const chatService = require('../services/chatService');
@@ -584,9 +496,7 @@ class ContactsController {
         return nameA.localeCompare(nameB);
       });
 
-      res.status(200).json({
-        success: true,
-        message: `Found ${allChats.length} recent chat(s)`,
+      return sendSuccess(res, HTTP_STATUS.OK, `Found ${allChats.length} recent chat(s)`, {
         contacts: validContacts, // Non-archived contacts with messages
         groups: validGroups, // Non-archived groups with messages
         archivedContacts: archivedContacts, // Archived contacts with messages
@@ -594,10 +504,7 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in getRecentChats:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -607,18 +514,12 @@ class ContactsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       const contactList = await contactsService.getContacts(userEmail);
@@ -740,17 +641,12 @@ class ContactsController {
         return (a.name || a.email).localeCompare(b.name || b.email);
       });
 
-      res.status(200).json({
-        success: true,
-        message: `Found ${contacts.length} contact(s)`,
+      return sendSuccess(res, HTTP_STATUS.OK, `Found ${contacts.length} contact(s)`, {
         contacts,
       });
     } catch (error) {
       console.error('Error in getContacts:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -761,32 +657,21 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       const contact = await contactsService.toggleFavorite(userEmail, contactEmail);
 
-      res.status(200).json({
-        success: true,
-        message: contact.isFavorite ? 'Contact marked as favorite' : 'Contact removed from favorites',
+      return sendSuccess(res, HTTP_STATUS.OK, contact.isFavorite ? 'Contact marked as favorite' : 'Contact removed from favorites', {
         contact: {
           email: contact.contactEmail,
           isFavorite: contact.isFavorite,
@@ -794,10 +679,7 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in toggleFavorite:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -808,25 +690,16 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       const Contact = require('../models/Contact');
@@ -846,9 +719,7 @@ class ContactsController {
         await contact.save();
       }
 
-      res.status(200).json({
-        success: true,
-        message: contact.isPinned ? 'Chat pinned' : 'Chat unpinned',
+      return sendSuccess(res, HTTP_STATUS.OK, contact.isPinned ? 'Chat pinned' : 'Chat unpinned', {
         contact: {
           email: contact.contactEmail,
           isPinned: contact.isPinned,
@@ -856,10 +727,7 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in togglePin:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -870,25 +738,16 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       const Contact = require('../models/Contact');
@@ -908,9 +767,7 @@ class ContactsController {
         await contact.save();
       }
 
-      res.status(200).json({
-        success: true,
-        message: contact.isArchived ? 'Chat archived' : 'Chat unarchived',
+      return sendSuccess(res, HTTP_STATUS.OK, contact.isArchived ? 'Chat archived' : 'Chat unarchived', {
         contact: {
           email: contact.contactEmail,
           isArchived: contact.isArchived,
@@ -918,10 +775,7 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in toggleArchive:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -932,25 +786,16 @@ class ContactsController {
       const { contactEmail, mutedUntil } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       const Contact = require('../models/Contact');
@@ -972,9 +817,7 @@ class ContactsController {
         await contact.save();
       }
 
-      res.status(200).json({
-        success: true,
-        message: contact.isMuted ? 'Chat muted' : 'Chat unmuted',
+      return sendSuccess(res, HTTP_STATUS.OK, contact.isMuted ? 'Chat muted' : 'Chat unmuted', {
         contact: {
           email: contact.contactEmail,
           isMuted: contact.isMuted,
@@ -983,10 +826,7 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in toggleMute:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -997,25 +837,16 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       const result = await contactsService.removeContact(userEmail, contactEmail);
@@ -1033,16 +864,10 @@ class ContactsController {
         }
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Contact deleted successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Contact deleted successfully');
     } catch (error) {
       console.error('Error in deleteContact:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1053,40 +878,26 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       const contacts = await contactsService.removeContact(userEmail, contactEmail);
 
-      res.status(200).json({
-        success: true,
-        message: 'Contact removed successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Contact removed successfully', {
         contacts,
       });
     } catch (error) {
       console.error('Error in removeContact:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -1097,25 +908,16 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       const chatService = require('../services/chatService');
@@ -1134,16 +936,10 @@ class ContactsController {
         }
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Messages marked as read',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Messages marked as read');
     } catch (error) {
       console.error('Error in markMessagesAsRead:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -1152,35 +948,25 @@ class ContactsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       // Generate invite link with user email encoded
       const inviteCode = Buffer.from(userEmail).toString('base64');
       const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:19006'}/invite/${inviteCode}`;
 
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Invite link generated successfully', {
         inviteLink,
         inviteCode,
       });
     } catch (error) {
       console.error('Error in generateInviteLink:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -1191,25 +977,16 @@ class ContactsController {
       const { messageId } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!messageId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Message ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Message ID is required');
       }
 
       const chatService = require('../services/chatService');
@@ -1226,16 +1003,10 @@ class ContactsController {
         });
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Message deleted successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Message deleted successfully');
     } catch (error) {
       console.error('Error in deleteMessage:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1246,25 +1017,16 @@ class ContactsController {
       const { messageId, newMessage } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!messageId || !newMessage) {
-        return res.status(400).json({
-          success: false,
-          message: 'Message ID and new message are required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Message ID and new message are required');
       }
 
       const chatService = require('../services/chatService');
@@ -1283,17 +1045,12 @@ class ContactsController {
         });
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Message edited successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Message edited successfully', {
         data: editedMessage,
       });
     } catch (error) {
       console.error('Error in editMessage:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1304,25 +1061,16 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       // Delete all messages for this chat
@@ -1341,16 +1089,10 @@ class ContactsController {
         }
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Chat deleted successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Chat deleted successfully');
     } catch (error) {
       console.error('Error in deleteChat:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1361,25 +1103,16 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!contactEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contact email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Contact email is required');
       }
 
       await contactsService.clearChat(userEmail, contactEmail);
@@ -1429,16 +1162,10 @@ class ContactsController {
         console.error('❌ Socket IO instance not available!');
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Chat cleared successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Chat cleared successfully');
     } catch (error) {
       console.error('Error in clearChat:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 
@@ -1449,47 +1176,33 @@ class ContactsController {
       const { messageId } = req.params;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!messageId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Message ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Message ID is required');
       }
 
       const chatService = require('../services/chatService');
       const message = await chatService.getMessageById(messageId);
 
       if (!message) {
-        return res.status(404).json({
-          success: false,
-          message: 'Message not found',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Message not found');
       }
 
       // Check if user has access to this message
+      const groupService = require('../services/groupService');
       const hasAccess = message.senderEmail === userEmail || 
                        message.receiverEmail === userEmail ||
                        (message.groupId && await groupService.isMember(message.groupId.toString(), userEmail));
 
       if (!hasAccess) {
-        return res.status(403).json({
-          success: false,
-          message: 'You do not have access to this message',
-        });
+        return sendError(res, HTTP_STATUS.FORBIDDEN, 'You do not have access to this message');
       }
 
       // Get read receipts info
@@ -1538,8 +1251,7 @@ class ContactsController {
         }
       }
 
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Message info retrieved successfully', {
         messageInfo: {
           messageId: message._id,
           senderEmail: message.senderEmail,
@@ -1554,10 +1266,7 @@ class ContactsController {
       });
     } catch (error) {
       console.error('Error in getMessageInfo:', error);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 }

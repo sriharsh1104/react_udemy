@@ -1,6 +1,7 @@
 const userService = require('../services/userService');
 const userProfileService = require('../services/userProfileService');
 const bcrypt = require('bcryptjs');
+const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
 class SettingsController {
   // Set password (first time)
@@ -10,35 +11,23 @@ class SettingsController {
       const { password } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!password || password.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password must be at least 6 characters',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Password must be at least 6 characters');
       }
 
       // Check if password already exists (need to check with password field)
       const User = require('../models/User');
       const user = await User.findOne({ email: userEmail }).select('password');
       if (user && user.password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password already set. Use change password instead.',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Password already set. Use change password instead.');
       }
 
       // Hash password
@@ -47,16 +36,10 @@ class SettingsController {
       // Update user with password
       await userProfileService.updatePassword(userEmail, hashedPassword);
 
-      res.status(200).json({
-        success: true,
-        message: 'Password set successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Password set successfully');
     } catch (error) {
       console.error('Error in setPassword:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -67,51 +50,33 @@ class SettingsController {
       const { currentPassword, newPassword } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!currentPassword || !newPassword) {
-        return res.status(400).json({
-          success: false,
-          message: 'Current password and new password are required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Current password and new password are required');
       }
 
       if (newPassword.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: 'New password must be at least 6 characters',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'New password must be at least 6 characters');
       }
 
       // Get user with password field
       const User = require('../models/User');
       const user = await User.findOne({ email: userEmail }).select('password');
       if (!user || !user.password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password not set. Please set password first.',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Password not set. Please set password first.');
       }
 
       // Verify current password
       const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
       if (!isPasswordValid) {
-        return res.status(400).json({
-          success: false,
-          message: 'Current password is incorrect',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Current password is incorrect');
       }
 
       // Hash new password
@@ -120,16 +85,10 @@ class SettingsController {
       // Update password
       await userProfileService.updatePassword(userEmail, hashedPassword);
 
-      res.status(200).json({
-        success: true,
-        message: 'Password changed successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Password changed successfully');
     } catch (error) {
       console.error('Error in changePassword:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -139,18 +98,12 @@ class SettingsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       // Check password status (need to query with password field)
@@ -158,16 +111,12 @@ class SettingsController {
       const user = await User.findOne({ email: userEmail }).select('password');
       const hasPassword = !!(user && user.password);
 
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Password status retrieved successfully', {
         hasPassword,
       });
     } catch (error) {
       console.error('Error in checkPasswordStatus:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -177,34 +126,24 @@ class SettingsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       const User = require('../models/User');
       const user = await User.findOne({ email: userEmail }).select('offlineMode');
       const offlineMode = user?.offlineMode || false;
 
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Offline mode status retrieved successfully', {
         offlineMode,
       });
     } catch (error) {
       console.error('Error in getOfflineMode:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -215,25 +154,16 @@ class SettingsController {
       const { offlineMode } = req.body;
 
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (typeof offlineMode !== 'boolean') {
-        return res.status(400).json({
-          success: false,
-          message: 'offlineMode must be a boolean value',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'offlineMode must be a boolean value');
       }
 
       const User = require('../models/User');
@@ -251,10 +181,7 @@ class SettingsController {
       ).select('offlineMode');
 
       if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'User not found');
       }
 
       // Emit socket event to notify contacts about online status change
@@ -354,17 +281,12 @@ class SettingsController {
         }
       }
 
-      res.status(200).json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, `Offline mode ${offlineMode ? 'enabled' : 'disabled'}`, {
         offlineMode: user.offlineMode,
-        message: `Offline mode ${offlineMode ? 'enabled' : 'disabled'}`,
       });
     } catch (error) {
       console.error('Error in toggleOfflineMode:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 }

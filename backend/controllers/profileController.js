@@ -2,6 +2,7 @@ const userProfileService = require('../services/userProfileService');
 const userService = require('../services/userService');
 const followService = require('../services/followService');
 const User = require('../models/User');
+const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
 class ProfileController {
   // Get user profile
@@ -10,18 +11,12 @@ class ProfileController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
       
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const email = await userService.getUserByToken(token);
       if (!email) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       const profile = await userProfileService.getProfileByEmail(email);
@@ -54,9 +49,7 @@ class ProfileController {
         // Create default profile if doesn't exist
         const newProfile = await userProfileService.createOrUpdateProfile(email, {});
         const isComplete = await userProfileService.isProfileComplete(email);
-        return res.status(200).json({
-          success: true,
-          message: 'Profile retrieved successfully',
+        return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', {
           profile: { 
             ...newProfile, 
             isProfileComplete: isComplete,
@@ -69,9 +62,7 @@ class ProfileController {
       }
 
       const isComplete = await userProfileService.isProfileComplete(email);
-      res.status(200).json({
-        success: true,
-        message: 'Profile retrieved successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', {
         profile: { 
           ...profile, 
           isProfileComplete: isComplete,
@@ -84,11 +75,8 @@ class ProfileController {
     } catch (error) {
       console.error('Error in getProfile:', error);
       console.error('Error stack:', error.stack);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      });
+      const errorMessage = process.env.NODE_ENV === 'development' ? error.message : 'Internal server error';
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, errorMessage);
     }
   }
 
@@ -99,40 +87,26 @@ class ProfileController {
       const { email } = req.params;
       
       if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       if (!email) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email is required');
       }
 
       const profile = await userProfileService.getProfileByEmail(email);
       
       if (!profile) {
-        return res.status(404).json({
-          success: false,
-          message: 'Profile not found',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Profile not found');
       }
 
       // Return profile with phone numbers (but exclude sensitive data)
-      res.status(200).json({
-        success: true,
-        message: 'Profile retrieved successfully',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', {
         profile: {
           email: profile.email,
           name: profile.name,
@@ -142,11 +116,8 @@ class ProfileController {
       });
     } catch (error) {
       console.error('Error in getContactProfile:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      });
+      const errorMessage = process.env.NODE_ENV === 'development' ? error.message : 'Internal server error';
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, errorMessage);
     }
   }
 
@@ -176,10 +147,7 @@ class ProfileController {
 
       if (!token) {
         console.error(`[${timestamp}] ❌ No token provided`);
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
       }
 
       const email = await userService.getUserByToken(token);
@@ -187,28 +155,19 @@ class ProfileController {
       
       if (!email) {
         console.error(`[${timestamp}] ❌ Invalid token - user not found`);
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid token',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
       // Validate phone numbers (max 2)
       if (phoneNumbers && phoneNumbers.length > 2) {
-        return res.status(400).json({
-          success: false,
-          message: 'Maximum 2 phone numbers allowed',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Maximum 2 phone numbers allowed');
       }
 
       // Validate phone numbers format
       if (phoneNumbers) {
         for (const phone of phoneNumbers) {
           if (phone && !/^\+?[1-9]\d{1,14}$/.test(phone.replace(/\s/g, ''))) {
-            return res.status(400).json({
-              success: false,
-              message: 'Invalid phone number format',
-            });
+            return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Invalid phone number format');
           }
         }
       }
@@ -247,9 +206,7 @@ class ProfileController {
         }));
 
         console.log(`[${timestamp}] ✅ Profile updated successfully for:`, email);
-        res.status(200).json({
-          success: true,
-          message: 'Profile updated successfully',
+        return sendSuccess(res, HTTP_STATUS.OK, 'Profile updated successfully', {
           profile: { 
             ...profile, 
             isProfileComplete: isComplete,
@@ -263,10 +220,7 @@ class ProfileController {
         // Handle validation errors from userProfileService
         if (profileError.message.includes('Duplicate phone numbers') || 
             profileError.message.includes('already registered')) {
-          return res.status(400).json({
-            success: false,
-            message: profileError.message,
-          });
+          return sendError(res, HTTP_STATUS.BAD_REQUEST, profileError.message);
         }
         throw profileError; // Re-throw if it's a different error
       }
@@ -274,10 +228,7 @@ class ProfileController {
       const timestamp = new Date().toISOString();
       console.error(`[${timestamp}] ❌ Error in updateProfile:`, error);
       console.error(`[${timestamp}] ❌ Error stack:`, error.stack);
-      res.status(500).json({
-        success: false,
-        message: error.message || 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
     }
   }
 }

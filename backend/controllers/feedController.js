@@ -2,6 +2,7 @@ const feedService = require('../services/feedService');
 const userService = require('../services/userService');
 const followService = require('../services/followService');
 const User = require('../models/User');
+const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
 // Helper to wrap async handlers
 const asyncHandler = (fn) => {
@@ -16,19 +17,19 @@ const verifyToken = async (req, res, next) => {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return res.status(401).json({ success: false, message: 'No token provided' });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'No token provided');
     }
     
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid or expired token');
     }
     
     req.userEmail = userEmail;
     next();
   } catch (error) {
     console.error('Token verification error:', error);
-    return res.status(401).json({ success: false, message: 'Token verification failed' });
+    return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Token verification failed');
   }
 };
 
@@ -44,10 +45,7 @@ class FeedController {
 
       const result = await feedService.getFeed(req.userEmail, pageNum, limitNum, mode);
 
-      res.json({
-        success: true,
-        ...result,
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Feed retrieved successfully', result);
     }),
   ];
 
@@ -58,18 +56,12 @@ class FeedController {
       const { statusId } = req.body;
       
       if (!statusId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Status ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
       }
 
       const result = await feedService.toggleLike(statusId, req.userEmail);
 
-      res.json({
-        success: true,
-        ...result,
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Like toggled successfully', result);
     }),
   ];
 
@@ -80,23 +72,16 @@ class FeedController {
       const { statusId, comment } = req.body;
       
       if (!statusId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Status ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
       }
 
       if (!comment || comment.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Comment cannot be empty',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Comment cannot be empty');
       }
 
       const result = await feedService.addComment(statusId, req.userEmail, comment);
 
-      res.json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Comment added successfully', {
         comment: result,
       });
     }),
@@ -109,16 +94,12 @@ class FeedController {
       const { statusId } = req.params;
       
       if (!statusId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Status ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
       }
 
       const comments = await feedService.getComments(statusId, req.userEmail);
 
-      res.json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Comments retrieved successfully', {
         comments,
       });
     }),
@@ -131,18 +112,12 @@ class FeedController {
       const { statusId, caption } = req.body;
       
       if (!statusId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Status ID is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
       }
 
       const result = await feedService.updateCaption(statusId, req.userEmail, caption);
 
-      res.json({
-        success: true,
-        ...result,
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Caption updated successfully', result);
     }),
   ];
 
@@ -153,10 +128,7 @@ class FeedController {
       const { query } = req.query;
       
       if (!query || query.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Search query is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Search query is required');
       }
 
       const searchQuery = query.trim().toLowerCase();
@@ -192,8 +164,7 @@ class FeedController {
 
       const filteredProfiles = profiles.filter(p => p !== null);
 
-      res.json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Profiles found successfully', {
         profiles: filteredProfiles,
         total: filteredProfiles.length,
       });
@@ -207,18 +178,12 @@ class FeedController {
       const { email } = req.params;
       
       if (!email) {
-        return res.status(400).json({
-          success: false,
-          message: 'User email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'User email is required');
       }
 
       const user = await User.findOne({ email }).lean();
       if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'User not found');
       }
 
       const followStatus = await followService.getFollowStatus(req.userEmail, email);
@@ -237,8 +202,7 @@ class FeedController {
       const followersList = await followService.getFollowersList(email);
       const followingList = await followService.getFollowingList(email);
 
-      res.json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', {
         profile: {
           email: user.email,
           name: user.name || user.email.split('@')[0],
@@ -260,26 +224,22 @@ class FeedController {
       const { followingEmail } = req.body;
       
       if (!followingEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'User email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'User email is required');
       }
 
       if (followingEmail === req.userEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot follow yourself',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Cannot follow yourself');
       }
 
       const result = await followService.followUser(req.userEmail, followingEmail);
 
-      res.json({
-        success: result.success,
-        message: result.message,
-        status: result.status,
-      });
+      if (result.success) {
+        return sendSuccess(res, HTTP_STATUS.OK, result.message, {
+          status: result.status,
+        });
+      } else {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, result.message);
+      }
     }),
   ];
 
@@ -290,18 +250,16 @@ class FeedController {
       const { followingEmail } = req.body;
       
       if (!followingEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'User email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'User email is required');
       }
 
       const result = await followService.unfollowUser(req.userEmail, followingEmail);
 
-      res.json({
-        success: result.success,
-        message: result.message,
-      });
+      if (result.success) {
+        return sendSuccess(res, HTTP_STATUS.OK, result.message);
+      } else {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, result.message);
+      }
     }),
   ];
 
@@ -312,18 +270,16 @@ class FeedController {
       const { followerEmail } = req.body;
       
       if (!followerEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Follower email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Follower email is required');
       }
 
       const result = await followService.acceptFollowRequest(followerEmail, req.userEmail);
 
-      res.json({
-        success: result.success,
-        message: result.message,
-      });
+      if (result.success) {
+        return sendSuccess(res, HTTP_STATUS.OK, result.message);
+      } else {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, result.message);
+      }
     }),
   ];
 
@@ -334,18 +290,16 @@ class FeedController {
       const { followerEmail } = req.body;
       
       if (!followerEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Follower email is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Follower email is required');
       }
 
       const result = await followService.rejectFollowRequest(followerEmail, req.userEmail);
 
-      res.json({
-        success: result.success,
-        message: result.message,
-      });
+      if (result.success) {
+        return sendSuccess(res, HTTP_STATUS.OK, result.message);
+      } else {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, result.message);
+      }
     }),
   ];
 
@@ -372,8 +326,7 @@ class FeedController {
         requestedAt: r.requestedAt,
       }));
 
-      res.json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Pending requests retrieved successfully', {
         requests: requestsWithNames,
       });
     }),

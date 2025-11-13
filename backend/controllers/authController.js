@@ -3,6 +3,7 @@ const userService = require('../services/userService');
 const userProfileService = require('../services/userProfileService');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
 class AuthController {
   // Send OTP to email or phone
@@ -12,47 +13,29 @@ class AuthController {
       const identifier = email || phone;
 
       if (!identifier) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please provide email or phone number',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide email or phone number');
       }
 
       // Validate email format
       if (email && !email.includes('@')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please provide a valid email address',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide a valid email address');
       }
 
       // Validate phone format (basic)
       if (phone && !/^\+?[1-9]\d{1,14}$/.test(phone.replace(/\s/g, ''))) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please provide a valid phone number',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide a valid phone number');
       }
 
       const result = await otpService.sendOTP(identifier);
 
       if (result.success) {
-        res.status(200).json({
-          success: true,
-          message: result.message,
-        });
+        return sendSuccess(res, HTTP_STATUS.OK, result.message);
       } else {
-        res.status(500).json({
-          success: false,
-          message: result.message,
-        });
+        return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, result.message);
       }
     } catch (error) {
       console.error('Error in sendOTP:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -63,10 +46,7 @@ class AuthController {
       const identifier = email || phone;
 
       if (!identifier || !otp) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email/Phone and OTP are required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email/Phone and OTP are required');
       }
 
       const result = otpService.verifyOTP(identifier, otp);
@@ -99,26 +79,18 @@ class AuthController {
         const profile = await userProfileService.getProfileByEmail(userEmail);
         const isProfileComplete = profile ? await userProfileService.isProfileComplete(userEmail) : false;
 
-        res.status(200).json({
-          success: true,
-          message: 'Login successful',
+        return sendSuccess(res, HTTP_STATUS.OK, 'Login successful', {
           token,
           email: userEmail,
           profile: profile || null,
           isProfileComplete,
         });
       } else {
-        res.status(400).json({
-          success: false,
-          message: result.message,
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, result.message);
       }
     } catch (error) {
       console.error('Error in verifyOTP:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -129,10 +101,7 @@ class AuthController {
       const identifier = email || phone;
 
       if (!identifier || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email/Phone and password are required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email/Phone and password are required');
       }
 
       // Find user by email or phone
@@ -143,46 +112,31 @@ class AuthController {
         // Email login
         user = await User.findOne({ email: identifier.toLowerCase() });
         if (!user) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid email or password',
-          });
+          return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid email or password');
         }
         userEmail = user.email;
       } else {
         // Phone login
         const userInfo = await userProfileService.findUserByIdentifier(identifier);
         if (!userInfo || !userInfo.email) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid phone number or password',
-          });
+          return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid phone number or password');
         }
         userEmail = userInfo.email;
         user = await User.findOne({ email: userEmail });
         if (!user) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid phone number or password',
-          });
+          return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid phone number or password');
         }
       }
 
       // Check if password is set
       if (!user.password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password not set. Please use OTP login or set password first.',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Password not set. Please use OTP login or set password first.');
       }
 
       // Verify password
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid email/phone or password',
-        });
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid email/phone or password');
       }
 
       // Generate token
@@ -195,9 +149,7 @@ class AuthController {
       const profile = await userProfileService.getProfileByEmail(userEmail);
       const isProfileComplete = profile ? await userProfileService.isProfileComplete(userEmail) : false;
 
-      res.status(200).json({
-        success: true,
-        message: 'Login successful',
+      return sendSuccess(res, HTTP_STATUS.OK, 'Login successful', {
         token,
         email: userEmail,
         profile: profile || null,
@@ -205,10 +157,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('Error in loginWithPassword:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -219,10 +168,7 @@ class AuthController {
       const identifier = email || phone;
 
       if (!identifier) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please provide email or phone number',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide email or phone number');
       }
 
       // Check if user exists
@@ -231,52 +177,34 @@ class AuthController {
         // Phone number
         const userInfo = await userProfileService.findUserByIdentifier(identifier);
         if (!userInfo || !userInfo.email) {
-          return res.status(404).json({
-            success: false,
-            message: 'User not found',
-          });
+          return sendError(res, HTTP_STATUS.NOT_FOUND, 'User not found');
         }
         userEmail = userInfo.email;
       } else {
         // Email
         const user = await User.findOne({ email: identifier.toLowerCase() });
         if (!user) {
-          return res.status(404).json({
-            success: false,
-            message: 'User not found',
-          });
+          return sendError(res, HTTP_STATUS.NOT_FOUND, 'User not found');
         }
       }
 
       // Check if password is set
       const user = await User.findOne({ email: userEmail }).select('password');
       if (!user || !user.password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password not set. Please use OTP login.',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Password not set. Please use OTP login.');
       }
 
       // Send OTP for password reset
       const result = await otpService.sendOTP(identifier, 'password-reset');
 
       if (result.success) {
-        res.status(200).json({
-          success: true,
-          message: result.message,
-        });
+        return sendSuccess(res, HTTP_STATUS.OK, result.message);
       } else {
-        res.status(500).json({
-          success: false,
-          message: result.message,
-        });
+        return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, result.message);
       }
     } catch (error) {
       console.error('Error in forgetPassword:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -287,27 +215,18 @@ class AuthController {
       const identifier = email || phone;
 
       if (!identifier || !otp || !newPassword) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email/Phone, OTP, and new password are required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email/Phone, OTP, and new password are required');
       }
 
       if (newPassword.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password must be at least 6 characters',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Password must be at least 6 characters');
       }
 
       // Verify OTP
       const result = otpService.verifyOTP(identifier, otp);
 
       if (!result.success) {
-        return res.status(400).json({
-          success: false,
-          message: result.message,
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, result.message);
       }
 
       // Find user
@@ -315,10 +234,7 @@ class AuthController {
       if (!identifier.includes('@')) {
         const userInfo = await userProfileService.findUserByIdentifier(identifier);
         if (!userInfo || !userInfo.email) {
-          return res.status(404).json({
-            success: false,
-            message: 'User not found',
-          });
+          return sendError(res, HTTP_STATUS.NOT_FOUND, 'User not found');
         }
         userEmail = userInfo.email;
       }
@@ -326,10 +242,7 @@ class AuthController {
       // Check if user exists and has password set
       const user = await User.findOne({ email: userEmail }).select('password');
       if (!user || !user.password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password not set. Please use OTP login.',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Password not set. Please use OTP login.');
       }
 
       // Hash new password
@@ -338,16 +251,10 @@ class AuthController {
       // Update password
       await userProfileService.updatePassword(userEmail, hashedPassword);
 
-      res.status(200).json({
-        success: true,
-        message: 'Password reset successfully',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Password reset successfully');
     } catch (error) {
       console.error('Error in resetPassword:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -357,35 +264,23 @@ class AuthController {
       const { email, password } = req.body;
 
       if (!email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email and password are required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email and password are required');
       }
 
       // Validate email format
       if (!email.includes('@') || !email.includes('.')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please provide a valid email address',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide a valid email address');
       }
 
       // Validate password length
       if (password.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password must be at least 6 characters',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Password must be at least 6 characters');
       }
 
       // Check if user already exists
       const existingUser = await User.findOne({ email: email.toLowerCase() });
       if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email already registered. Please login instead.',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email already registered. Please login instead.');
       }
 
       // Hash password
@@ -411,9 +306,7 @@ class AuthController {
       const profile = await userProfileService.getProfileByEmail(newUser.email);
       const isProfileComplete = profile ? await userProfileService.isProfileComplete(newUser.email) : false;
 
-      res.status(201).json({
-        success: true,
-        message: 'Registration successful',
+      return sendSuccess(res, HTTP_STATUS.CREATED, 'Registration successful', {
         token,
         email: newUser.email,
         profile: profile || null,
@@ -424,16 +317,10 @@ class AuthController {
       
       // Handle duplicate key error (MongoDB unique constraint)
       if (error.code === 11000 || error.message.includes('duplicate')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email already registered. Please login instead.',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email already registered. Please login instead.');
       }
 
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 
@@ -443,25 +330,16 @@ class AuthController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
 
       if (!token) {
-        return res.status(400).json({
-          success: false,
-          message: 'Token is required',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Token is required');
       }
 
       // Remove user session from MongoDB
       await userService.removeSession(token);
 
-      res.status(200).json({
-        success: true,
-        message: 'Logout successful',
-      });
+      return sendSuccess(res, HTTP_STATUS.OK, 'Logout successful');
     } catch (error) {
       console.error('Error in logout:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-      });
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
     }
   }
 }

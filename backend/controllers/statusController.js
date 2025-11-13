@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const File = require('../models/File');
+const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
 // Reuse file upload configuration
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -46,19 +47,19 @@ const verifyToken = async (req, res, next) => {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return res.status(401).json({ success: false, message: 'No token provided' });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'No token provided');
     }
     
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid or expired token');
     }
     
     req.userEmail = userEmail;
     next();
   } catch (error) {
     console.error('Token verification error:', error);
-    return res.status(401).json({ success: false, message: 'Token verification failed' });
+    return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Token verification failed');
   }
 };
 
@@ -77,10 +78,7 @@ class StatusController {
       upload.single('file')(req, res, (err) => {
         if (err) {
           console.error('Multer error:', err);
-          return res.status(400).json({ 
-            success: false, 
-            message: err.message || 'File upload error' 
-          });
+          return sendError(res, HTTP_STATUS.BAD_REQUEST, err.message || 'File upload error');
         }
         next();
       });
@@ -89,10 +87,7 @@ class StatusController {
       const { type } = req.body;
       
       if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message: 'No file uploaded',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'No file uploaded');
       }
 
       if (!type || !['image', 'video'].includes(type)) {
@@ -100,10 +95,7 @@ class StatusController {
         if (req.file && req.file.path) {
           fs.unlinkSync(req.file.path);
         }
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid file type. Only image or video allowed',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Invalid file type. Only image or video allowed');
       }
 
       // Validate file size based on type
@@ -115,10 +107,7 @@ class StatusController {
         if (req.file && req.file.path) {
           fs.unlinkSync(req.file.path);
         }
-        return res.status(400).json({
-          success: false,
-          message: 'Image size exceeds 2MB limit. Please choose a smaller image.',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Image size exceeds 2MB limit. Please choose a smaller image.');
       }
       
       if (type === 'video' && req.file.size > MAX_VIDEO_SIZE) {
@@ -126,10 +115,7 @@ class StatusController {
         if (req.file && req.file.path) {
           fs.unlinkSync(req.file.path);
         }
-        return res.status(400).json({
-          success: false,
-          message: 'Video size exceeds 5MB limit. Please choose a smaller video.',
-        });
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Video size exceeds 5MB limit. Please choose a smaller video.');
       }
 
       // Generate unique file ID
@@ -151,15 +137,13 @@ class StatusController {
       // Create status
       const status = await statusService.createStatus(req.userEmail, fileId, type);
 
-      res.json({
-        success: true,
+      return sendSuccess(res, HTTP_STATUS.OK, 'Status uploaded successfully', {
         status: {
           statusId: status._id.toString(),
           fileId: fileId,
           statusType: type,
           statusUrl: `/api/files/download/${fileId}`,
         },
-        message: 'Status uploaded successfully',
       });
     }),
   ];
@@ -169,18 +153,12 @@ class StatusController {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
     }
 
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token',
-      });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
     }
 
     // Get contacts' statuses
@@ -189,8 +167,7 @@ class StatusController {
     // Get user's own status
     const myStatus = await statusService.getUserStatus(userEmail);
 
-    res.json({
-      success: true,
+    return sendSuccess(res, HTTP_STATUS.OK, 'Status feed retrieved successfully', {
       statuses,
       myStatus,
     });
@@ -201,34 +178,22 @@ class StatusController {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
     
     if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
     }
 
     const viewerEmail = await userService.getUserByToken(token);
     if (!viewerEmail) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token',
-      });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
     }
 
     const { statusId } = req.body;
     if (!statusId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Status ID is required',
-      });
+      return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
     }
 
     await statusService.markAsViewed(statusId, viewerEmail);
 
-    res.json({
-      success: true,
-      message: 'Status marked as viewed',
-    });
+    return sendSuccess(res, HTTP_STATUS.OK, 'Status marked as viewed');
   });
 
   // Get viewers list for a status
@@ -236,32 +201,22 @@ class StatusController {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
     }
 
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token',
-      });
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
     }
 
     const { statusId } = req.params;
     if (!statusId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Status ID is required',
-      });
+      return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
     }
 
     const viewers = await statusService.getViewers(statusId, userEmail);
 
-    res.json({
-      success: true,
+    return sendSuccess(res, HTTP_STATUS.OK, 'Viewers retrieved successfully', {
       viewers,
     });
   });
