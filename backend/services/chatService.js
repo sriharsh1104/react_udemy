@@ -74,8 +74,8 @@ class ChatService {
     }
   }
 
-  // Get group messages (filtered by clearedAt if provided)
-  async getGroupMessages(groupId, clearedAt = null) {
+  // Get group messages (filtered by clearedAt if provided, with pagination)
+  async getGroupMessages(groupId, clearedAt = null, limit = 100, skip = 0) {
     try {
       const query = { groupId, messageType: 'group' };
       
@@ -84,19 +84,24 @@ class ChatService {
         query.timestamp = { $gt: clearedAt };
       }
       
+      // Get messages with pagination - get most recent messages first, then reverse
+      // This ensures we get the latest messages efficiently
       const messages = await Message.find(query)
-        .sort({ timestamp: 1 })
+        .sort({ timestamp: -1 }) // Sort descending to get latest first
+        .limit(limit)
+        .skip(skip)
         .lean();
       
-      return messages;
+      // Reverse to get chronological order (oldest first)
+      return messages.reverse();
     } catch (error) {
       console.error('Error getting group messages:', error);
       return [];
     }
   }
 
-  // Get messages from MongoDB (filtered by clearedAt if provided)
-  async getMessages(email1, email2, clearedAt = null) {
+  // Get messages from MongoDB (filtered by clearedAt if provided, with pagination)
+  async getMessages(email1, email2, clearedAt = null, limit = 100, skip = 0) {
     try {
       const roomId = this.getRoomId(email1, email2);
       
@@ -107,11 +112,16 @@ class ChatService {
         query.timestamp = { $gt: clearedAt };
       }
       
+      // Get messages with pagination - get most recent messages first, then reverse
+      // This ensures we get the latest messages efficiently
       const messages = await Message.find(query)
-        .sort({ timestamp: 1 })
+        .sort({ timestamp: -1 }) // Sort descending to get latest first
+        .limit(limit)
+        .skip(skip)
         .lean();
       
-      return messages;
+      // Reverse to get chronological order (oldest first)
+      return messages.reverse();
     } catch (error) {
       console.error('Error getting messages:', error);
       return [];

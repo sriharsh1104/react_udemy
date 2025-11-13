@@ -551,78 +551,130 @@ class ContactsController {
       });
       
       // Combine manually added contacts with users who have messages
-      const allContactEmails = new Set();
+      const allContactEmails = Array.from(new Set([
+        ...contactList.map(c => c.contactEmail),
+        ...usersWithMessages
+      ]));
       
-      // Add manually added contacts
-      contactList.forEach(contact => {
-        allContactEmails.add(contact.contactEmail);
+      if (allContactEmails.length === 0) {
+        return sendSuccess(res, HTTP_STATUS.OK, 'No contacts found', { contacts: [] });
+      }
+      
+      // OPTIMIZED: Batch fetch all data to avoid N+1 queries
+      const User = require('../models/User');
+      
+      // 1. Batch fetch all profiles at once
+      const profiles = await User.find({ email: { $in: allContactEmails } })
+        .select('-password')
+        .lean();
+      const profileMap = new Map(profiles.map(p => [p.email, p]));
+      
+      // 2. Batch fetch all unread counts using aggregation
+      const unreadCounts = await Message.aggregate([
+        {
+          $match: {
+            messageType: 'private',
+            receiverEmail: userEmail,
+            read: false,
+            senderEmail: { $in: allContactEmails }
+          }
+        },
+        {
+          $group: {
+            _id: '$senderEmail',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+      const unreadCountMap = new Map(unreadCounts.map(u => [u._id, u.count]));
+      
+      // 3. Batch fetch all last messages using aggregation
+      const roomIds = allContactEmails.map(email => chatService.getRoomId(userEmail, email));
+      const lastMessages = await Message.aggregate([
+        {
+          $match: {
+            roomId: { $in: roomIds },
+            messageType: 'private'
+          }
+        },
+        {
+          $sort: { timestamp: -1 }
+        },
+        {
+          $group: {
+            _id: '$roomId',
+            message: { $first: '$$ROOT' }
+          }
+        }
+      ]);
+      
+      // Create a map of roomId -> last message
+      const lastMessageMap = new Map();
+      lastMessages.forEach(({ _id: roomId, message }) => {
+        // Extract contact email from roomId
+        const emails = roomId.replace('chat_', '').split('_');
+        const contactEmail = emails.find(e => e !== userEmail);
+        if (contactEmail) {
+          lastMessageMap.set(contactEmail, message);
+        }
       });
       
-      // Add users with messages (even if not manually added)
-      usersWithMessages.forEach(email => {
-        allContactEmails.add(email);
-      });
-      
-      const contacts = await Promise.all(
-        Array.from(allContactEmails).map(async (email) => {
-          // Check if this is a manually added contact
-          const manualContact = contactList.find(c => c.contactEmail === email);
-          const isManuallyAdded = !!manualContact;
-          
-          const profile = await userProfileService.getProfileByEmail(email);
-          // Check if contact is online
-          const socketId = userService.getSocketByEmail(email);
-          const isOnline = !!socketId;
-          // Get unread message count
-          const unreadCount = await chatService.getUnreadCount(userEmail, email);
-          
-          // Get last message for this contact (for sorting and preview)
-          const roomId = chatService.getRoomId(userEmail, email);
-          const lastMessage = await Message.findOne({ roomId, messageType: 'private' })
-            .sort({ timestamp: -1 })
-            .lean();
-          
-          let lastMessageText = null;
-          let lastMessageTimestamp = null;
-          if (lastMessage) {
-            lastMessageTimestamp = lastMessage.timestamp;
-            // Try to extract readable message text (handle encrypted messages)
-            try {
-              const parsed = JSON.parse(lastMessage.message);
-              if (parsed && parsed.encrypted) {
-                // Encrypted message - show placeholder
-                lastMessageText = '🔒 Encrypted message';
-              } else if (parsed && parsed.type === 'file') {
-                // File message
-                lastMessageText = parsed.fileType === 'image' ? '📷 Photo' : 
-                                 parsed.fileType === 'video' ? '🎥 Video' : 
-                                 parsed.fileType === 'audio' ? '🎵 Audio' : 
-                                 `📎 ${parsed.fileName || 'File'}`;
-              } else {
-                lastMessageText = lastMessage.message;
-              }
-            } catch (e) {
-              // Not JSON, use as-is
+      // 4. Build contacts array with batched data
+      const contacts = allContactEmails.map((email) => {
+        // Check if this is a manually added contact
+        const manualContact = contactList.find(c => c.contactEmail === email);
+        const isManuallyAdded = !!manualContact;
+        
+        const profile = profileMap.get(email);
+        // Check if contact is online
+        const socketId = userService.getSocketByEmail(email);
+        const isOnline = !!socketId;
+        // Get unread count from map
+        const unreadCount = unreadCountMap.get(email) || 0;
+        
+        // Get last message from map
+        const lastMessage = lastMessageMap.get(email);
+        
+        let lastMessageText = null;
+        let lastMessageTimestamp = null;
+        if (lastMessage) {
+          lastMessageTimestamp = lastMessage.timestamp;
+          // Try to extract readable message text (handle encrypted messages)
+          try {
+            const parsed = JSON.parse(lastMessage.message);
+            if (parsed && parsed.encrypted) {
+              // Encrypted message - show placeholder
+              lastMessageText = '🔒 Encrypted message';
+            } else if (parsed && parsed.type === 'file') {
+              // File message
+              lastMessageText = parsed.fileType === 'image' ? '📷 Photo' : 
+                               parsed.fileType === 'video' ? '🎥 Video' : 
+                               parsed.fileType === 'audio' ? '🎵 Audio' : 
+                               `📎 ${parsed.fileName || 'File'}`;
+            } else {
               lastMessageText = lastMessage.message;
             }
+          } catch (e) {
+            // Not JSON, use as-is
+            lastMessageText = lastMessage.message;
           }
-          
-          return {
-            email,
-            name: profile?.name || email.split('@')[0],
-            exists: !!profile,
-            isOnline,
-            unreadCount,
-            isFavorite: manualContact?.isFavorite || false,
-            isPinned: manualContact?.isPinned || false,
-            isArchived: manualContact?.isArchived || false,
-            isMuted: manualContact?.isMuted || false,
-            isManuallyAdded, // Flag to distinguish manually added vs message-based contacts
-            lastMessage: lastMessageText,
-            lastMessageTimestamp: lastMessageTimestamp,
-          };
-        })
-      );
+        }
+        
+        return {
+          email,
+          name: profile?.name || email.split('@')[0],
+          exists: !!profile,
+          isOnline,
+          unreadCount,
+          isFavorite: manualContact?.isFavorite || false,
+          isPinned: manualContact?.isPinned || false,
+          isArchived: manualContact?.isArchived || false,
+          isMuted: manualContact?.isMuted || false,
+          isManuallyAdded, // Flag to distinguish manually added vs message-based contacts
+          lastMessage: lastMessageText,
+          lastMessageTimestamp: lastMessageTimestamp,
+        };
+      });
       
       // Sort contacts by last message timestamp (most recent first), then by name
       contacts.sort((a, b) => {

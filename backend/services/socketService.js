@@ -93,20 +93,35 @@ class SocketService {
       const isOfflineMode = user?.offlineMode || false;
       
       // Notify all contacts that this user is now online (or offline if offline mode is enabled)
-      const Contact = require('../models/Contact');
-      Contact.find({ contactEmail: email }).then((contacts) => {
-        contacts.forEach((contact) => {
-          const contactSocketId = userService.getSocketByEmail(contact.userEmail);
+      // OPTIMIZED: Batch socket lookups to avoid N+1 queries
+      try {
+        const Contact = require('../models/Contact');
+        const contacts = await Contact.find({ contactEmail: email }).select('userEmail').lean();
+        
+        // Batch all socket lookups at once
+        const contactEmails = contacts.map(c => c.userEmail);
+        const socketNotifications = [];
+        
+        for (const contactEmail of contactEmails) {
+          const contactSocketId = userService.getSocketByEmail(contactEmail);
           if (contactSocketId) {
-            this.io.to(contactSocketId).emit('contactOnlineStatus', {
-              contactEmail: email,
-              isOnline: !isOfflineMode, // Show offline if offline mode is enabled
+            socketNotifications.push({
+              socketId: contactSocketId,
+              data: {
+                contactEmail: email,
+                isOnline: !isOfflineMode,
+              },
             });
           }
+        }
+        
+        // Emit all notifications in batch
+        socketNotifications.forEach(({ socketId, data }) => {
+          this.io.to(socketId).emit('contactOnlineStatus', data);
         });
-      }).catch((error) => {
+      } catch (error) {
         console.error('Error notifying contacts about online status:', error);
-      });
+      }
     } else {
       console.log(`[${timestamp}] ❌ USER LOGIN FAILED:`, {
         socketId: socket.id,
@@ -148,8 +163,8 @@ class SocketService {
     const clearedAt = await contactsService.getClearedAt(userEmail, contactEmail);
     
     // Send existing messages (PENDING MESSAGES) from MongoDB to the user when they come online
-    // Filter out messages before clearedAt timestamp
-    const messages = await chatService.getMessages(userEmail, contactEmail, clearedAt);
+    // Filter out messages before clearedAt timestamp, limit to 100 most recent messages
+    const messages = await chatService.getMessages(userEmail, contactEmail, clearedAt, 100, 0);
     socket.emit('chatHistory', {
       roomId,
       messages,
@@ -157,30 +172,48 @@ class SocketService {
     });
 
     if (messages.length > 0) {
+      // OPTIMIZED: Batch message delivery status updates to avoid N+1 queries
+      const pendingMessages = messages.filter(msg => msg.status === 'sent' && msg.senderEmail !== userEmail);
       
-      // Mark all pending messages as delivered and notify senders
-      for (const msg of messages) {
-        if (msg.status === 'sent' && msg.senderEmail !== userEmail) {
-          try {
-            const updatedMessage = await chatService.markMessageAsDelivered(msg._id);
-            if (updatedMessage) {
-              // Notify sender that message was delivered
-              const senderSocketId = userService.getSocketByEmail(msg.senderEmail);
-              if (senderSocketId) {
-                const senderSocket = this.io.sockets.sockets.get(senderSocketId);
-                if (senderSocket) {
-                  senderSocket.emit('messageStatusUpdate', {
-                    messageId: msg._id.toString(),
-                    status: 'delivered',
-                    deliveredAt: updatedMessage.deliveredAt,
-                  });
-                }
-              }
-            }
-          } catch (error) {
-            console.error(`[${timestamp}] ❌ Error marking pending message as delivered:`, {
-              error: error.message,
-              messageId: msg._id?.toString(),
+      // Batch update all messages as delivered
+      const updatePromises = pendingMessages.map(async (msg) => {
+        try {
+          const updatedMessage = await chatService.markMessageAsDelivered(msg._id);
+          return { msg, updatedMessage };
+        } catch (error) {
+          console.error(`[${timestamp}] ❌ Error marking pending message as delivered:`, {
+            error: error.message,
+            messageId: msg._id?.toString(),
+          });
+          return null;
+        }
+      });
+      
+      const updateResults = await Promise.all(updatePromises);
+      
+      // Batch socket lookups for all senders
+      const senderEmails = new Set(updateResults
+        .filter(r => r && r.updatedMessage)
+        .map(r => r.msg.senderEmail));
+      
+      // Notify all senders in batch
+      for (const senderEmail of senderEmails) {
+        const senderSocketId = userService.getSocketByEmail(senderEmail);
+        if (senderSocketId) {
+          const senderSocket = this.io.sockets.sockets.get(senderSocketId);
+          if (senderSocket) {
+            // Get all message IDs for this sender
+            const senderMessages = updateResults
+              .filter(r => r && r.updatedMessage && r.msg.senderEmail === senderEmail)
+              .map(r => ({
+                messageId: r.msg._id.toString(),
+                status: 'delivered',
+                deliveredAt: r.updatedMessage.deliveredAt,
+              }));
+            
+            // Emit status updates for all messages from this sender
+            senderMessages.forEach(messageUpdate => {
+              senderSocket.emit('messageStatusUpdate', messageUpdate);
             });
           }
         }
@@ -385,16 +418,29 @@ class SocketService {
       userService.removeEmailToSocket(email);
       userService.removeUser(socket.id);      
       // Notify all contacts that this user is now offline
+      // OPTIMIZED: Batch socket lookups to avoid N+1 queries
       const Contact = require('../models/Contact');
-      Contact.find({ contactEmail: email }).then((contacts) => {
-        contacts.forEach((contact) => {
-          const contactSocketId = userService.getSocketByEmail(contact.userEmail);
+      Contact.find({ contactEmail: email }).select('userEmail').lean().then((contacts) => {
+        // Batch all socket lookups at once
+        const contactEmails = contacts.map(c => c.userEmail);
+        const socketNotifications = [];
+        
+        for (const contactEmail of contactEmails) {
+          const contactSocketId = userService.getSocketByEmail(contactEmail);
           if (contactSocketId) {
-            this.io.to(contactSocketId).emit('contactOnlineStatus', {
-              contactEmail: email,
-              isOnline: false,
+            socketNotifications.push({
+              socketId: contactSocketId,
+              data: {
+                contactEmail: email,
+                isOnline: false,
+              },
             });
           }
+        }
+        
+        // Emit all notifications in batch
+        socketNotifications.forEach(({ socketId, data }) => {
+          this.io.to(socketId).emit('contactOnlineStatus', data);
         });
       }).catch((error) => {
         console.error('Error notifying contacts about offline status:', error);
@@ -429,8 +475,8 @@ class SocketService {
     // Get clearedAt timestamp for this user in this group
     const clearedAt = await groupService.getClearedAt(groupId, userEmail);
     
-    // Filter out messages before clearedAt timestamp
-    const messages = await chatService.getGroupMessages(groupId, clearedAt);
+    // Filter out messages before clearedAt timestamp, limit to 100 most recent messages
+    const messages = await chatService.getGroupMessages(groupId, clearedAt, 100, 0);
     socket.emit('groupChatHistory', {
       groupId,
       roomId,
