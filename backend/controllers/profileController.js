@@ -1,5 +1,7 @@
 const userProfileService = require('../services/userProfileService');
 const userService = require('../services/userService');
+const followService = require('../services/followService');
+const User = require('../models/User');
 
 class ProfileController {
   // Get user profile
@@ -24,6 +26,30 @@ class ProfileController {
 
       const profile = await userProfileService.getProfileByEmail(email);
       
+      // Get follower and following counts
+      const followersList = await followService.getFollowersList(email);
+      const followingList = await followService.getFollowingList(email);
+      
+      // Get user details for following list
+      const followingUsers = await User.find({ email: { $in: followingList } })
+        .select('email name')
+        .lean();
+      
+      const followingListWithDetails = followingUsers.map(user => ({
+        email: user.email,
+        name: user.name || user.email.split('@')[0],
+      }));
+      
+      // Get user details for followers list
+      const followersUsers = await User.find({ email: { $in: followersList } })
+        .select('email name')
+        .lean();
+      
+      const followersListWithDetails = followersUsers.map(user => ({
+        email: user.email,
+        name: user.name || user.email.split('@')[0],
+      }));
+      
       if (!profile) {
         // Create default profile if doesn't exist
         const newProfile = await userProfileService.createOrUpdateProfile(email, {});
@@ -31,7 +57,14 @@ class ProfileController {
         return res.status(200).json({
           success: true,
           message: 'Profile retrieved successfully',
-          profile: { ...newProfile, isProfileComplete: isComplete },
+          profile: { 
+            ...newProfile, 
+            isProfileComplete: isComplete,
+            followersCount: followersList.length,
+            followingCount: followingList.length,
+            followingList: followingListWithDetails,
+            followersList: followersListWithDetails,
+          },
         });
       }
 
@@ -39,7 +72,14 @@ class ProfileController {
       res.status(200).json({
         success: true,
         message: 'Profile retrieved successfully',
-        profile: { ...profile, isProfileComplete: isComplete },
+        profile: { 
+          ...profile, 
+          isProfileComplete: isComplete,
+          followersCount: followersList.length,
+          followingCount: followingList.length,
+          followingList: followingListWithDetails,
+          followersList: followersListWithDetails,
+        },
       });
     } catch (error) {
       console.error('Error in getProfile:', error);
@@ -181,12 +221,43 @@ class ProfileController {
         });
 
         const isComplete = await userProfileService.isProfileComplete(email);
+        
+        // Get follower and following counts
+        const followersList = await followService.getFollowersList(email);
+        const followingList = await followService.getFollowingList(email);
+        
+        // Get user details for following list
+        const followingUsers = await User.find({ email: { $in: followingList } })
+          .select('email name')
+          .lean();
+        
+        const followingListWithDetails = followingUsers.map(user => ({
+          email: user.email,
+          name: user.name || user.email.split('@')[0],
+        }));
+        
+        // Get user details for followers list
+        const followersUsers = await User.find({ email: { $in: followersList } })
+          .select('email name')
+          .lean();
+        
+        const followersListWithDetails = followersUsers.map(user => ({
+          email: user.email,
+          name: user.name || user.email.split('@')[0],
+        }));
 
         console.log(`[${timestamp}] ✅ Profile updated successfully for:`, email);
         res.status(200).json({
           success: true,
           message: 'Profile updated successfully',
-          profile: { ...profile, isProfileComplete: isComplete },
+          profile: { 
+            ...profile, 
+            isProfileComplete: isComplete,
+            followersCount: followersList.length,
+            followingCount: followingList.length,
+            followingList: followingListWithDetails,
+            followersList: followersListWithDetails,
+          },
         });
       } catch (profileError) {
         // Handle validation errors from userProfileService

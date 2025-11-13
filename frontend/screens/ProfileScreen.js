@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,18 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   SafeAreaView,
+  Modal,
+  FlatList,
+  ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../constants';
+import { useTheme } from '../contexts/ThemeContext';
 import GLoader from '../components/common/GLoader';
 import profileService from '../services/profileService';
 
 const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile = null, isProfileComplete = false }) => {
+  const { colors } = useTheme();
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [phone1, setPhone1] = useState('');
@@ -24,6 +30,13 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   const [saving, setSaving] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!initialProfile);
   const [profileCompleteStatus, setProfileCompleteStatus] = useState(isProfileComplete);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [followingList, setFollowingList] = useState([]);
+  const [showListModal, setShowListModal] = useState(false);
+  const [listType, setListType] = useState(null); // 'followers' or 'following'
+  const [listData, setListData] = useState([]);
+  const [loadingList, setLoadingList] = useState(false);
 
   useEffect(() => {
     // Update profileCompleteStatus when prop changes
@@ -39,12 +52,50 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       setPhone1(initialProfile.phoneNumbers?.[0] || '');
       setPhone2(initialProfile.phoneNumbers?.[1] || '');
       setProfileCompleteStatus(initialProfile.isProfileComplete || false);
+      setFollowersCount(initialProfile.followersCount || 0);
+      setFollowingCount(initialProfile.followingCount || 0);
+      setFollowingList(initialProfile.followingList || []);
       setInitialLoading(false);
     } else {
     loadProfile();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reload profile data (especially follower/following counts) when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Always reload follower/following counts from service when screen is focused
+      const refreshCounts = async () => {
+        try {
+          const result = await profileService.getProfile();
+          if (result.success && result.profile) {
+            // Update only follower/following counts, keep other fields as they are
+            if (result.profile.followersCount !== undefined) {
+              setFollowersCount(result.profile.followersCount);
+            }
+            if (result.profile.followingCount !== undefined) {
+              setFollowingCount(result.profile.followingCount);
+            }
+            if (result.profile.followingList !== undefined) {
+              setFollowingList(result.profile.followingList);
+            }
+            // Also update profile complete status if changed
+            if (result.profile.isProfileComplete !== undefined) {
+              setProfileCompleteStatus(result.profile.isProfileComplete);
+            }
+          }
+        } catch (error) {
+          console.error('Error refreshing profile counts:', error);
+        }
+      };
+      
+      // Only refresh if not in initial loading state
+      if (!initialLoading) {
+        refreshCounts();
+      }
+    }, [initialLoading])
+  );
 
   const loadProfile = async () => {
     setInitialLoading(true);
@@ -56,6 +107,9 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       setPhone1(result.profile.phoneNumbers?.[0] || '');
       setPhone2(result.profile.phoneNumbers?.[1] || '');
       setProfileCompleteStatus(result.profile.isProfileComplete || false);
+      setFollowersCount(result.profile.followersCount || 0);
+      setFollowingCount(result.profile.followingCount || 0);
+      setFollowingList(result.profile.followingList || []);
     }
     setInitialLoading(false);
   };
@@ -102,6 +156,16 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       if (result.profile?.isProfileComplete) {
         setProfileCompleteStatus(true);
       }
+      // Update follower/following counts from response
+      if (result.profile?.followersCount !== undefined) {
+        setFollowersCount(result.profile.followersCount);
+      }
+      if (result.profile?.followingCount !== undefined) {
+        setFollowingCount(result.profile.followingCount);
+      }
+      if (result.profile?.followingList !== undefined) {
+        setFollowingList(result.profile.followingList);
+      }
       // Directly navigate to chat section on success
       // Toast already shown by profileService
       onBack();
@@ -135,6 +199,28 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       );
     } else {
       onBack();
+    }
+  };
+
+  const handleStatClick = async (type) => {
+    setListType(type);
+    setShowListModal(true);
+    setLoadingList(true);
+    setListData([]);
+
+    try {
+      const result = await profileService.getProfile();
+      if (result.success && result.profile) {
+        if (type === 'following') {
+          setListData(result.profile.followingList || []);
+        } else if (type === 'followers') {
+          setListData(result.profile.followersList || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading list:', error);
+    } finally {
+      setLoadingList(false);
     }
   };
 
@@ -187,6 +273,90 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
             </View>
             <Text style={styles.hint}>Email cannot be changed</Text>
           </View>
+
+          {/* Followers & Following - Read Only Display */}
+          <View style={styles.section}>
+            <View style={styles.statsContainer}>
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => handleStatClick('followers')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.statValue}>{followersCount}</Text>
+                <Text style={styles.statLabel}>Followers</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => handleStatClick('following')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.statValue}>{followingCount}</Text>
+                <Text style={styles.statLabel}>Following</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.hint}>Feed statistics (read-only) - Tap to view list</Text>
+          </View>
+
+          {/* Followers/Following List Modal */}
+          <Modal
+            visible={showListModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowListModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+                <View style={[styles.modalHeader, { borderBottomColor: colors.divider }]}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    {listType === 'followers' ? 'Followers' : 'Following'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowListModal(false)}
+                    style={styles.modalCloseButton}
+                  >
+                    <Text style={[styles.modalCloseText, { color: colors.text }]}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {loadingList ? (
+                  <View style={styles.modalLoadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                  </View>
+                ) : listData.length > 0 ? (
+                  <FlatList
+                    data={listData}
+                    keyExtractor={(item, index) => item.email || `item-${index}`}
+                    renderItem={({ item }) => (
+                      <View style={[styles.listItem, { backgroundColor: colors.surface, borderColor: colors.divider }]}>
+                        <View style={styles.listItemContent}>
+                          <View style={[styles.listItemAvatar, { backgroundColor: colors.primary }]}>
+                            <Text style={styles.listItemAvatarText}>
+                              {(item.name || item.email?.split('@')[0] || 'U').charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={styles.listItemInfo}>
+                            <Text style={[styles.listItemName, { color: colors.text }]}>
+                              {item.name || item.email?.split('@')[0] || 'User'}
+                            </Text>
+                            <Text style={[styles.listItemEmail, { color: colors.textSecondary }]}>
+                              {item.email}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                    contentContainerStyle={styles.modalListContent}
+                  />
+                ) : (
+                  <View style={styles.modalEmptyContainer}>
+                    <Text style={[styles.modalEmptyText, { color: colors.textSecondary }]}>
+                      No {listType === 'followers' ? 'followers' : 'following'} yet
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </Modal>
 
           {/* Name */}
           <View style={styles.section}>
@@ -346,6 +516,152 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
     fontStyle: 'italic',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: COLORS.receivedMessage,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  statLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+  },
+  followingListContainer: {
+    marginTop: SPACING.sm,
+  },
+  followingItem: {
+    backgroundColor: COLORS.receivedMessage,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  followingItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  followingAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  followingAvatarText: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: '#FFFFFF',
+  },
+  followingItemInfo: {
+    flex: 1,
+  },
+  followingItemName: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  followingItemEmail: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    height: '70%',
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    paddingTop: SPACING.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  modalCloseButton: {
+    padding: SPACING.xs,
+  },
+  modalCloseText: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  modalLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalListContent: {
+    padding: SPACING.md,
+  },
+  modalEmptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  modalEmptyText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+  },
+  listItem: {
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+  },
+  listItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listItemAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  listItemAvatarText: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: '#FFFFFF',
+  },
+  listItemInfo: {
+    flex: 1,
+  },
+  listItemName: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    marginBottom: SPACING.xs,
+  },
+  listItemEmail: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
   },
   input: {
     backgroundColor: COLORS.receivedMessage,
