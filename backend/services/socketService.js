@@ -389,13 +389,13 @@ class SocketService {
         try {
           const updatedMessage = await chatService.markMessageAsDelivered(savedMessage._id);
           if (updatedMessage && senderSocketId) {
-            const senderSocket = this.io.sockets.sockets.get(senderSocketId);
-            if (senderSocket) {
-              senderSocket.emit('messageStatusUpdate', {
-                messageId: savedMessage._id.toString(),
-                status: 'delivered',
-                deliveredAt: updatedMessage.deliveredAt,
-              });
+              const senderSocket = this.io.sockets.sockets.get(senderSocketId);
+              if (senderSocket) {
+                senderSocket.emit('messageStatusUpdate', {
+                  messageId: savedMessage._id.toString(),
+                  status: 'delivered',
+                  deliveredAt: updatedMessage.deliveredAt,
+                });
             }
           }
         } catch (error) {

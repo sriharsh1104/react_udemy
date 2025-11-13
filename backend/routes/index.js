@@ -114,8 +114,15 @@ router.get('/status/:statusId/viewers', statusController.getViewers);
 router.get('/feed', feedController.getFeed);
 router.post('/feed/like', feedController.toggleLike);
 router.post('/feed/comment', feedController.addComment);
-router.get('/feed/:statusId/comments', feedController.getComments);
+router.get('/feed/comments/:statusId', feedController.getComments);
 router.post('/feed/caption', feedController.updateCaption);
+router.get('/feed/search', feedController.searchProfiles);
+router.get('/feed/profile/:email', feedController.getProfile);
+router.post('/feed/follow', feedController.followUser);
+router.post('/feed/unfollow', feedController.unfollowUser);
+router.post('/feed/accept-request', feedController.acceptFollowRequest);
+router.post('/feed/reject-request', feedController.rejectFollowRequest);
+router.get('/feed/pending-requests', feedController.getPendingRequests);
 
 console.log('Routes registered:');
 console.log('  POST /api/auth/register');

@@ -27,6 +27,10 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false, // false means online mode (default)
   },
+  isPrivate: {
+    type: Boolean,
+    default: false, // false means public account (default)
+  },
   createdAt: {
     type: Date,
     default: Date.now,

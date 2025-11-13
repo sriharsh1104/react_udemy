@@ -278,7 +278,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     const handleContactsUpdated = (data) => {
       // Always refresh contacts list when we get an update event
       // This ensures deleted contacts are removed from the list
-      loadContacts(false); // Refresh contacts list
+        loadContacts(false); // Refresh contacts list
     };
 
     // Listen for groups update event from backend
@@ -392,12 +392,12 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         setGroups(allGroupsCombined);
       } else {
         console.error('❌ Failed to load recent chats:', recentChatsResult.message);
-      }
+        }
     } catch (error) {
       console.error('❌ Error loading recent chats:', error);
     } finally {
-      if (showLoading) {
-        setLoadingContacts(false);
+    if (showLoading) {
+      setLoadingContacts(false);
       }
     }
   };
@@ -879,27 +879,27 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         return;
       }
       
-      try {
-        let result;
-        if (chatType === 'group') {
+            try {
+              let result;
+              if (chatType === 'group') {
           result = await groupService.deleteMessage(messageToDelete.messageId);
-        } else {
+              } else {
           result = await contactsService.deleteMessage(messageToDelete.messageId);
-        }
-        
-        if (result.success) {
-          // Clear editing state if deleting the message being edited
+              }
+              
+              if (result.success) {
+                // Clear editing state if deleting the message being edited
           if (editingMessage && editingMessage.messageId === messageToDelete.messageId) {
-            setEditingMessage(null);
-            setInputMessage('');
-          }
+                  setEditingMessage(null);
+                  setInputMessage('');
+                }
           // Socket event will handle the UI update (will show "This message is deleted")
         } else {
           console.error('❌ Failed to delete message:', result.message);
-        }
-      } catch (error) {
+              }
+            } catch (error) {
         console.error('❌ Error deleting message:', error);
-      }
+            }
     }
     
     setSelectedMessage(null);
@@ -1060,8 +1060,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   };
 
   const executeClearChat = async (actualChatType) => {
-    try {
-      let result;
+            try {
+              let result;
       
       if (actualChatType === 'group') {
         if (!groupId) {
@@ -1069,18 +1069,18 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           // Could show error modal here if needed
           return;
         }
-        result = await groupService.clearChat(groupId);
-      } else {
+                result = await groupService.clearChat(groupId);
+              } else {
         // Private chat
         if (!contactEmail) {
           console.error('❌ Contact email is missing!', { contactEmail, chatType, actualChatType });
           // Could show error modal here if needed
           return;
         }
-        result = await contactsService.clearChat(contactEmail);
-      }
-      
-      if (result.success) {
+                result = await contactsService.clearChat(contactEmail);
+              }
+              
+              if (result.success) {
         // Fallback: If socket event doesn't arrive within 2 seconds, manually clear
         setTimeout(() => {
           if (actualChatType === 'group') {
@@ -1106,11 +1106,11 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       } else {
         console.error('❌ API call failed:', result);
         // Could show error modal here if needed
-      }
-    } catch (error) {
+              }
+            } catch (error) {
       console.error('❌ Error clearing chat:', error);
       // Could show error modal here if needed
-    }
+            }
   };
 
   // Load message info

@@ -1426,11 +1426,11 @@ class ContactsController {
         // Also emit to room (in case socket is in room but we couldn't find it directly)
         if (socketsInRoom > 0) {
           console.log('🔔 ALSO EMITTING TO ROOM:', roomId);
-          io.to(roomId).emit('chatCleared', {
-            roomId,
-            clearedBy: userEmail,
+        io.to(roomId).emit('chatCleared', {
+          roomId,
+          clearedBy: userEmail,
             contactEmail,
-          });
+        });
         } else {
           console.warn('⚠️ No sockets in room:', roomId);
         }

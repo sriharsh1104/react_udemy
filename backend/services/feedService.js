@@ -1,21 +1,55 @@
 const Status = require('../models/Status');
 const File = require('../models/File');
 const User = require('../models/User');
+const followService = require('./followService');
 
 class FeedService {
-  // Get Instagram-like feed (PUBLIC - all statuses from all users in chronological order)
-  async getFeed(userEmail, page = 1, limit = 10) {
+  // Get Instagram-like feed with private/public modes
+  async getFeed(userEmail, page = 1, limitNum = 10, feedMode = 'public') {
     try {
-      // PUBLIC FEED - Get ALL statuses from ALL users (not just contacts)
-      // Anyone can see anyone's posts (like Instagram)
-      const skip = (page - 1) * limit;
-      const statuses = await Status.find({
-        expiresAt: { $gt: new Date() }, // Only non-expired statuses
+      const skip = (page - 1) * limitNum;
+      let statuses = [];
+
+      if (feedMode === 'private') {
+        // PRIVATE FEED - Only posts from users you follow
+        const followingList = await followService.getFollowingList(userEmail);
+        followingList.push(userEmail); // Include own posts
+        
+        statuses = await Status.find({
+          userEmail: { $in: followingList },
+          expiresAt: { $gt: new Date() },
       })
-        .sort({ createdAt: -1 }) // Latest first
+          .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit)
+          .limit(limitNum)
+          .lean();
+      } else {
+        // PUBLIC FEED - Mix of followed users + random posts
+        const followingList = await followService.getFollowingList(userEmail);
+        followingList.push(userEmail); // Include own posts
+        
+        // Get posts from followed users
+        const followedStatuses = await Status.find({
+          userEmail: { $in: followingList },
+          expiresAt: { $gt: new Date() },
+        })
+          .sort({ createdAt: -1 })
+          .lean();
+
+        // Get random posts from other users (excluding followed)
+        const randomStatuses = await Status.find({
+          userEmail: { $nin: followingList },
+          expiresAt: { $gt: new Date() },
+        })
+          .sort({ createdAt: -1 })
+          .limit(Math.max(limitNum - followedStatuses.length, 0))
         .lean();
+
+        // Mix followed and random posts (followed first, then random)
+        statuses = [...followedStatuses, ...randomStatuses]
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .slice(skip, skip + limitNum);
+      }
 
       // Get file info for each status
       const fileIds = statuses.map(s => s.fileId);
@@ -36,8 +70,17 @@ class FeedService {
         };
       });
 
+      // Filter posts based on privacy settings
+      const visibleStatuses = [];
+      for (const status of statuses) {
+        const canView = await followService.canViewPosts(userEmail, status.userEmail);
+        if (canView) {
+          visibleStatuses.push(status);
+        }
+      }
+
       // Combine status with file info, user info, and interaction data
-      const feedItems = statuses.map(status => {
+      const feedItems = visibleStatuses.map(status => {
         const file = fileMap[status.fileId];
         const user = userMap[status.userEmail] || {
           name: status.userEmail.split('@')[0],
@@ -67,9 +110,10 @@ class FeedService {
 
       return {
         feed: feedItems,
-        hasMore: statuses.length === limit,
+        hasMore: feedItems.length === limitNum,
         page,
         total: feedItems.length,
+        feedMode,
       };
     } catch (error) {
       console.error('Error getting feed:', error);

@@ -1078,11 +1078,11 @@ class GroupController {
         // Also emit to room (in case socket is in room but we couldn't find it directly)
         if (socketsInRoom > 0) {
           console.log('🔔 ALSO EMITTING TO ROOM (GROUP):', roomId);
-          io.to(roomId).emit('chatCleared', {
-            groupId,
-            roomId,
-            clearedBy: userEmail,
-          });
+        io.to(roomId).emit('chatCleared', {
+          groupId,
+          roomId,
+          clearedBy: userEmail,
+        });
         } else {
           console.warn('⚠️ No sockets in room:', roomId);
         }

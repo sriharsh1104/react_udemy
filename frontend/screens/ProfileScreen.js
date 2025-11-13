@@ -23,6 +23,12 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!initialProfile);
+  const [profileCompleteStatus, setProfileCompleteStatus] = useState(isProfileComplete);
+
+  useEffect(() => {
+    // Update profileCompleteStatus when prop changes
+    setProfileCompleteStatus(isProfileComplete);
+  }, [isProfileComplete]);
 
   useEffect(() => {
     // Only load profile if not passed as prop (to avoid double API call)
@@ -32,6 +38,7 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       setAge(initialProfile.age ? initialProfile.age.toString() : '');
       setPhone1(initialProfile.phoneNumbers?.[0] || '');
       setPhone2(initialProfile.phoneNumbers?.[1] || '');
+      setProfileCompleteStatus(initialProfile.isProfileComplete || false);
       setInitialLoading(false);
     } else {
     loadProfile();
@@ -48,6 +55,7 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       setAge(result.profile.age ? result.profile.age.toString() : '');
       setPhone1(result.profile.phoneNumbers?.[0] || '');
       setPhone2(result.profile.phoneNumbers?.[1] || '');
+      setProfileCompleteStatus(result.profile.isProfileComplete || false);
     }
     setInitialLoading(false);
   };
@@ -90,6 +98,10 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     });
 
     if (result.success) {
+      // Update profile complete status from response
+      if (result.profile?.isProfileComplete) {
+        setProfileCompleteStatus(true);
+      }
       // Directly navigate to chat section on success
       // Toast already shown by profileService
       onBack();
@@ -105,9 +117,14 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   };
 
   const handleBack = () => {
-    // Check both isMandatory and isProfileComplete to avoid false alerts
-    if (isMandatory && !isProfileComplete) {
-      // Warn user if trying to go back with incomplete profile
+    // If profile is complete or not mandatory, allow back navigation directly
+    if (profileCompleteStatus || !isMandatory) {
+      onBack();
+      return;
+    }
+    
+    // If mandatory and profile incomplete, warn user
+    if (isMandatory && !profileCompleteStatus) {
       Alert.alert(
         'Profile Incomplete',
         'Please complete your profile to continue using the app.',
@@ -117,7 +134,6 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
         ]
       );
     } else {
-      // Profile is complete or not mandatory, allow back navigation
       onBack();
     }
   };
@@ -137,21 +153,25 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
           showsVerticalScrollIndicator={false}
         >
         <View style={styles.header}>
-          {!isMandatory ? (
+          {(!isMandatory || profileCompleteStatus) ? (
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
               <Text style={styles.backButtonText}>← Back</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.placeholder} />
           )}
+          {!profileCompleteStatus ? (
           <Text style={styles.headerTitle}>
             {isMandatory ? 'Complete Your Profile' : 'Profile'}
           </Text>
+          ) : (
+            <View style={styles.placeholder} />
+          )}
           <View style={styles.placeholder} />
         </View>
 
         <View style={styles.content}>
-          {isMandatory && (
+          {isMandatory && !profileCompleteStatus && (
             <View style={styles.mandatoryNotice}>
               <Text style={styles.mandatoryText}>
                 Please complete your profile to continue

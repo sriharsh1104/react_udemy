@@ -117,21 +117,21 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
   // Filter archived contacts/groups based on search query
   const filteredArchivedContacts = useMemo(() => {
     if (!searchQuery.trim()) return archivedContacts;
-    const query = searchQuery.trim().toLowerCase();
+      const query = searchQuery.trim().toLowerCase();
     return archivedContacts.filter(contact => {
-      const name = (contact.name || getUsernameFromEmail(contact.email)).toLowerCase();
-      const email = (contact.email || '').toLowerCase();
-      return name.includes(query) || email.includes(query);
-    });
+        const name = (contact.name || getUsernameFromEmail(contact.email)).toLowerCase();
+        const email = (contact.email || '').toLowerCase();
+        return name.includes(query) || email.includes(query);
+      });
   }, [archivedContacts, searchQuery]);
 
   const filteredArchivedGroups = useMemo(() => {
     if (!searchQuery.trim()) return archivedGroups;
-    const query = searchQuery.trim().toLowerCase();
+      const query = searchQuery.trim().toLowerCase();
     return archivedGroups.filter(group => {
-      const name = (group.name || '').toLowerCase();
-      return name.includes(query);
-    });
+        const name = (group.name || '').toLowerCase();
+        return name.includes(query);
+      });
   }, [archivedGroups, searchQuery]);
 
   // Combined data for display (groups + filtered contacts)
@@ -230,8 +230,8 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
     try {
       console.log('🗑️ Deleting chats from Recent Chats:', selectedChats);
       
-      for (const chat of selectedChats) {
-        if (chat.type === 'contact') {
+            for (const chat of selectedChats) {
+              if (chat.type === 'contact') {
           // Delete chat - deletes all messages and removes from Recent Chats
           // Contact remains in database but won't appear in Recent Chats
           // If user sends new message, chat will reappear as new chat
@@ -241,7 +241,7 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
           if (!result.success) {
             console.error('Failed to delete chat:', chat.id, result.message);
           }
-        } else if (chat.type === 'group') {
+              } else if (chat.type === 'group') {
           // For groups, we need to implement deleteChat similar to contacts
           // For now, use clearChat (delete all messages)
           const result = await groupService.clearChat(chat.id);
@@ -250,11 +250,11 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
           if (!result.success) {
             console.error('Failed to clear group chat:', chat.id, result.message);
           }
-        }
-      }
+              }
+            }
       
       // Clear selection immediately
-      setSelectedChats([]);
+            setSelectedChats([]);
       
       // Force refresh contacts and groups lists
       console.log('🔄 Refreshing contacts and groups lists...');

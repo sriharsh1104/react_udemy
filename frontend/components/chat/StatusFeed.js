@@ -82,6 +82,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [feedMode, setFeedMode] = useState('public'); // 'public' or 'private'
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [showStatusViewer, setShowStatusViewer] = useState(false);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
@@ -95,10 +96,14 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [selectedUserEmail, setSelectedUserEmail] = useState(null);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [loadingSearch, setLoadingSearch] = useState(false);
 
   useEffect(() => {
     loadFeed();
-  }, [contacts, userEmail]);
+  }, [contacts, userEmail, feedMode]);
 
   const loadFeed = async (pageNum = 1, append = false) => {
     if (pageNum === 1) {
@@ -108,7 +113,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     }
     
     try {
-      const result = await feedService.getFeed(pageNum, 10);
+      const result = await feedService.getFeed(pageNum, 10, feedMode);
       if (result.success) {
         if (append) {
           setFeed(prev => [...prev, ...result.feed]);
@@ -538,7 +543,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     setLoadingProfile(true);
     
     try {
-      const result = await profileService.getContactProfile(clickedUserEmail);
+      const result = await feedService.getProfile(clickedUserEmail);
       if (result.success && result.profile) {
         setSelectedUserProfile(result.profile);
       } else {
@@ -546,6 +551,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         setSelectedUserProfile({
           email: clickedUserEmail,
           name: clickedUserEmail.split('@')[0],
+          followStatus: 'not_following',
         });
       }
     } catch (error) {
@@ -554,10 +560,92 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       setSelectedUserProfile({
         email: clickedUserEmail,
         name: clickedUserEmail.split('@')[0],
+        followStatus: 'not_following',
       });
     } finally {
       setLoadingProfile(false);
     }
+  };
+
+  const handleSearch = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setLoadingSearch(true);
+    setShowSearchResults(true);
+    
+    try {
+      const result = await feedService.searchProfiles(query);
+      if (result.success) {
+        setSearchResults(result.profiles || []);
+      }
+    } catch (error) {
+      console.error('Error searching profiles:', error);
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim()) {
+        handleSearch(searchQuery);
+      } else {
+        setSearchResults([]);
+        setShowSearchResults(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  const handleFollow = async (followingEmail) => {
+    try {
+      const result = await feedService.followUser(followingEmail);
+      if (result.success) {
+        // Update profile follow status
+        if (selectedUserEmail === followingEmail && selectedUserProfile) {
+          setSelectedUserProfile({
+            ...selectedUserProfile,
+            followStatus: result.status || 'accepted',
+          });
+        }
+        // Refresh feed to show new posts
+        loadFeed(1, false);
+      }
+    } catch (error) {
+      console.error('Error following user:', error);
+    }
+  };
+
+  const handleUnfollow = async (followingEmail) => {
+    try {
+      const result = await feedService.unfollowUser(followingEmail);
+      if (result.success) {
+        // Update profile follow status
+        if (selectedUserEmail === followingEmail && selectedUserProfile) {
+          setSelectedUserProfile({
+            ...selectedUserProfile,
+            followStatus: 'not_following',
+          });
+        }
+        // Refresh feed
+        loadFeed(1, false);
+      }
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+    }
+  };
+
+  const handleProfileVisit = async (email) => {
+    setShowSearchResults(false);
+    setSearchQuery('');
+    await handleUserProfilePress(email);
   };
 
   // Feed Item Component with proper double tap handling
@@ -741,6 +829,114 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Search Bar and Feed Mode Toggle */}
+      <View style={[styles.headerContainer, { backgroundColor: colors.background, borderBottomColor: colors.divider }]}>
+        <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search profiles..."
+            placeholderTextColor={colors.textSecondary}
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+            }}
+            onFocus={() => {
+              if (searchQuery.trim()) {
+                setShowSearchResults(true);
+              }
+            }}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery('');
+                setSearchResults([]);
+                setShowSearchResults(false);
+              }}
+            >
+              <Text style={styles.clearIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        {/* Feed Mode Toggle */}
+        <View style={[styles.feedModeContainer, { backgroundColor: colors.surface }]}>
+          <TouchableOpacity
+            style={[
+              styles.feedModeButton,
+              feedMode === 'public' && { backgroundColor: colors.primary },
+            ]}
+            onPress={() => setFeedMode('public')}
+          >
+            <Text style={[
+              styles.feedModeText,
+              { color: feedMode === 'public' ? colors.white : colors.text }
+            ]}>
+              Public
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.feedModeButton,
+              feedMode === 'private' && { backgroundColor: colors.primary },
+            ]}
+            onPress={() => setFeedMode('private')}
+          >
+            <Text style={[
+              styles.feedModeText,
+              { color: feedMode === 'private' ? colors.white : colors.text }
+            ]}>
+              Following
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Search Results */}
+      {showSearchResults && (
+        <View style={[styles.searchResultsContainer, { backgroundColor: colors.background }]}>
+          {loadingSearch ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : searchResults.length > 0 ? (
+            <FlatList
+              data={searchResults}
+              keyExtractor={(item) => `search-${item.email}`}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.searchResultItem, { borderBottomColor: colors.divider }]}
+                  onPress={() => handleProfileVisit(item.email)}
+                >
+                  <View style={[styles.searchAvatar, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.searchAvatarText, { color: colors.white }]}>
+                      {item.name?.charAt(0).toUpperCase() || item.email?.charAt(0).toUpperCase() || 'U'}
+                    </Text>
+                  </View>
+                  <View style={styles.searchResultInfo}>
+                    <Text style={[styles.searchResultName, { color: colors.text }]}>
+                      {item.name || item.email?.split('@')[0]}
+                    </Text>
+                    <Text style={[styles.searchResultEmail, { color: colors.textSecondary }]}>
+                      {item.email}
+                    </Text>
+                  </View>
+                  {item.isPrivate && (
+                    <Text style={styles.privateIcon}>🔒</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          ) : searchQuery.trim() ? (
+            <View style={styles.noResultsContainer}>
+              <Text style={[styles.noResultsText, { color: colors.textSecondary }]}>
+                No profiles found
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      )}
+
+      {!showSearchResults && (
       <FlatList
         data={feed}
         renderItem={renderFeedItem}
@@ -749,6 +945,12 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         onEndReachedThreshold={0.5}
         refreshing={refreshing}
         onRefresh={handleRefresh}
+          onScrollBeginDrag={() => {
+            // Hide search results when scrolling feed
+            if (showSearchResults) {
+              setShowSearchResults(false);
+            }
+          }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: colors.text }]}>
@@ -768,6 +970,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           </View>
         }
       />
+      )}
 
       {/* Floating Action Button - Always visible */}
       <TouchableOpacity
@@ -929,25 +1132,91 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                       {selectedUserProfile.name?.charAt(0).toUpperCase() || selectedUserProfile.email?.charAt(0).toUpperCase() || 'U'}
                     </Text>
                   </View>
+                  <View style={styles.profileNameRow}>
                   <Text style={[styles.profileName, { color: colors.text }]}>
                     {selectedUserProfile.name || selectedUserProfile.email?.split('@')[0] || 'User'}
                   </Text>
+                    {selectedUserProfile.isPrivate && (
+                      <Text style={styles.privateBadge}>🔒</Text>
+                    )}
+                  </View>
                   <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>
                     {selectedUserProfile.email}
                   </Text>
-                  {selectedUserProfile.phoneNumbers && selectedUserProfile.phoneNumbers.length > 0 && (
-                    <View style={styles.phoneNumbersContainer}>
-                      {selectedUserProfile.phoneNumbers.map((phone, index) => (
-                        <Text key={index} style={[styles.profilePhone, { color: colors.primary }]}>
-                          {phone}
+
+                  {/* Stats Row */}
+                  <View style={styles.profileStats}>
+                    <View style={styles.profileStatItem}>
+                      <Text style={[styles.profileStatNumber, { color: colors.text }]}>
+                        {selectedUserProfile.postsCount || 0}
                         </Text>
-                      ))}
+                      <Text style={[styles.profileStatLabel, { color: colors.textSecondary }]}>
+                        Posts
+                      </Text>
                     </View>
+                    <View style={styles.profileStatItem}>
+                      <Text style={[styles.profileStatNumber, { color: colors.text }]}>
+                        {selectedUserProfile.followersCount || 0}
+                      </Text>
+                      <Text style={[styles.profileStatLabel, { color: colors.textSecondary }]}>
+                        Followers
+                      </Text>
+                    </View>
+                    <View style={styles.profileStatItem}>
+                      <Text style={[styles.profileStatNumber, { color: colors.text }]}>
+                        {selectedUserProfile.followingCount || 0}
+                      </Text>
+                      <Text style={[styles.profileStatLabel, { color: colors.textSecondary }]}>
+                        Following
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Follow/Unfollow Button */}
+                  {selectedUserEmail !== userEmail && (
+                    <TouchableOpacity
+                      style={[
+                        styles.followButton,
+                        selectedUserProfile.followStatus === 'accepted' 
+                          ? { backgroundColor: colors.surface, borderColor: colors.divider }
+                          : { backgroundColor: colors.primary }
+                      ]}
+                      onPress={() => {
+                        if (selectedUserProfile.followStatus === 'accepted') {
+                          handleUnfollow(selectedUserEmail);
+                        } else if (selectedUserProfile.followStatus === 'pending') {
+                          // Already requested - show message
+                          Alert.alert('Follow Request', 'Follow request already sent. Waiting for approval.');
+                        } else {
+                          handleFollow(selectedUserEmail);
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.followButtonText,
+                        { 
+                          color: selectedUserProfile.followStatus === 'accepted' 
+                            ? colors.text 
+                            : colors.white 
+                        }
+                      ]}>
+                        {selectedUserProfile.followStatus === 'accepted' 
+                          ? 'Following' 
+                          : selectedUserProfile.followStatus === 'pending'
+                          ? 'Requested'
+                          : selectedUserProfile.isPrivate
+                          ? 'Follow'
+                          : 'Follow'}
+                      </Text>
+                    </TouchableOpacity>
                   )}
-                  {selectedUserProfile.age && (
-                    <Text style={[styles.profileAge, { color: colors.textSecondary }]}>
-                      Age: {selectedUserProfile.age}
+
+                  {!selectedUserProfile.canViewPosts && selectedUserEmail !== userEmail && (
+                    <View style={styles.privateAccountNotice}>
+                      <Text style={[styles.privateAccountText, { color: colors.textSecondary }]}>
+                        🔒 This account is private. Follow to see their posts.
                     </Text>
+                    </View>
                   )}
                 </View>
               </ScrollView>
@@ -1065,6 +1334,142 @@ const styles = StyleSheet.create({
   profileAge: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     marginTop: SPACING.xs,
+  },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  privateBadge: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    marginLeft: SPACING.xs,
+  },
+  profileStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  profileStatItem: {
+    alignItems: 'center',
+  },
+  profileStatNumber: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  profileStatLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginTop: SPACING.xs / 2,
+  },
+  followButton: {
+    width: '80%',
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    borderWidth: 1,
+  },
+  followButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  privateAccountNotice: {
+    marginTop: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.surface,
+  },
+  privateAccountText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    textAlign: 'center',
+  },
+  headerContainer: {
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  searchIcon: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    marginRight: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.md,
+  },
+  clearIcon: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    padding: SPACING.xs,
+  },
+  feedModeContainer: {
+    flexDirection: 'row',
+    borderRadius: BORDER_RADIUS.md,
+    padding: 2,
+  },
+  feedModeButton: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    alignItems: 'center',
+    borderRadius: BORDER_RADIUS.md,
+  },
+  feedModeText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  searchResultsContainer: {
+    maxHeight: 300,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+  },
+  searchAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  searchAvatarText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  searchResultInfo: {
+    flex: 1,
+  },
+  searchResultName: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  searchResultEmail: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginTop: 2,
+  },
+  privateIcon: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+  },
+  noResultsContainer: {
+    padding: SPACING.lg,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
   },
   feedTime: {
     fontSize: TYPOGRAPHY.fontSize.xs,
