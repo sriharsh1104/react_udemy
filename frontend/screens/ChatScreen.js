@@ -295,10 +295,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     // Listen for contacts update event from backend
     const handleContactsUpdated = (data) => {
       console.log('📬 Contacts updated via socket:', data);
-      // Only update if we have new data
-      if (data && (data.contacts || data.contactEmail)) {
-        loadContacts(false); // Refresh contacts list
-      }
+      // Always refresh contacts list when we get an update event
+      // This ensures deleted contacts are removed from the list
+      loadContacts(false); // Refresh contacts list
     };
 
     // Listen for groups update event from backend
@@ -400,20 +399,25 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     if (showLoading) {
       setLoadingContacts(true);
     }
-    const result = await contactsService.getContacts();
-    if (result.success) {
-      // Only update if data actually changed to prevent unnecessary re-renders
-      setContacts(prevContacts => {
+    try {
+      const result = await contactsService.getContacts();
+      console.log('📋 Load contacts result:', { success: result.success, count: result.contacts?.length });
+      
+      if (result.success) {
         const newContacts = result.contacts || [];
-        // Check if data is actually different
-        if (JSON.stringify(prevContacts) !== JSON.stringify(newContacts)) {
-          return newContacts;
-        }
-        return prevContacts;
-      });
-    }
-    if (showLoading) {
-      setLoadingContacts(false);
+        console.log('📋 Setting contacts:', newContacts.length, 'contacts');
+        
+        // Always update contacts list (don't check for changes to ensure deleted contacts are removed)
+        setContacts(newContacts);
+      } else {
+        console.error('❌ Failed to load contacts:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error loading contacts:', error);
+    } finally {
+      if (showLoading) {
+        setLoadingContacts(false);
+      }
     }
   };
 

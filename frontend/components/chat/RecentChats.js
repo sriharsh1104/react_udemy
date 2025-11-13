@@ -7,13 +7,13 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
 import contactsService from '../../services/contactsService';
 import groupService from '../../services/groupService';
 import ChatActionBar from './ChatActionBar';
+import ConfirmationModal from '../common/ConfirmationModal';
 
 const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, onNewChat, onCreateGroup, onSaveContact, onInvite, onContactsUpdate, onGroupsUpdate, userEmail }) => {
   const { colors } = useTheme();
@@ -23,6 +23,7 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
   const [togglingGroupFavorite, setTogglingGroupFavorite] = useState(null);
   const [selectedChats, setSelectedChats] = useState([]); // Array of { type: 'contact' | 'group', id: string }
   const [searchQuery, setSearchQuery] = useState(''); // Search query for filtering chats
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const getUsernameFromEmail = (email) => {
     if (!email) return '';
@@ -221,34 +222,66 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
   }, [selectedChats]);
 
   // Action handlers
-  const handleDelete = useCallback(async () => {
+  const handleDelete = useCallback(() => {
+    if (selectedChats.length === 0) return;
+    setShowDeleteModal(true);
+  }, [selectedChats]);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    setShowDeleteModal(false);
+    
     if (selectedChats.length === 0) return;
     
-    Alert.alert(
-      'Delete Chat',
-      `Are you sure you want to delete ${selectedChats.length} chat(s)?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            for (const chat of selectedChats) {
-              if (chat.type === 'contact') {
-                await contactsService.deleteContact(chat.id);
-              } else if (chat.type === 'group') {
-                // Groups are deleted by creator only, so we'll just exit
-                // This can be enhanced later
-              }
-            }
-            setSelectedChats([]);
-            if (onContactsUpdate) await onContactsUpdate();
-            if (onGroupsUpdate) await onGroupsUpdate();
-          },
-        },
-      ]
-    );
-  }, [selectedChats, onContactsUpdate, onGroupsUpdate]);
+    try {
+      console.log('🗑️ Hiding chats from Recent Chats:', selectedChats);
+      
+      for (const chat of selectedChats) {
+        if (chat.type === 'contact') {
+          // Archive contact - hides from Recent Chats but keeps in database
+          // Contact will not appear in Recent Chats but can be found in Archived section
+          const result = await contactsService.toggleArchive(chat.id);
+          console.log('🗑️ Archive contact result:', result);
+          
+          if (!result.success) {
+            console.error('Failed to archive contact:', chat.id, result.message);
+          }
+        } else if (chat.type === 'group') {
+          // For groups, archive the group (hide from Recent Chats)
+          const result = await groupService.toggleArchive(chat.id);
+          console.log('🗑️ Archive group result:', result);
+          
+          if (!result.success) {
+            console.error('Failed to archive group:', chat.id, result.message);
+          }
+        }
+      }
+      
+      // Clear selection immediately
+      setSelectedChats([]);
+      
+      // Force refresh contacts and groups lists
+      console.log('🔄 Refreshing contacts and groups lists...');
+      if (onContactsUpdate) {
+        await onContactsUpdate();
+      }
+      if (onGroupsUpdate) {
+        await onGroupsUpdate();
+      }
+      
+      // Also wait a bit and refresh again to ensure backend changes are reflected
+      setTimeout(() => {
+        if (onContactsUpdate) onContactsUpdate();
+        if (onGroupsUpdate) onGroupsUpdate();
+      }, 500);
+      
+    } catch (error) {
+      console.error('❌ Error hiding chats:', error);
+    }
+  }, [selectedChats, userEmail, onContactsUpdate, onGroupsUpdate]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setShowDeleteModal(false);
+  }, []);
 
   const handlePin = useCallback(async () => {
     if (selectedChats.length === 0) return;
@@ -692,6 +725,18 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
           windowSize={10}
         />
       )}
+
+      {/* Hide from Recent Chats Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteModal}
+        title="Hide from Recent Chats"
+        message={`Are you sure you want to hide ${selectedChats.length} chat(s) from Recent Chats? The chat will be moved to Archived section. You can unarchive it later.`}
+        confirmText="Hide"
+        cancelText="Cancel"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        confirmButtonStyle="destructive"
+      />
     </View>
   );
 };

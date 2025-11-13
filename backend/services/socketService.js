@@ -271,6 +271,23 @@ class SocketService {
       senderEmail = socketEmail;
     }
 
+    // Automatically create contacts for both users if they don't exist
+    // This ensures deleted contacts reappear when messaging resumes
+    try {
+      const contactsService = require('./contactsService');
+      
+      // Add contactEmail as a contact for sender (if not exists)
+      await contactsService.addContact(senderEmail, contactEmail);
+      
+      // Add senderEmail as a contact for receiver (if not exists)
+      await contactsService.addContact(contactEmail, senderEmail);
+      
+      console.log(`[${timestamp}] ✅ CONTACTS AUTO-CREATED/UPDATED for message exchange`);
+    } catch (contactError) {
+      // Log but don't fail - contact creation is not critical for message delivery
+      console.log(`[${timestamp}] ⚠️ Contact auto-creation warning:`, contactError.message);
+    }
+
     // Add message to MongoDB (STORED PERMANENTLY - will be delivered when user comes online)
     const messageData = {
       senderEmail,
@@ -339,28 +356,34 @@ class SocketService {
           status: 'delivered',
         });
         
-        // Emit contacts update event to receiver to update unread count
+        // Emit contacts update event to receiver to update unread count and refresh contact list
         this.io.to(contactSocketId).emit('contactsUpdated', {
           contactEmail: senderEmail,
           action: 'message_received',
           messageId: savedMessage._id.toString(),
         });
         
+        // Also emit to sender to refresh their contact list (in case contact was re-added)
+        const senderSocketId = userService.getSocketByEmail(senderEmail);
+        if (senderSocketId) {
+          this.io.to(senderSocketId).emit('contactsUpdated', {
+            contactEmail: contactEmail,
+            action: 'message_sent',
+            messageId: savedMessage._id.toString(),
+          });
+        }
+        
         // Mark message as delivered and notify sender
         try {
           const updatedMessage = await chatService.markMessageAsDelivered(savedMessage._id);
-          if (updatedMessage) {
-            // Notify sender that message was delivered
-            const senderSocketId = userService.getSocketByEmail(senderEmail);
-            if (senderSocketId) {
-              const senderSocket = this.io.sockets.sockets.get(senderSocketId);
-              if (senderSocket) {
-                senderSocket.emit('messageStatusUpdate', {
-                  messageId: savedMessage._id.toString(),
-                  status: 'delivered',
-                  deliveredAt: updatedMessage.deliveredAt,
-                });
-              }
+          if (updatedMessage && senderSocketId) {
+            const senderSocket = this.io.sockets.sockets.get(senderSocketId);
+            if (senderSocket) {
+              senderSocket.emit('messageStatusUpdate', {
+                messageId: savedMessage._id.toString(),
+                status: 'delivered',
+                deliveredAt: updatedMessage.deliveredAt,
+              });
             }
           }
         } catch (error) {
@@ -377,6 +400,16 @@ class SocketService {
         status: 'stored_in_db',
         willDeliver: 'when_contact_comes_online',
       });
+      
+      // Emit contacts update event to sender to refresh their contact list (in case contact was re-added)
+      const senderSocketId = userService.getSocketByEmail(senderEmail);
+      if (senderSocketId) {
+        this.io.to(senderSocketId).emit('contactsUpdated', {
+          contactEmail: contactEmail,
+          action: 'message_sent',
+          messageId: savedMessage._id.toString(),
+        });
+      }
     }
     
     // Don't send message back to sender - they already have it via optimistic UI update
