@@ -232,7 +232,7 @@ class UserService {
     if (email) {
       const currentSocketId = this.emailToSocket.get(email);
       if (currentSocketId === socketId) {
-        this.emailToSocket.delete(email);
+    this.emailToSocket.delete(email);
       }
     }
     

@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
 
-const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt }) => {
+const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt, onMenuPress }) => {
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
@@ -34,6 +34,11 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
   }, [message]);
   
   const checkLocalFile = async (fileId, fileName) => {
+    // Skip file system check on web - expo-file-system is not available on web
+    if (Platform.OS === 'web') {
+      return;
+    }
+    
     try {
       const localUri = `${FileSystem.documentDirectory}${fileId}_${fileName}`;
       const fileInfo = await FileSystem.getInfoAsync(localUri);

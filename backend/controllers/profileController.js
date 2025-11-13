@@ -1,6 +1,7 @@
 const userProfileService = require('../services/userProfileService');
 const userService = require('../services/userService');
 const followService = require('../services/followService');
+const cacheService = require('../services/cacheService');
 const User = require('../models/User');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
@@ -17,6 +18,14 @@ class ProfileController {
       const email = await userService.getUserByToken(token);
       if (!email) {
         return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+      }
+
+      // Check cache first
+      const cacheKey = cacheService.keys.userProfile(email);
+      let cachedData = cacheService.get(cacheKey);
+      
+      if (cachedData) {
+        return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully (cached)', cachedData);
       }
 
       const profile = await userProfileService.getProfileByEmail(email);
@@ -49,7 +58,7 @@ class ProfileController {
         // Create default profile if doesn't exist
         const newProfile = await userProfileService.createOrUpdateProfile(email, {});
         const isComplete = await userProfileService.isProfileComplete(email);
-        return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', {
+        const responseData = {
           profile: { 
             ...newProfile, 
             isProfileComplete: isComplete,
@@ -58,11 +67,16 @@ class ProfileController {
             followingList: followingListWithDetails,
             followersList: followersListWithDetails,
           },
-        });
+        };
+        
+        // Cache the response (5 minutes TTL)
+        cacheService.set(cacheKey, responseData, 5 * 60 * 1000);
+        
+        return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', responseData);
       }
 
       const isComplete = await userProfileService.isProfileComplete(email);
-      return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', {
+      const responseData = {
         profile: { 
           ...profile, 
           isProfileComplete: isComplete,
@@ -71,7 +85,12 @@ class ProfileController {
           followingList: followingListWithDetails,
           followersList: followersListWithDetails,
         },
-      });
+      };
+      
+      // Cache the response (5 minutes TTL)
+      cacheService.set(cacheKey, responseData, 5 * 60 * 1000);
+      
+      return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', responseData);
     } catch (error) {
       console.error('Error in getProfile:', error);
       console.error('Error stack:', error.stack);
@@ -205,6 +224,14 @@ class ProfileController {
           name: user.name || user.email.split('@')[0],
         }));
 
+        // Invalidate cache for this user's profile
+        const cacheKey = cacheService.keys.userProfile(email);
+        cacheService.delete(cacheKey);
+        
+        // Also invalidate contact profile cache if this profile is viewed by others
+        const contactCacheKey = cacheService.keys.contactProfile(email);
+        cacheService.delete(contactCacheKey);
+        
         console.log(`[${timestamp}] ✅ Profile updated successfully for:`, email);
         return sendSuccess(res, HTTP_STATUS.OK, 'Profile updated successfully', {
           profile: { 

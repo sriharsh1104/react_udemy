@@ -430,7 +430,39 @@ class FileUploadService {
         throw new Error('No authentication token found');
       }
       
-      // Create local file path
+      // Handle web platform differently - use browser download
+      if (Platform.OS === 'web') {
+        const response = await fetch(`${API_CONFIG.API_BASE}/files/download/${fileId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Download failed');
+        }
+        
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        // Trigger browser download
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        // Note: We don't revoke the blob URL here so it can be used for display
+        
+        // Return a blob URL for web (can be used to display images/videos)
+        return {
+          localUri: blobUrl,
+          fileName,
+          fileType,
+        };
+      }
+      
+      // Native platforms - use FileSystem
       const fileUri = `${FileSystem.documentDirectory}${fileId}_${fileName}`;
       
       // Download file with authorization header

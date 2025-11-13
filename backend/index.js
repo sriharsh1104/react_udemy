@@ -6,6 +6,7 @@ const connectDB = require('./config/database');
 const routes = require('./routes');
 const SocketService = require('./services/socketService');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { generalLimiter } = require('./middleware/rateLimiter');
 const { HTTP_STATUS } = require('./constants');
 
 const app = express();
@@ -40,6 +41,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 // Note: express.json() doesn't parse multipart/form-data, so multer can handle it
+
+// Apply general rate limiting to all API routes
+app.use('/api', generalLimiter);
 
 // Debug: Log all API requests with detailed information
 app.use('/api', (req, res, next) => {

@@ -22,7 +22,7 @@ class SocketService {
   setupSocketHandlers() {
     this.io.on('connection', (socket) => {
       const timestamp = new Date().toISOString();
-      
+
       // Track socket connection for cleanup
       socket.connectedAt = Date.now();
 
@@ -106,7 +106,7 @@ class SocketService {
       // Notify all contacts that this user is now online (or offline if offline mode is enabled)
       // OPTIMIZED: Batch socket lookups to avoid N+1 queries
       try {
-        const Contact = require('../models/Contact');
+      const Contact = require('../models/Contact');
         const contacts = await Contact.find({ contactEmail: email }).select('userEmail').lean();
         
         // Batch all socket lookups at once
@@ -119,7 +119,7 @@ class SocketService {
             socketNotifications.push({
               socketId: contactSocketId,
               data: {
-                contactEmail: email,
+              contactEmail: email,
                 isOnline: !isOfflineMode,
               },
             });
@@ -188,13 +188,13 @@ class SocketService {
       
       // Batch update all messages as delivered
       const updatePromises = pendingMessages.map(async (msg) => {
-        try {
-          const updatedMessage = await chatService.markMessageAsDelivered(msg._id);
+          try {
+            const updatedMessage = await chatService.markMessageAsDelivered(msg._id);
           return { msg, updatedMessage };
-        } catch (error) {
-          console.error(`[${timestamp}] ❌ Error marking pending message as delivered:`, {
-            error: error.message,
-            messageId: msg._id?.toString(),
+          } catch (error) {
+            console.error(`[${timestamp}] ❌ Error marking pending message as delivered:`, {
+              error: error.message,
+              messageId: msg._id?.toString(),
           });
           return null;
         }
@@ -448,8 +448,8 @@ class SocketService {
             socketNotifications.push({
               socketId: contactSocketId,
               data: {
-                contactEmail: email,
-                isOnline: false,
+              contactEmail: email,
+              isOnline: false,
               },
             });
           }

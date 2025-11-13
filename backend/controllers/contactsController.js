@@ -1,6 +1,7 @@
 const contactsService = require('../services/contactsService');
 const userService = require('../services/userService');
 const userProfileService = require('../services/userProfileService');
+const cacheService = require('../services/cacheService');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 
 class ContactsController {
@@ -222,6 +223,10 @@ class ContactsController {
       }
 
       const contacts = await contactsService.addContact(userEmail, contactEmail);
+
+      // Invalidate contacts cache
+      const cacheKey = cacheService.keys.userContacts(userEmail);
+      cacheService.delete(cacheKey);
 
       // Emit socket event to notify user about contacts update
       const SocketService = require('../services/socketService');
@@ -522,6 +527,14 @@ class ContactsController {
         return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
       }
 
+      // Check cache first
+      const cacheKey = cacheService.keys.userContacts(userEmail);
+      let cachedData = cacheService.get(cacheKey);
+      
+      if (cachedData) {
+        return sendSuccess(res, HTTP_STATUS.OK, `Found ${cachedData.contacts.length} contact(s) (cached)`, cachedData);
+      }
+
       const contactList = await contactsService.getContacts(userEmail);
       const chatService = require('../services/chatService');
       const Message = require('../models/Message');
@@ -621,59 +634,59 @@ class ContactsController {
       
       // 4. Build contacts array with batched data
       const contacts = allContactEmails.map((email) => {
-        // Check if this is a manually added contact
-        const manualContact = contactList.find(c => c.contactEmail === email);
-        const isManuallyAdded = !!manualContact;
-        
+          // Check if this is a manually added contact
+          const manualContact = contactList.find(c => c.contactEmail === email);
+          const isManuallyAdded = !!manualContact;
+          
         const profile = profileMap.get(email);
-        // Check if contact is online
-        const socketId = userService.getSocketByEmail(email);
-        const isOnline = !!socketId;
+          // Check if contact is online
+          const socketId = userService.getSocketByEmail(email);
+          const isOnline = !!socketId;
         // Get unread count from map
         const unreadCount = unreadCountMap.get(email) || 0;
-        
+          
         // Get last message from map
         const lastMessage = lastMessageMap.get(email);
-        
-        let lastMessageText = null;
-        let lastMessageTimestamp = null;
-        if (lastMessage) {
-          lastMessageTimestamp = lastMessage.timestamp;
-          // Try to extract readable message text (handle encrypted messages)
-          try {
-            const parsed = JSON.parse(lastMessage.message);
-            if (parsed && parsed.encrypted) {
-              // Encrypted message - show placeholder
-              lastMessageText = '🔒 Encrypted message';
-            } else if (parsed && parsed.type === 'file') {
-              // File message
-              lastMessageText = parsed.fileType === 'image' ? '📷 Photo' : 
-                               parsed.fileType === 'video' ? '🎥 Video' : 
-                               parsed.fileType === 'audio' ? '🎵 Audio' : 
-                               `📎 ${parsed.fileName || 'File'}`;
-            } else {
+          
+          let lastMessageText = null;
+          let lastMessageTimestamp = null;
+          if (lastMessage) {
+            lastMessageTimestamp = lastMessage.timestamp;
+            // Try to extract readable message text (handle encrypted messages)
+            try {
+              const parsed = JSON.parse(lastMessage.message);
+              if (parsed && parsed.encrypted) {
+                // Encrypted message - show placeholder
+                lastMessageText = '🔒 Encrypted message';
+              } else if (parsed && parsed.type === 'file') {
+                // File message
+                lastMessageText = parsed.fileType === 'image' ? '📷 Photo' : 
+                                 parsed.fileType === 'video' ? '🎥 Video' : 
+                                 parsed.fileType === 'audio' ? '🎵 Audio' : 
+                                 `📎 ${parsed.fileName || 'File'}`;
+              } else {
+                lastMessageText = lastMessage.message;
+              }
+            } catch (e) {
+              // Not JSON, use as-is
               lastMessageText = lastMessage.message;
             }
-          } catch (e) {
-            // Not JSON, use as-is
-            lastMessageText = lastMessage.message;
           }
-        }
-        
-        return {
-          email,
-          name: profile?.name || email.split('@')[0],
-          exists: !!profile,
-          isOnline,
-          unreadCount,
-          isFavorite: manualContact?.isFavorite || false,
-          isPinned: manualContact?.isPinned || false,
-          isArchived: manualContact?.isArchived || false,
-          isMuted: manualContact?.isMuted || false,
-          isManuallyAdded, // Flag to distinguish manually added vs message-based contacts
-          lastMessage: lastMessageText,
-          lastMessageTimestamp: lastMessageTimestamp,
-        };
+          
+          return {
+            email,
+            name: profile?.name || email.split('@')[0],
+            exists: !!profile,
+            isOnline,
+            unreadCount,
+            isFavorite: manualContact?.isFavorite || false,
+            isPinned: manualContact?.isPinned || false,
+            isArchived: manualContact?.isArchived || false,
+            isMuted: manualContact?.isMuted || false,
+            isManuallyAdded, // Flag to distinguish manually added vs message-based contacts
+            lastMessage: lastMessageText,
+            lastMessageTimestamp: lastMessageTimestamp,
+          };
       });
       
       // Sort contacts by last message timestamp (most recent first), then by name
@@ -693,9 +706,14 @@ class ContactsController {
         return (a.name || a.email).localeCompare(b.name || b.email);
       });
 
-      return sendSuccess(res, HTTP_STATUS.OK, `Found ${contacts.length} contact(s)`, {
+      const responseData = {
         contacts,
-      });
+      };
+      
+      // Cache the response (2 minutes TTL - contacts change more frequently)
+      cacheService.set(cacheKey, responseData, 2 * 60 * 1000);
+      
+      return sendSuccess(res, HTTP_STATUS.OK, `Found ${contacts.length} contact(s)`, responseData);
     } catch (error) {
       console.error('Error in getContacts:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
@@ -722,6 +740,10 @@ class ContactsController {
       }
 
       const contact = await contactsService.toggleFavorite(userEmail, contactEmail);
+
+      // Invalidate contacts cache
+      const cacheKey = cacheService.keys.userContacts(userEmail);
+      cacheService.delete(cacheKey);
 
       return sendSuccess(res, HTTP_STATUS.OK, contact.isFavorite ? 'Contact marked as favorite' : 'Contact removed from favorites', {
         contact: {
@@ -771,6 +793,10 @@ class ContactsController {
         await contact.save();
       }
 
+      // Invalidate contacts cache
+      const cacheKey = cacheService.keys.userContacts(userEmail);
+      cacheService.delete(cacheKey);
+
       return sendSuccess(res, HTTP_STATUS.OK, contact.isPinned ? 'Chat pinned' : 'Chat unpinned', {
         contact: {
           email: contact.contactEmail,
@@ -818,6 +844,10 @@ class ContactsController {
         contact.isArchived = !contact.isArchived;
         await contact.save();
       }
+
+      // Invalidate contacts cache
+      const cacheKey = cacheService.keys.userContacts(userEmail);
+      cacheService.delete(cacheKey);
 
       return sendSuccess(res, HTTP_STATUS.OK, contact.isArchived ? 'Chat archived' : 'Chat unarchived', {
         contact: {
@@ -943,6 +973,10 @@ class ContactsController {
       }
 
       const contacts = await contactsService.removeContact(userEmail, contactEmail);
+
+      // Invalidate contacts cache
+      const cacheKey = cacheService.keys.userContacts(userEmail);
+      cacheService.delete(cacheKey);
 
       return sendSuccess(res, HTTP_STATUS.OK, 'Contact removed successfully', {
         contacts,
