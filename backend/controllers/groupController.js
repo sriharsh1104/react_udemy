@@ -1042,12 +1042,52 @@ class GroupController {
       const io = SocketService.getIO();
       if (io) {
         const roomId = `group_${groupId}`;
-        // Notify user to refresh chat
-        io.to(roomId).emit('chatCleared', {
+        const userService = require('../services/userService');
+        
+        // Get user's socket ID
+        const userSocketId = userService.getSocketByEmail(userEmail);
+        const room = io.sockets.adapter.rooms.get(roomId);
+        const socketsInRoom = room?.size || 0;
+        
+        console.log('🔔 EMITTING chatCleared EVENT (GROUP):', {
           groupId,
           roomId,
           clearedBy: userEmail,
+          socketsInRoom,
+          userSocketId,
+          userSocketExists: userSocketId ? !!io.sockets.sockets.get(userSocketId) : false,
         });
+        
+        // First, try to emit directly to user's socket (most reliable)
+        if (userSocketId) {
+          const userSocket = io.sockets.sockets.get(userSocketId);
+          if (userSocket) {
+            console.log('🔔 EMITTING DIRECTLY TO USER SOCKET (GROUP):', userSocketId);
+            userSocket.emit('chatCleared', {
+              groupId,
+              roomId,
+              clearedBy: userEmail,
+            });
+          } else {
+            console.warn('⚠️ User socket not found:', userSocketId);
+          }
+        } else {
+          console.warn('⚠️ User socket ID not found for email:', userEmail);
+        }
+        
+        // Also emit to room (in case socket is in room but we couldn't find it directly)
+        if (socketsInRoom > 0) {
+          console.log('🔔 ALSO EMITTING TO ROOM (GROUP):', roomId);
+          io.to(roomId).emit('chatCleared', {
+            groupId,
+            roomId,
+            clearedBy: userEmail,
+          });
+        } else {
+          console.warn('⚠️ No sockets in room:', roomId);
+        }
+      } else {
+        console.error('❌ Socket IO instance not available!');
       }
 
       res.status(200).json({

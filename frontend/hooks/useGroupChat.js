@@ -251,8 +251,18 @@ export const useGroupChat = (userEmail, groupId) => {
     };
 
     const handleChatCleared = (data) => {
+      console.log('🔔 CHAT CLEARED EVENT RECEIVED (GROUP):', {
+        data,
+        userEmail,
+        groupId,
+        clearedBy: data.clearedBy,
+        dataGroupId: data.groupId,
+        shouldClear: data.groupId === groupId && data.clearedBy === userEmail,
+      });
+      
       // If current user cleared the chat, filter out old messages
       if (data.groupId === groupId && data.clearedBy === userEmail) {
+        console.log('✅ Clearing group messages for current user');
         // Clear all messages - new ones will load on next history fetch
         setMessages([]);
         // Request fresh chat history (will be filtered by clearedAt on backend)
@@ -260,6 +270,9 @@ export const useGroupChat = (userEmail, groupId) => {
           groupId,
           userEmail,
         });
+        console.log('✅ JOIN_GROUP event emitted to reload filtered messages');
+      } else {
+        console.log('⚠️ Chat cleared by different user or different group, ignoring');
       }
     };
 

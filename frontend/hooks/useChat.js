@@ -361,8 +361,17 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     };
 
     const handleChatCleared = (data) => {
+      console.log('🔔 CHAT CLEARED EVENT RECEIVED:', {
+        data,
+        userEmail,
+        contactEmail,
+        clearedBy: data.clearedBy,
+        shouldClear: data.clearedBy === userEmail,
+      });
+      
       // If current user cleared the chat, filter out old messages
       if (data.clearedBy === userEmail) {
+        console.log('✅ Clearing messages for current user');
         // Clear all messages - new ones will load on next history fetch
         setMessages([]);
         // Request fresh chat history (will be filtered by clearedAt on backend)
@@ -370,6 +379,9 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           userEmail,
           contactEmail,
         });
+        console.log('✅ JOIN_CHAT event emitted to reload filtered messages');
+      } else {
+        console.log('⚠️ Chat cleared by different user, ignoring');
       }
     };
 

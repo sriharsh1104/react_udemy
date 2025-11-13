@@ -34,6 +34,7 @@ import contactsService from '../services/contactsService';
 import groupService from '../services/groupService';
 import fileUploadService from '../services/fileUploadService';
 import { Alert } from 'react-native';
+import ConfirmationModal from '../components/common/ConfirmationModal';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -77,6 +78,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [messageInfoMessageId, setMessageInfoMessageId] = useState(null);
   const [activeBottomTab, setActiveBottomTab] = useState('chat'); // 'chat', 'feed', 'status', 'call'
   const [editingMessage, setEditingMessage] = useState(null); // Track message being edited
+  const [showClearChatModal, setShowClearChatModal] = useState(false);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket(userEmail);
@@ -978,36 +980,109 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
   };
 
-  const handleClearChat = async () => {
-    Alert.alert(
-      'Clear Chat',
-      'Are you sure you want to clear all messages in this chat? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              let result;
-              if (chatType === 'group') {
-                result = await groupService.clearChat(groupId);
-              } else {
-                result = await contactsService.clearChat(contactEmail);
-              }
-              
-              if (result.success) {
-                // Socket event will handle the UI update
-                // Messages will be filtered on next load
-              }
-            } catch (error) {
-              console.error('Error clearing chat:', error);
-              Alert.alert('Error', 'Failed to clear chat');
+  const handleClearChat = () => {
+    console.log('🗑️ CLEAR CHAT CLICKED:', {
+      chatType,
+      contactEmail,
+      groupId,
+      userEmail,
+      socketConnected: socket?.connected,
+      socketId: socket?.id,
+    });
+
+    // Determine chat type if not set (fallback logic)
+    const actualChatType = chatType || (groupId ? 'group' : contactEmail ? 'private' : null);
+    console.log('🔍 DETERMINED CHAT TYPE:', { chatType, actualChatType, groupId, contactEmail });
+
+    if (!actualChatType) {
+      console.error('❌ Cannot determine chat type!');
+      // Show error using modal
+      setShowClearChatModal(true);
+      return;
+    }
+
+    // Show confirmation modal
+    setShowClearChatModal(true);
+  };
+
+  const handleClearChatConfirm = async () => {
+    setShowClearChatModal(false);
+    
+    // Determine chat type if not set (fallback logic)
+    const actualChatType = chatType || (groupId ? 'group' : contactEmail ? 'private' : null);
+    
+    if (!actualChatType) {
+      console.error('❌ Cannot determine chat type!');
+      return;
+    }
+
+    await executeClearChat(actualChatType);
+  };
+
+  const handleClearChatCancel = () => {
+    console.log('❌ User cancelled clear chat');
+    setShowClearChatModal(false);
+  };
+
+  const executeClearChat = async (actualChatType) => {
+    try {
+      console.log('🗑️ CLEAR CHAT CONFIRMED - Starting API call...', { actualChatType });
+      let result;
+      
+      if (actualChatType === 'group') {
+        if (!groupId) {
+          console.error('❌ Group ID is missing!', { groupId, chatType, actualChatType });
+          // Could show error modal here if needed
+          return;
+        }
+        console.log('🗑️ Clearing group chat:', groupId);
+        result = await groupService.clearChat(groupId);
+      } else {
+        // Private chat
+        if (!contactEmail) {
+          console.error('❌ Contact email is missing!', { contactEmail, chatType, actualChatType });
+          // Could show error modal here if needed
+          return;
+        }
+        console.log('🗑️ Clearing private chat:', contactEmail);
+        result = await contactsService.clearChat(contactEmail);
+      }
+      
+      console.log('🗑️ CLEAR CHAT API RESPONSE:', result);
+      
+      if (result.success) {
+        console.log('✅ API call successful, waiting for socket event...');
+        // Fallback: If socket event doesn't arrive within 2 seconds, manually clear
+        setTimeout(() => {
+          console.log('⏰ Fallback: Manually clearing messages after 2 seconds');
+          if (actualChatType === 'group') {
+            // For group chat, we need to reload via socket
+            if (groupId) {
+              socketService.emit(SOCKET_EVENTS.JOIN_GROUP, {
+                groupId,
+                userEmail,
+              });
             }
-          },
-        },
-      ]
-    );
+          } else {
+            // For private chat, clear messages and reload
+            if (contactEmail) {
+              // Clear messages immediately as fallback
+              // The socket event should handle this, but if it doesn't, this will
+              socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
+                userEmail,
+                contactEmail,
+              });
+            }
+          }
+        }, 2000);
+      } else {
+        console.error('❌ API call failed:', result);
+        // Could show error modal here if needed
+      }
+    } catch (error) {
+      console.error('❌ Error clearing chat:', error);
+      // Could show error modal here if needed
+    }
   };
 
   // Load message info
@@ -1505,6 +1580,18 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           Powered by onlygossips247
         </Text>
       </View>
+
+      {/* Clear Chat Confirmation Modal */}
+      <ConfirmationModal
+        visible={showClearChatModal}
+        title="Clear Chat"
+        message="Are you sure you want to clear all messages in this chat? This action cannot be undone."
+        confirmText="Clear"
+        cancelText="Cancel"
+        onConfirm={handleClearChatConfirm}
+        onCancel={handleClearChatCancel}
+        confirmButtonStyle="destructive"
+      />
     </KeyboardAvoidingView>
       </SafeAreaView>
   );
