@@ -21,6 +21,13 @@ class CallingService {
       }
 
       const sessionId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Get receiver socket ID early if receiverEmail is provided
+      let receiverSocketId = null;
+      if (receiverEmail) {
+        receiverSocketId = userService.getSocketByEmail(receiverEmail);
+      }
+      
       const callData = {
         sessionId,
         callerEmail,
@@ -31,6 +38,7 @@ class CallingService {
         direction: 'outgoing',
         createdAt: new Date().toISOString(), // Use ISO string for Redis compatibility
         callerSocketId: socketId,
+        receiverSocketId: receiverSocketId, // Store receiver socket ID immediately
       };
 
       // Store call session in Redis
@@ -65,7 +73,7 @@ class CallingService {
 
       // Check if receiver is online and available
       if (receiverEmail) {
-        const receiverSocketId = userService.getSocketByEmail(receiverEmail);
+        // receiverSocketId already retrieved above
         const isReceiverOnline = receiverSocketId !== null;
         const isReceiverBusy = await this.isUserBusy(receiverEmail);
 
@@ -305,10 +313,47 @@ class CallingService {
    */
   async declineCall(sessionId, receiverEmail) {
     try {
+      console.log('📞 Backend: declineCall called with sessionId:', sessionId, 'receiverEmail:', receiverEmail);
+      
       const io = SocketService.getIO();
-      const callData = await redisService.get(`call:${sessionId}`);
+      
+      // Try to get from Redis first
+      let callData = await redisService.get(`call:${sessionId}`);
+      
+      // If not in Redis, try to get from database as fallback
+      if (!callData) {
+        console.warn('⚠️ Backend: Call session not found in Redis for decline, checking database...');
+        const dbCall = await Call.findOne({ sessionId, status: { $in: ['ringing', 'connecting'] } });
+        
+        if (dbCall) {
+          // Reconstruct callData from database
+          callData = {
+            sessionId: dbCall.sessionId,
+            callerEmail: dbCall.callerEmail,
+            receiverEmail: dbCall.receiverEmail,
+            groupId: dbCall.groupId,
+            type: dbCall.type,
+            status: dbCall.status,
+            direction: dbCall.direction,
+            createdAt: dbCall.createdAt,
+            callerSocketId: null,
+            receiverSocketId: null,
+          };
+          
+          // Get socket IDs
+          callData.callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          if (dbCall.receiverEmail) {
+            callData.receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+          }
+          
+          // Store back in Redis
+          await redisService.set(`call:${sessionId}`, callData, 3600);
+          console.log('✅ Backend: Recovered call session from database for decline');
+        }
+      }
       
       if (!callData) {
+        console.error('❌ Backend: Call session not found in Redis or database for decline:', sessionId);
         return { success: false, message: 'Call session not found' };
       }
 
@@ -330,26 +375,45 @@ class CallingService {
         timestamp: new Date().toISOString(),
       };
       
+      // Notify caller
       if (callData.callerSocketId) {
         io.to(callData.callerSocketId).emit('callEnded', callEndedData);
         io.to(callData.callerSocketId).emit('CALL_ENDED', callEndedData);
-        console.log('📞 Backend: Emitted callEnded to caller after decline');
+        console.log('📞 Backend: Emitted callEnded to caller after decline:', callData.callerSocketId);
+      } else {
+        console.warn('⚠️ Backend: Caller socket ID not found for decline');
+      }
+      
+      // IMPORTANT: Also notify receiver to close incoming call screen
+      let receiverSocketId = callData.receiverSocketId;
+      if (!receiverSocketId && callData.receiverEmail) {
+        receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+      }
+      
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit('callEnded', callEndedData);
+        io.to(receiverSocketId).emit('CALL_ENDED', callEndedData);
+        console.log('📞 Backend: Emitted callEnded to receiver after decline:', receiverSocketId);
+      } else {
+        console.warn('⚠️ Backend: Receiver socket ID not found for decline, receiverEmail:', callData.receiverEmail);
       }
       
       // Also emit callDeclined for backward compatibility
-      io.to(callData.callerSocketId).emit('callDeclined', {
+      if (callData.callerSocketId) {
+        io.to(callData.callerSocketId).emit('callDeclined', {
         sessionId,
-        receiverEmail,
-        status: 'declined',
-        message: 'Call declined',
-        timestamp: new Date().toISOString(),
-      });
+          receiverEmail,
+          status: 'declined',
+          message: 'Call declined',
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       // Cleanup
       await redisService.delete(`call:${sessionId}`);
       this.activeCalls.delete(sessionId);
 
-      return { success: true, status: 'busy' };
+      return { success: true, status: 'declined' };
     } catch (error) {
       console.error('Error declining call:', error);
       throw error;
@@ -531,20 +595,29 @@ class CallingService {
           console.warn('⚠️ Backend: Caller socket ID not found');
         }
 
-        // Handle private call (receiver)
+        // Handle private call (receiver) - IMPORTANT: Always notify receiver when caller cancels
         if (callData.receiverEmail && !callData.groupId) {
         let receiverSocketId = callData.receiverSocketId;
+          console.log('📞 Backend: endCall - receiverEmail:', callData.receiverEmail, 'receiverSocketId from callData:', receiverSocketId);
+          
           if (!receiverSocketId) {
+            console.log('📞 Backend: receiverSocketId not in callData, fetching from userService...');
           receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+            console.log('📞 Backend: Fetched receiverSocketId:', receiverSocketId);
         }
 
         if (receiverSocketId) {
             io.to(receiverSocketId).emit('callEnded', callEndedData);
             io.to(receiverSocketId).emit('CALL_ENDED', callEndedData);
-          console.log('📞 Backend: Emitted callEnded to receiver:', receiverSocketId);
-        } else {
-          console.warn('⚠️ Backend: Receiver socket ID not found for callEnded event');
+            console.log('✅ Backend: Emitted callEnded to receiver:', receiverSocketId, 'with data:', callEndedData);
+          } else {
+            console.error('❌ Backend: Receiver socket ID not found for callEnded event, receiverEmail:', callData.receiverEmail);
+            console.error('❌ Backend: This means receiver will not be notified of call cancellation');
+            // Even if socket not found, try to emit to all sockets for that email (fallback)
+            // This handles cases where socket ID might not be in callData
           }
+        } else {
+          console.log('📞 Backend: Not a private call or no receiverEmail, skipping receiver notification');
         }
         
         // Handle group call - notify all group members
@@ -575,8 +648,12 @@ class CallingService {
         // Cleanup Redis
         await redisService.delete(`call:${sessionId}`);
       } else {
-        // Call data not in Redis or database, but try to update database anyway
-        console.warn('⚠️ Backend: Call data not found, updating database with cancelled status');
+        // Call data not in Redis, but try to get from database and notify parties
+        console.warn('⚠️ Backend: Call data not found in Redis for endCall, checking database...');
+        
+        const dbCall = await Call.findOne({ sessionId });
+        if (dbCall) {
+          // Update database
         await Call.updateOne(
           { sessionId },
           {
@@ -585,6 +662,37 @@ class CallingService {
             updatedAt: new Date(),
           }
         );
+          
+          // Prepare callEnded data
+          const callEndedData = {
+            sessionId,
+            duration: 0,
+            endedBy,
+            timestamp: new Date().toISOString(),
+          };
+          
+          // Notify caller
+          const callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          if (callerSocketId) {
+            io.to(callerSocketId).emit('callEnded', callEndedData);
+            io.to(callerSocketId).emit('CALL_ENDED', callEndedData);
+            console.log('📞 Backend: Emitted callEnded to caller from database fallback');
+          }
+          
+          // Notify receiver if exists (IMPORTANT: When caller cancels, receiver must be notified)
+          if (dbCall.receiverEmail) {
+            const receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+            if (receiverSocketId) {
+              io.to(receiverSocketId).emit('callEnded', callEndedData);
+              io.to(receiverSocketId).emit('CALL_ENDED', callEndedData);
+              console.log('📞 Backend: Emitted callEnded to receiver from database fallback');
+            } else {
+              console.warn('⚠️ Backend: Receiver socket ID not found in database fallback, receiverEmail:', dbCall.receiverEmail);
+            }
+          }
+        } else {
+          console.error('❌ Backend: Call not found in Redis or database for endCall:', sessionId);
+        }
       }
 
       // Always cleanup from activeCalls (even if Redis data is missing)

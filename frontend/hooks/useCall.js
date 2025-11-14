@@ -121,28 +121,49 @@ export const useCall = (userEmail) => {
   const handleCallEnded = useCallback((data) => {
     console.log('📞 useCall: Call ended event received:', data);
     const currentCallData = callDataRef.current;
+    const currentCallState = callState; // Capture current state
     
-    // Verify this is for the current call
-    if (currentCallData && data.sessionId && currentCallData.sessionId !== data.sessionId) {
-      console.warn('⚠️ useCall: callEnded received for different session:', {
-        currentSessionId: currentCallData.sessionId,
-        receivedSessionId: data.sessionId,
-      });
-      return;
+    console.log('📞 useCall: Current call state:', currentCallState);
+    console.log('📞 useCall: Current call data:', currentCallData);
+    
+    // If we're in a call state (ringing/active/connecting), always reset when callEnded is received
+    // This handles cases where caller cancels before receiver picks up
+    if (currentCallState === 'ringing' || currentCallState === 'active' || currentCallState === 'connecting') {
+      // Verify sessionId only if we have both
+      if (currentCallData && data.sessionId && currentCallData.sessionId !== data.sessionId) {
+        console.warn('⚠️ useCall: callEnded received for different session, but resetting anyway due to call state:', {
+          currentSessionId: currentCallData.sessionId,
+          receivedSessionId: data.sessionId,
+          currentState: currentCallState,
+        });
+        // Still reset if we're in ringing state - caller might have cancelled
+        if (currentCallState === 'ringing') {
+          console.log('📞 useCall: Resetting ringing call even with different sessionId (caller cancelled)');
+          resetCall();
+          return;
+        }
+        return;
+      }
+      
+      console.log('📞 useCall: Resetting call state due to callEnded event, currentState:', currentCallState);
+      resetCall();
+      
+      // Don't show alert if call was ended by current user (they already know)
+      // Only show alert if call was ended by the other party and call had duration
+      if (data.duration !== undefined && data.duration > 0 && data.endedBy !== userEmail) {
+        Alert.alert('Call Ended', `Call duration: ${formatDuration(data.duration)}`);
+      } else if (data.duration === 0 || !data.duration) {
+        // Call ended before being accepted, no need to show duration
+        console.log('📞 useCall: Call ended before acceptance');
+      }
+    } else if (currentCallData && data.sessionId && currentCallData.sessionId === data.sessionId) {
+      // SessionId matches, reset
+      console.log('📞 useCall: Resetting call - sessionId matches');
+      resetCall();
+    } else {
+      console.log('📞 useCall: Ignoring callEnded event - no matching call state or sessionId');
     }
-    
-    // Reset call state
-    resetCall();
-    
-    // Don't show alert if call was ended by current user (they already know)
-    // Only show alert if call was ended by the other party and call had duration
-    if (data.duration !== undefined && data.duration > 0 && data.endedBy !== userEmail) {
-      Alert.alert('Call Ended', `Call duration: ${formatDuration(data.duration)}`);
-    } else if (data.duration === 0 || !data.duration) {
-      // Call ended before being accepted, no need to show duration
-      console.log('📞 useCall: Call ended before acceptance');
-    }
-  }, [userEmail]);
+  }, [userEmail, callState]);
 
   const handleCallMissed = useCallback((data) => {
     resetCall();
