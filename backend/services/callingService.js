@@ -29,12 +29,27 @@ class CallingService {
         type, // 'audio' or 'video'
         status: 'ringing',
         direction: 'outgoing',
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(), // Use ISO string for Redis compatibility
         callerSocketId: socketId,
       };
 
       // Store call session in Redis
-      await redisService.set(`call:${sessionId}`, callData, 300); // 5 min TTL
+      const redisStored = await redisService.set(`call:${sessionId}`, callData, 300); // 5 min TTL
+      if (!redisStored) {
+        console.warn('⚠️ Backend: Failed to store call session in Redis');
+        console.warn('⚠️ Backend: Redis connected:', redisService.isConnected);
+        // Continue anyway - database will have the record
+      } else {
+        console.log('✅ Backend: Call session stored in Redis:', sessionId);
+      }
+      
+      // Verify it was stored (for debugging)
+      const verifyStored = await redisService.get(`call:${sessionId}`);
+      if (!verifyStored) {
+        console.warn('⚠️ Backend: Warning - Call session not found in Redis immediately after storing');
+      } else {
+        console.log('✅ Backend: Verified call session in Redis');
+      }
 
       // Create call record in database
       const call = new Call({
@@ -185,11 +200,52 @@ class CallingService {
   async acceptCall(sessionId, receiverEmail, socketId) {
     try {
       const io = SocketService.getIO();
-      const callData = await redisService.get(`call:${sessionId}`);
+      console.log('📞 Backend: acceptCall called with sessionId:', sessionId);
+      
+      // Try to get from Redis first
+      let callData = await redisService.get(`call:${sessionId}`);
+      
+      // If not in Redis, try to get from database as fallback
+      if (!callData) {
+        console.warn('⚠️ Backend: Call session not found in Redis, checking database...');
+        const Call = require('../models/Call');
+        const dbCall = await Call.findOne({ sessionId, status: { $in: ['ringing', 'connecting'] } });
+        
+        if (dbCall) {
+          // Reconstruct callData from database
+          callData = {
+            sessionId: dbCall.sessionId,
+            callerEmail: dbCall.callerEmail,
+            receiverEmail: dbCall.receiverEmail,
+            groupId: dbCall.groupId,
+            type: dbCall.type,
+            status: dbCall.status,
+            direction: dbCall.direction,
+            createdAt: dbCall.createdAt,
+            callerSocketId: null, // Will need to get from userService
+          };
+          
+          // Get caller socket ID
+          const userService = require('./userService');
+          callData.callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          
+          // Store back in Redis
+          await redisService.set(`call:${sessionId}`, callData, 3600);
+          console.log('✅ Backend: Recovered call session from database');
+        }
+      }
       
       if (!callData) {
+        console.error('❌ Backend: Call session not found in Redis or database:', sessionId);
         throw new Error('Call session not found');
       }
+      
+      console.log('✅ Backend: Call session found:', {
+        sessionId: callData.sessionId,
+        callerEmail: callData.callerEmail,
+        receiverEmail: callData.receiverEmail,
+        status: callData.status,
+      });
 
       // Clear ringing timeout
       const ringTimeout = this.callRingTimeouts.get(sessionId);

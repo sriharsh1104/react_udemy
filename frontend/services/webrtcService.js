@@ -32,15 +32,29 @@ class WebRTCService {
    */
   async requestPermissions(type = 'audio') {
     if (Platform.OS === 'web') {
-      // On web, permissions are requested automatically when calling getUserMedia
-      // But we can check if they're available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Media devices not supported in this browser');
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+        throw new Error('WebRTC is only available in browser environments. This may be a server-side rendering issue.');
       }
       
-      // Check HTTPS requirement
-      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      // Check HTTPS requirement first (common issue)
+      if (typeof location !== 'undefined' && location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
         throw new Error('WebRTC requires HTTPS connection. Please use HTTPS or localhost.');
+      }
+      
+      // Check for mediaDevices support
+      if (!navigator.mediaDevices) {
+        // Provide helpful error message based on what's missing
+        if (!navigator.getUserMedia && !navigator.webkitGetUserMedia && !navigator.mozGetUserMedia) {
+          throw new Error('Media devices not supported in this browser. Please use a modern browser like Chrome, Firefox, Safari, or Edge.');
+        } else {
+          throw new Error('Media devices API not available. Please use HTTPS or ensure your browser supports WebRTC.');
+        }
+      }
+      
+      // Check for getUserMedia method
+      if (!navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia not available. Please use a modern browser with WebRTC support.');
       }
       
       return true;
@@ -252,7 +266,11 @@ class WebRTCService {
    */
   async acceptCall(sessionId) {
     try {
+      console.log('📞 webrtcService: acceptCall called with sessionId:', sessionId);
+      console.log('📞 webrtcService: currentCall:', this.currentCall);
+      
       if (!this.currentCall || this.currentCall.sessionId !== sessionId) {
+        console.error('❌ webrtcService: Call not found or sessionId mismatch');
         throw new Error('Call not found');
       }
 
@@ -277,7 +295,13 @@ class WebRTCService {
       });
 
       // Emit accept call first
-      socketService.emit(SOCKET_EVENTS.ACCEPT_CALL, { sessionId });
+      console.log('📞 webrtcService: Emitting ACCEPT_CALL with sessionId:', sessionId);
+      const emitSuccess = socketService.emit(SOCKET_EVENTS.ACCEPT_CALL, { sessionId });
+      if (!emitSuccess) {
+        console.error('❌ webrtcService: Failed to emit ACCEPT_CALL event');
+        throw new Error('Failed to send accept call request');
+      }
+      console.log('✅ webrtcService: ACCEPT_CALL event emitted successfully');
       
       // Wait for offer from caller, then create answer
       // The answer will be sent in handleSignaling when offer is received
@@ -545,6 +569,7 @@ class WebRTCService {
     // Remove existing listeners to avoid duplicates
     socket.off(SOCKET_EVENTS.INCOMING_CALL);
     socket.off(SOCKET_EVENTS.CALL_ACCEPTED);
+    socket.off('callAccepted'); // Also remove lowercase version
     socket.off(SOCKET_EVENTS.CALL_DECLINED);
     socket.off(SOCKET_EVENTS.CALL_ENDED);
     socket.off(SOCKET_EVENTS.CALL_MISSED);
@@ -558,6 +583,13 @@ class WebRTCService {
     });
 
     socket.on(SOCKET_EVENTS.CALL_ACCEPTED, (data) => {
+      console.log('📞 webrtcService: CALL_ACCEPTED event received:', data);
+      this.notifyListeners('callAccepted', data);
+    });
+
+    // Also listen for lowercase event name (backend emits 'callAccepted')
+    socket.on('callAccepted', (data) => {
+      console.log('📞 webrtcService: callAccepted event received (lowercase):', data);
       this.notifyListeners('callAccepted', data);
     });
 

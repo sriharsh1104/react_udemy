@@ -788,11 +788,19 @@ class SocketService {
       const email = this.getEmailFromSocket(socket.id);
       
       if (!email) {
+        console.error('❌ Backend: handleAcceptCall - User not authenticated');
         socket.emit('callError', { message: 'User not authenticated' });
         return;
       }
 
       const { sessionId } = data;
+      if (!sessionId) {
+        console.error('❌ Backend: handleAcceptCall - No sessionId provided');
+        socket.emit('callError', { message: 'Session ID is required' });
+        return;
+      }
+      
+      console.log('📞 Backend: handleAcceptCall - sessionId:', sessionId, 'receiverEmail:', email);
       const result = await callingService.acceptCall(sessionId, email, socket.id);
       
       if (result.success) {
@@ -800,10 +808,18 @@ class SocketService {
           sessionId,
           status: result.status,
         });
+        console.log('✅ Backend: Call accepted successfully, emitted callAccepted to receiver');
+      } else {
+        console.error('❌ Backend: acceptCall returned success:false');
+        socket.emit('callError', { message: result.message || 'Failed to accept call' });
       }
     } catch (error) {
-      console.error('Error handling accept call:', error);
-      socket.emit('callError', { message: 'Failed to accept call' });
+      console.error('❌ Backend: Error handling accept call:', error);
+      console.error('Error stack:', error.stack);
+      socket.emit('callError', { 
+        message: error.message || 'Failed to accept call',
+        sessionId: data?.sessionId,
+      });
     }
   }
 
