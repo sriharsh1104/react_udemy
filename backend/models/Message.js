@@ -115,7 +115,7 @@ const MessageSchema = new mongoose.Schema({
       startedAt: Date,
       endedAt: Date,
     },
-    default: null,
+    // Optional field - no default or required needed
   },
 });
 

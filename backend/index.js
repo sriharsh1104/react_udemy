@@ -17,9 +17,25 @@ const server = http.createServer(app);
 connectDB();
 
 // Connect to Redis (non-blocking)
-redisService.connect().catch(err => {
-  console.warn('Redis connection failed, continuing without Redis:', err.message);
-});
+redisService.connect()
+  .then((connected) => {
+    if (connected) {
+      // Wait a bit to ensure connection is fully established
+      setTimeout(() => {
+        if (redisService.isReady()) {
+          console.log('✅ Redis: Connection established and ready for operations');
+        } else {
+          console.warn('⚠️ Redis: Connection attempted but not ready yet');
+        }
+      }, 1000);
+    } else {
+      console.warn('⚠️ Redis: Connection failed, continuing without Redis');
+    }
+  })
+  .catch(err => {
+    console.error('❌ Redis connection error:', err.message);
+    console.warn('⚠️ Continuing without Redis - using database fallback');
+  });
 
 // Middleware
 // CORS configuration - allow frontend URL from environment
@@ -162,6 +178,15 @@ server.listen(config.port, () => {
     baseUrl: process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${config.port}`,
   });
   console.log(`[${timestamp}] ✅ Socket.io server initialized and ready for connections`);
+  
+  // Check and display Redis connection status
+  setTimeout(() => {
+    if (redisService.isReady()) {
+      console.log(`[${timestamp}] ✅ Redis: Connected and ready (Status: ${redisService.isConnected ? 'CONNECTED' : 'NOT CONNECTED'})`);
+    } else {
+      console.log(`[${timestamp}] ⚠️ Redis: Not connected - using database fallback`);
+    }
+  }, 1500);
 });
 
 module.exports = { app, server };

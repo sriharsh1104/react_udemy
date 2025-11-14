@@ -1,5 +1,6 @@
 const { HTTP_STATUS } = require('../constants');
 const userService = require('../services/userService');
+const redisService = require('../services/redisService');
 const mongoose = require('mongoose');
 
 const getHealth = (req, res) => {
@@ -14,6 +15,13 @@ const getHealth = (req, res) => {
   
   const socketStats = userService.getMemoryStats();
   
+  // Check Redis status
+  const redisStatus = {
+    connected: redisService.isReady(),
+    status: redisService.isReady() ? 'connected' : 'disconnected',
+    url: process.env.REDIS_URL ? process.env.REDIS_URL.replace(/:[^:@]+@/, ':****@') : 'redis://localhost:6379',
+  };
+  
   res.status(HTTP_STATUS.OK).json({ 
     success: true,
     status: HTTP_STATUS.OK,
@@ -25,6 +33,7 @@ const getHealth = (req, res) => {
       host: mongoose.connection.host || 'N/A',
       name: mongoose.connection.name || 'N/A',
     },
+    redis: redisStatus,
     memory: {
       heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`,
       heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
