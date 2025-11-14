@@ -32,8 +32,12 @@ import StatusFeed from '../components/chat/StatusFeed';
 import Status from '../components/chat/Status';
 import CallHistory from '../components/call/CallHistory';
 import CallHistoryTab from '../components/call/CallHistoryTab';
+import IncomingCallScreen from '../components/call/IncomingCallScreen';
+import ActiveCallScreen from '../components/call/ActiveCallScreen';
+import PermissionPrompt from '../components/call/PermissionPrompt';
 import contactsService from '../services/contactsService';
 import webrtcService from '../services/webrtcService';
+import { useCall } from '../hooks/useCall';
 import groupService from '../services/groupService';
 import fileUploadService from '../services/fileUploadService';
 import settingsService from '../services/settingsService';
@@ -91,6 +95,29 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket(userEmail);
+  
+  // Call management
+  const {
+    callState,
+    callData,
+    localStream,
+    remoteStream,
+    isMuted,
+    isSpeakerOn,
+    isVideoOn,
+    callDuration,
+    initiateCall: initiateCallHook,
+    acceptCall,
+    declineCall,
+    endCall,
+    toggleMute,
+    toggleSpeaker,
+    toggleVideo,
+    showPermissionPrompt,
+    permissionDeviceType,
+    handlePermissionRetry,
+    handlePermissionCancel,
+  } = useCall(userEmail);
   
   // Calculate actual online status (online only if connected AND not in offline mode)
   const actualOnlineStatus = isConnected && !offlineMode;
@@ -1270,9 +1297,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const handleAudioCall = async () => {
     try {
       if (chatType === 'group' && groupId) {
-        await webrtcService.initiateCall(null, groupId, 'audio');
+        await initiateCallHook(null, groupId, 'audio');
       } else if (contactEmail) {
-        await webrtcService.initiateCall(contactEmail, null, 'audio');
+        await initiateCallHook(contactEmail, null, 'audio');
       }
     } catch (error) {
       console.error('Error initiating audio call:', error);
@@ -1283,9 +1310,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const handleVideoCall = async () => {
     try {
       if (chatType === 'group' && groupId) {
-        await webrtcService.initiateCall(null, groupId, 'video');
+        await initiateCallHook(null, groupId, 'video');
       } else if (contactEmail) {
-        await webrtcService.initiateCall(contactEmail, null, 'video');
+        await initiateCallHook(contactEmail, null, 'video');
       }
     } catch (error) {
       console.error('Error initiating video call:', error);
@@ -1301,9 +1328,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     try {
       setShowCallHistory(false);
       if (targetGroupId) {
-        await webrtcService.initiateCall(null, targetGroupId, type);
+        await initiateCallHook(null, targetGroupId, type);
       } else if (targetEmail) {
-        await webrtcService.initiateCall(targetEmail, null, type);
+        await initiateCallHook(targetEmail, null, type);
       }
     } catch (error) {
       console.error('Error calling from history:', error);
@@ -1740,6 +1767,45 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         groupId={groupId}
         isGroup={chatType === 'group'}
         onCallPress={handleCallFromHistory}
+      />
+
+      {/* Incoming/Outgoing Call Screen */}
+      <IncomingCallScreen
+        visible={callState === 'ringing'}
+        callerName={callData?.direction === 'incoming' ? contactName : null}
+        callerEmail={callData?.callerEmail}
+        callType={callData?.type || 'audio'}
+        isOutgoing={callData?.direction === 'outgoing'}
+        receiverName={callData?.direction === 'outgoing' ? contactName : null}
+        receiverEmail={callData?.receiverEmail || contactEmail}
+        onAccept={acceptCall}
+        onDecline={declineCall}
+      />
+
+      {/* Active Call Screen */}
+      <ActiveCallScreen
+        visible={callState === 'active' || callState === 'connecting'}
+        participantName={contactName}
+        participantEmail={callData?.direction === 'outgoing' ? callData?.receiverEmail : callData?.callerEmail || contactEmail}
+        callType={callData?.type || 'audio'}
+        duration={callDuration}
+        localStream={localStream}
+        remoteStream={remoteStream}
+        onEndCall={endCall}
+        onToggleMute={toggleMute}
+        onToggleSpeaker={toggleSpeaker}
+        onToggleVideo={toggleVideo}
+        isMuted={isMuted}
+        isSpeakerOn={isSpeakerOn}
+        isVideoOn={isVideoOn}
+      />
+
+      {/* Permission Prompt */}
+      <PermissionPrompt
+        visible={showPermissionPrompt}
+        deviceType={permissionDeviceType}
+        onRetry={handlePermissionRetry}
+        onCancel={handlePermissionCancel}
       />
     </KeyboardAvoidingView>
       </SafeAreaView>

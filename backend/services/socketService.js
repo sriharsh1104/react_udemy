@@ -748,21 +748,37 @@ class SocketService {
         socket.id
       );
 
+      // Always emit response to caller (even if failed, so frontend knows)
       if (result.success) {
+        // Emit to caller socket
         socket.emit('callInitiated', {
+          sessionId: result.sessionId,
+          status: result.status,
+        });
+        // Also emit using constant name for consistency
+        socket.emit('CALL_INITIATED', {
           sessionId: result.sessionId,
           status: result.status,
         });
       } else {
         socket.emit('callFailed', {
-          sessionId: result.sessionId,
+          sessionId: result.sessionId || null,
           status: result.status,
           message: result.message,
+          reason: result.message,
+        });
+        // Also emit using constant name
+        socket.emit('CALL_FAILED', {
+          sessionId: result.sessionId || null,
+          status: result.status,
+          message: result.message,
+          reason: result.message,
         });
       }
     } catch (error) {
       console.error('Error handling initiate call:', error);
-      socket.emit('callError', { message: 'Failed to initiate call' });
+      socket.emit('callError', { message: error.message || 'Failed to initiate call' });
+      socket.emit('CALL_ERROR', { message: error.message || 'Failed to initiate call' });
     }
   }
 
@@ -813,13 +829,34 @@ class SocketService {
       const email = this.getEmailFromSocket(socket.id);
       
       if (!email) {
+        console.warn('End call: User not authenticated');
         return;
       }
 
       const { sessionId } = data;
-      await callingService.endCall(sessionId, email);
+      if (!sessionId) {
+        console.warn('End call: No sessionId provided');
+        return;
+      }
+
+      const result = await callingService.endCall(sessionId, email);
+      
+      if (result.success) {
+        // Confirm to caller that call was ended
+        socket.emit('callEnded', {
+          sessionId,
+          duration: result.duration || 0,
+          endedBy: email,
+          timestamp: new Date().toISOString(),
+        });
+      }
     } catch (error) {
       console.error('Error handling end call:', error);
+      // Still try to notify frontend
+      socket.emit('callError', { 
+        message: 'Error ending call',
+        sessionId: data?.sessionId 
+      });
     }
   }
 

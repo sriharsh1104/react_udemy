@@ -114,7 +114,12 @@ class CallController {
       const { callId } = req.params;
       const { status, duration, startedAt, endedAt } = req.body;
 
-      const call = await Call.findById(callId);
+      // callId can be MongoDB _id or sessionId
+      let call = await Call.findById(callId);
+      if (!call) {
+        // Try finding by sessionId
+        call = await Call.findOne({ sessionId: callId });
+      }
       if (!call) {
         return sendError(res, HTTP_STATUS.NOT_FOUND, 'Call not found');
       }

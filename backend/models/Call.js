@@ -88,6 +88,7 @@ CallSchema.index({ receiverEmail: 1, createdAt: -1 });
 CallSchema.index({ groupId: 1, createdAt: -1 });
 CallSchema.index({ status: 1 });
 CallSchema.index({ createdAt: -1 });
+CallSchema.index({ sessionId: 1 }); // Index for sessionId lookups
 
 module.exports = mongoose.model('Call', CallSchema);
 

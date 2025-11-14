@@ -1,6 +1,7 @@
 import socketService from './socketService';
 import { SOCKET_EVENTS } from '../constants';
 import callService from './callService';
+import { Platform, Alert } from 'react-native';
 
 class WebRTCService {
   constructor() {
@@ -11,17 +12,113 @@ class WebRTCService {
   }
 
   /**
+   * Check permission status (web only)
+   */
+  async checkPermissionStatus(permissionName) {
+    if (Platform.OS === 'web' && navigator.permissions) {
+      try {
+        const result = await navigator.permissions.query({ name: permissionName });
+        return result.state; // 'granted', 'denied', or 'prompt'
+      } catch (error) {
+        // Permissions API might not support this permission name
+        return 'prompt';
+      }
+    }
+    return 'prompt';
+  }
+
+  /**
+   * Request permissions for microphone/camera
+   */
+  async requestPermissions(type = 'audio') {
+    if (Platform.OS === 'web') {
+      // On web, permissions are requested automatically when calling getUserMedia
+      // But we can check if they're available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Media devices not supported in this browser');
+      }
+      
+      // Check HTTPS requirement
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        throw new Error('WebRTC requires HTTPS connection. Please use HTTPS or localhost.');
+      }
+      
+      return true;
+    } else {
+      // For React Native, we would use expo-av or react-native-permissions
+      // For now, we'll handle it in the getUserMedia call
+      return true;
+    }
+  }
+
+  /**
+   * Get user media with proper error handling and retry mechanism
+   * Supports both web and mobile (with proper native modules)
+   */
+  async getUserMedia(constraints, retryCount = 0) {
+    try {
+      if (Platform.OS === 'web') {
+        // Web platform - use browser WebRTC API
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Media devices not supported in this browser. Please use a modern browser like Chrome, Firefox, or Safari.');
+        }
+        
+        // Try to get user media
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        return stream;
+      } else {
+        // Mobile platform (iOS/Android)
+        // For React Native, we need react-native-webrtc or expo-av
+        // Check if react-native-webrtc is available
+        try {
+          // Try to use react-native-webrtc if available
+          const { mediaDevices } = require('react-native-webrtc');
+          if (mediaDevices && mediaDevices.getUserMedia) {
+            return await mediaDevices.getUserMedia(constraints);
+          }
+        } catch (rnError) {
+          // react-native-webrtc not available
+          console.warn('react-native-webrtc not found, WebRTC calls may not work on mobile');
+        }
+        
+        // Fallback: Show helpful error
+        throw new Error('WebRTC calls require react-native-webrtc package for mobile. Please install it: npm install react-native-webrtc');
+      }
+    } catch (error) {
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        // Provide detailed instructions
+        const deviceType = constraints.video ? 'camera' : 'microphone';
+        const instructions = Platform.OS === 'web' 
+          ? `\n\nTo enable ${deviceType} access:\n1. Click the lock icon (🔒) in your browser's address bar\n2. Find "${deviceType}" in the permissions list\n3. Change it to "Allow"\n4. Refresh the page and try again.`
+          : '';
+        throw new Error(`Microphone/Camera permission denied.${instructions}`);
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        throw new Error('No microphone/camera found. Please connect a microphone/camera and try again.');
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        throw new Error('Microphone/Camera is already in use by another application. Please close other apps using the microphone/camera.');
+      } else if (error.name === 'OverconstrainedError') {
+        throw new Error('Requested media constraints cannot be satisfied. Please check your device settings.');
+      } else {
+        throw new Error(error.message || 'Failed to access microphone/camera');
+      }
+    }
+  }
+
+  /**
    * Initialize call - create peer connection and get user media
    */
   async initiateCall(receiverEmail, groupId, type = 'audio') {
     try {
+      // Request permissions first
+      await this.requestPermissions(type);
+
       // Get user media
       const constraints = {
         audio: true,
         video: type === 'video',
       };
 
-      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.localStream = await this.getUserMedia(constraints);
       
       // Create call record
       const callData = {
@@ -33,10 +130,61 @@ class WebRTCService {
       // Emit initiate call event
       socketService.emit(SOCKET_EVENTS.INITIATE_CALL, callData);
 
-      return {
-        success: true,
-        localStream: this.localStream,
-      };
+      // Wait for call initiated response to get sessionId
+      return new Promise((resolve, reject) => {
+        const socket = socketService.getSocket();
+        if (!socket || !socket.connected) {
+          reject(new Error('Socket not connected. Please check your connection.'));
+          return;
+        }
+
+        let timeout;
+        let resolved = false;
+
+        const cleanup = () => {
+          if (timeout) clearTimeout(timeout);
+          // Remove all possible event listeners
+          socket.off(SOCKET_EVENTS.CALL_INITIATED, onCallInitiated);
+          socket.off('callInitiated', onCallInitiated);
+          socket.off(SOCKET_EVENTS.CALL_FAILED, onCallFailed);
+          socket.off('callFailed', onCallFailed);
+        };
+
+        const onCallInitiated = (data) => {
+          if (resolved) return;
+          resolved = true;
+          cleanup();
+          
+          resolve({
+            success: true,
+            sessionId: data.sessionId,
+            localStream: this.localStream,
+            status: data.status,
+          });
+        };
+
+        const onCallFailed = (data) => {
+          if (resolved) return;
+          resolved = true;
+          cleanup();
+          
+          reject(new Error(data.message || data.reason || 'Call failed'));
+        };
+
+        // Set up timeout
+        timeout = setTimeout(() => {
+          if (resolved) return;
+          resolved = true;
+          cleanup();
+          reject(new Error('Call initiation timeout. The server did not respond. Please try again.'));
+        }, 15000); // 15 seconds timeout
+
+        // Listen to both event name formats (backend uses 'callInitiated', frontend constant is 'CALL_INITIATED')
+        socket.on(SOCKET_EVENTS.CALL_INITIATED, onCallInitiated);
+        socket.on('callInitiated', onCallInitiated); // Backend emits this
+        socket.on(SOCKET_EVENTS.CALL_FAILED, onCallFailed);
+        socket.on('callFailed', onCallFailed); // Backend emits this
+      });
     } catch (error) {
       console.error('Error initiating call:', error);
       throw error;
@@ -78,13 +226,16 @@ class WebRTCService {
         throw new Error('Call not found');
       }
 
+      // Request permissions first
+      await this.requestPermissions(this.currentCall.type);
+
       // Get user media
       const constraints = {
         audio: true,
         video: this.currentCall.type === 'video',
       };
 
-      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.localStream = await this.getUserMedia(constraints);
 
       // Create peer connection
       const peerConnection = this.createPeerConnection(sessionId);
@@ -143,33 +294,65 @@ class WebRTCService {
    */
   async endCall(sessionId) {
     try {
+      // Emit end call to backend first (so it can cleanup)
+      if (sessionId) {
+        socketService.emit(SOCKET_EVENTS.END_CALL, { sessionId });
+      }
+
       // Stop local stream
       if (this.localStream) {
-        this.localStream.getTracks().forEach(track => track.stop());
+        this.localStream.getTracks().forEach(track => {
+          track.stop();
+          track.enabled = false;
+        });
         this.localStream = null;
       }
 
-      // Close peer connection
+      // Close all peer connections for this session
       const peerConnection = this.peerConnections.get(sessionId);
       if (peerConnection) {
-        peerConnection.close();
+        try {
+          peerConnection.close();
+        } catch (pcError) {
+          console.warn('Error closing peer connection:', pcError);
+        }
         this.peerConnections.delete(sessionId);
       }
 
-      // Emit end call
-      socketService.emit(SOCKET_EVENTS.END_CALL, { sessionId });
+      // Close all peer connections if sessionId not provided (cleanup all)
+      if (!sessionId) {
+        this.peerConnections.forEach((pc, sid) => {
+          try {
+            pc.close();
+          } catch (pcError) {
+            console.warn('Error closing peer connection:', pcError);
+          }
+        });
+        this.peerConnections.clear();
+      }
 
+      // Clear current call
       this.currentCall = null;
+
+      // Notify listeners
+      this.notifyListeners('callEnded', { sessionId });
 
       return { success: true };
     } catch (error) {
       console.error('Error ending call:', error);
+      // Still try to cleanup
+      this.localStream = null;
+      this.currentCall = null;
+      if (sessionId) {
+        this.peerConnections.delete(sessionId);
+      }
       throw error;
     }
   }
 
   /**
    * Create peer connection
+   * Supports both web and mobile platforms
    */
   createPeerConnection(sessionId) {
     const configuration = {
@@ -179,7 +362,22 @@ class WebRTCService {
       ],
     };
 
-    const peerConnection = new RTCPeerConnection(configuration);
+    let RTCPeerConnectionClass;
+    
+    if (Platform.OS === 'web') {
+      // Web platform - use browser WebRTC API
+      RTCPeerConnectionClass = RTCPeerConnection;
+    } else {
+      // Mobile platform - try to use react-native-webrtc
+      try {
+        const { RTCPeerConnection: RTC } = require('react-native-webrtc');
+        RTCPeerConnectionClass = RTC;
+      } catch (error) {
+        throw new Error('RTCPeerConnection not available. Please install react-native-webrtc for mobile support.');
+      }
+    }
+
+    const peerConnection = new RTCPeerConnectionClass(configuration);
 
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {

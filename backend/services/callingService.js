@@ -102,6 +102,14 @@ class CallingService {
           ...callData,
           receiverSocketId,
         });
+
+        // Return success immediately - caller should get sessionId
+        return {
+          success: true,
+          status: 'ringing',
+          sessionId,
+          message: 'Call initiated',
+        };
       } else if (groupId) {
         // Group call logic
         const Group = require('../models/Group');
@@ -148,8 +156,17 @@ class CallingService {
           await this.handleCallTimeout(sessionId);
         }, 30000);
         this.callRingTimeouts.set(sessionId, ringTimeout);
+
+        // Return success for group call
+        return {
+          success: true,
+          status: 'ringing',
+          sessionId,
+          message: 'Call initiated',
+        };
       }
 
+      // Fallback return (should not reach here)
       return {
         success: true,
         status: 'ringing',
@@ -352,56 +369,89 @@ class CallingService {
   async endCall(sessionId, endedBy) {
     try {
       const callData = await redisService.get(`call:${sessionId}`);
-      if (!callData) {
-        return { success: false, message: 'Call not found' };
-      }
-
+      
       const io = SocketService.getIO();
-      const startedAt = callData.startedAt || new Date();
-      const duration = Math.floor((new Date() - startedAt) / 1000);
+      let duration = 0;
+      let status = 'cancelled';
 
-      // Update database
-      await Call.updateOne(
-        { sessionId },
-        {
-          status: 'completed',
-          duration,
-          endedAt: new Date(),
+      if (callData) {
+        // Calculate duration if call was started
+        if (callData.startedAt) {
+          duration = Math.floor((new Date() - callData.startedAt) / 1000);
+          status = duration > 0 ? 'completed' : 'cancelled';
+        } else {
+          // Call was ended before being accepted
+          status = 'cancelled';
         }
-      );
 
-      // Notify both parties
-      if (callData.callerSocketId) {
-        io.to(callData.callerSocketId).emit('callEnded', {
-          sessionId,
-          duration,
-          endedBy,
-          timestamp: new Date().toISOString(),
-        });
+        // Update database
+        await Call.updateOne(
+          { sessionId },
+          {
+            status,
+            duration,
+            endedAt: new Date(),
+            updatedAt: new Date(),
+          }
+        );
+
+        // Notify both parties
+        if (callData.callerSocketId) {
+          io.to(callData.callerSocketId).emit('callEnded', {
+            sessionId,
+            duration,
+            endedBy,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (callData.receiverSocketId) {
+          io.to(callData.receiverSocketId).emit('callEnded', {
+            sessionId,
+            duration,
+            endedBy,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        // Cleanup Redis
+        await redisService.delete(`call:${sessionId}`);
+      } else {
+        // Call data not in Redis, but try to update database anyway
+        await Call.updateOne(
+          { sessionId },
+          {
+            status: 'cancelled',
+            endedAt: new Date(),
+            updatedAt: new Date(),
+          }
+        );
       }
 
-      if (callData.receiverSocketId) {
-        io.to(callData.receiverSocketId).emit('callEnded', {
-          sessionId,
-          duration,
-          endedBy,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // Cleanup
-      await redisService.delete(`call:${sessionId}`);
+      // Always cleanup from activeCalls (even if Redis data is missing)
       this.activeCalls.delete(sessionId);
       
+      // Clear any timeouts
       const ringTimeout = this.callRingTimeouts.get(sessionId);
       if (ringTimeout) {
         clearTimeout(ringTimeout);
         this.callRingTimeouts.delete(sessionId);
       }
 
-      return { success: true, duration };
+      // Also clear any call timeouts
+      const callTimeout = this.callTimeouts.get(sessionId);
+      if (callTimeout) {
+        clearTimeout(callTimeout);
+        this.callTimeouts.delete(sessionId);
+      }
+
+      return { success: true, duration, status };
     } catch (error) {
       console.error('Error ending call:', error);
+      // Even if there's an error, try to cleanup
+      this.activeCalls.delete(sessionId);
+      this.callRingTimeouts.delete(sessionId);
+      this.callTimeouts.delete(sessionId);
       throw error;
     }
   }
@@ -458,15 +508,42 @@ class CallingService {
 
   /**
    * Get active call keys for a user
+   * Checks both in-memory activeCalls and Redis
+   * Only returns calls that are actually active (not ended/completed)
    */
   async getActiveCallKeysForUser(email) {
-    // This is a simplified version - in production, use Redis SCAN
     const activeKeys = [];
+    const staleKeys = [];
+    
+    // Check in-memory active calls
     for (const [sessionId, callData] of this.activeCalls.entries()) {
-      if (callData.callerEmail === email || callData.receiverEmail === email) {
-        activeKeys.push(sessionId);
+      if (callData && (callData.callerEmail === email || callData.receiverEmail === email)) {
+        // Verify call is still active in Redis
+        try {
+          const redisData = await redisService.get(`call:${sessionId}`);
+          if (redisData && 
+              redisData.status !== 'completed' && 
+              redisData.status !== 'cancelled' && 
+              redisData.status !== 'ended' &&
+              redisData.status !== 'declined' &&
+              redisData.status !== 'missed') {
+            activeKeys.push(sessionId);
+          } else {
+            // Call is no longer active, mark for cleanup
+            staleKeys.push(sessionId);
+          }
+        } catch (error) {
+          // If Redis check fails, assume call is still active (conservative approach)
+          activeKeys.push(sessionId);
+        }
       }
     }
+    
+    // Cleanup stale entries
+    staleKeys.forEach(sessionId => {
+      this.activeCalls.delete(sessionId);
+    });
+    
     return activeKeys;
   }
 
