@@ -104,9 +104,18 @@ export const useCall = (userEmail) => {
   }, []);
 
   const handleCallDeclined = useCallback((data) => {
-    resetCall();
-    const message = data.status === 'busy' ? 'User is busy' : 'The call was declined';
-    Alert.alert('Call Ended', message);
+    // When call is declined, backend will also emit callEnded
+    // So we just reset - handleCallEnded will handle the UI update
+    console.log('📞 useCall: Call declined event received:', data);
+    // Don't reset here - wait for callEnded event for proper sync
+    // But if callEnded doesn't come, reset after a short delay
+    setTimeout(() => {
+      const stillActive = callDataRef.current;
+      if (stillActive && stillActive.sessionId === data.sessionId) {
+        console.log('📞 useCall: Call still active after decline, resetting');
+        resetCall();
+      }
+    }, 500);
   }, []);
 
   const handleCallEnded = useCallback((data) => {
@@ -360,7 +369,7 @@ export const useCall = (userEmail) => {
         const stillActive = callDataRef.current;
         if (stillActive && stillActive.sessionId) {
           console.warn('⚠️ useCall: Call still active after error, forcing reset');
-          resetCall();
+      resetCall();
         }
       }, 1000);
     }

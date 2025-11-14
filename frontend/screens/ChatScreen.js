@@ -1641,6 +1641,50 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             </Text>
           </View>
         </KeyboardAvoidingView>
+        
+        {/* Incoming/Outgoing Call Screen - Rendered outside KeyboardAvoidingView to ensure it's always on top */}
+        {(() => {
+          const isOutgoing = callData?.direction === 'outgoing';
+          // For incoming calls, use callerEmail to get name
+          const incomingCallerName = callData?.direction === 'incoming' 
+            ? (callData?.callerEmail?.split('@')[0] || 'Unknown')
+            : null;
+          const outgoingReceiverName = callData?.direction === 'outgoing'
+            ? (callData?.receiverEmail?.split('@')[0] || 'Unknown')
+            : null;
+          
+          return (
+            <>
+              <IncomingCallScreen
+                visible={callState === 'ringing'}
+                callerName={incomingCallerName}
+                callerEmail={callData?.callerEmail}
+                callType={callData?.type || 'audio'}
+                isOutgoing={isOutgoing}
+                receiverName={outgoingReceiverName}
+                receiverEmail={callData?.receiverEmail}
+                onAccept={acceptCall}
+                onDecline={declineCall}
+              />
+              <ActiveCallScreen
+                visible={callState === 'active' || callState === 'connecting'}
+                participantName={callData?.direction === 'outgoing' ? (callData?.receiverEmail?.split('@')[0]) : (callData?.callerEmail?.split('@')[0])}
+                participantEmail={callData?.direction === 'outgoing' ? callData?.receiverEmail : callData?.callerEmail}
+                callType={callData?.type || 'audio'}
+                duration={callDuration}
+                localStream={localStream}
+                remoteStream={remoteStream}
+                onEndCall={endCall}
+                onToggleMute={toggleMute}
+                onToggleSpeaker={toggleSpeaker}
+                onToggleVideo={toggleVideo}
+                isMuted={isMuted}
+                isSpeakerOn={isSpeakerOn}
+                isVideoOn={isVideoOn}
+              />
+            </>
+          );
+        })()}
       </SafeAreaView>
     );
   }
@@ -1769,56 +1813,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onCallPress={handleCallFromHistory}
       />
 
-      {/* Incoming/Outgoing Call Screen */}
-      {(() => {
-        const isOutgoing = callData?.direction === 'outgoing';
-        console.log('🎨 ChatScreen: Rendering IncomingCallScreen', {
-          visible: callState === 'ringing',
-          callState,
-          callData,
-          isOutgoing,
-          direction: callData?.direction,
-        });
-        // For incoming calls, use callerEmail to get name if contactName is not available
-        const incomingCallerName = callData?.direction === 'incoming' 
-          ? (contactName || callData?.callerEmail?.split('@')[0] || 'Unknown')
-          : null;
-        const outgoingReceiverName = callData?.direction === 'outgoing'
-          ? (contactName || callData?.receiverEmail?.split('@')[0] || 'Unknown')
-          : null;
-        
-        return (
-          <IncomingCallScreen
-            visible={callState === 'ringing'}
-            callerName={incomingCallerName}
-            callerEmail={callData?.callerEmail}
-            callType={callData?.type || 'audio'}
-            isOutgoing={isOutgoing}
-            receiverName={outgoingReceiverName}
-            receiverEmail={callData?.receiverEmail || contactEmail}
-            onAccept={acceptCall}
-            onDecline={declineCall}
-          />
-        );
-      })()}
-
-      {/* Active Call Screen */}
-      <ActiveCallScreen
-        visible={callState === 'active' || callState === 'connecting'}
-        participantName={contactName}
-        participantEmail={callData?.direction === 'outgoing' ? callData?.receiverEmail : callData?.callerEmail || contactEmail}
-        callType={callData?.type || 'audio'}
-        duration={callDuration}
-        localStream={localStream}
-        remoteStream={remoteStream}
-        onEndCall={endCall}
-        onToggleMute={toggleMute}
-        onToggleSpeaker={toggleSpeaker}
-        onToggleVideo={toggleVideo}
-        isMuted={isMuted}
-        isSpeakerOn={isSpeakerOn}
-        isVideoOn={isVideoOn}
-      />
 
       {/* Permission Prompt */}
       <PermissionPrompt
@@ -1828,6 +1822,50 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onCancel={handlePermissionCancel}
       />
     </KeyboardAvoidingView>
+    
+    {/* Incoming/Outgoing Call Screen - Rendered outside KeyboardAvoidingView to ensure it's always on top */}
+    {(() => {
+      const isOutgoing = callData?.direction === 'outgoing';
+      // For incoming calls, use callerEmail to get name if contactName is not available
+      const incomingCallerName = callData?.direction === 'incoming' 
+        ? (contactName || callData?.callerEmail?.split('@')[0] || 'Unknown')
+        : null;
+      const outgoingReceiverName = callData?.direction === 'outgoing'
+        ? (contactName || callData?.receiverEmail?.split('@')[0] || 'Unknown')
+        : null;
+      
+      return (
+        <IncomingCallScreen
+          visible={callState === 'ringing'}
+          callerName={incomingCallerName}
+          callerEmail={callData?.callerEmail}
+          callType={callData?.type || 'audio'}
+          isOutgoing={isOutgoing}
+          receiverName={outgoingReceiverName}
+          receiverEmail={callData?.receiverEmail || contactEmail}
+          onAccept={acceptCall}
+          onDecline={declineCall}
+        />
+      );
+    })()}
+
+    {/* Active Call Screen - Rendered outside KeyboardAvoidingView to ensure it's always on top */}
+    <ActiveCallScreen
+      visible={callState === 'active' || callState === 'connecting'}
+      participantName={contactName}
+      participantEmail={callData?.direction === 'outgoing' ? callData?.receiverEmail : callData?.callerEmail || contactEmail}
+      callType={callData?.type || 'audio'}
+      duration={callDuration}
+      localStream={localStream}
+      remoteStream={remoteStream}
+      onEndCall={endCall}
+      onToggleMute={toggleMute}
+      onToggleSpeaker={toggleSpeaker}
+      onToggleVideo={toggleVideo}
+      isMuted={isMuted}
+      isSpeakerOn={isSpeakerOn}
+      isVideoOn={isVideoOn}
+    />
       </SafeAreaView>
   );
 };

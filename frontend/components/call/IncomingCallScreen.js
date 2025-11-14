@@ -60,6 +60,9 @@ const IncomingCallScreen = ({
       animationType="fade"
       onRequestClose={onDecline}
       statusBarTranslucent={true}
+      presentationStyle="overFullScreen"
+      style={{ zIndex: 9999 }}
+      hardwareAccelerated={true}
     >
       <View style={styles.container}>
         <StatusBar barStyle="light-content" />
@@ -147,6 +150,8 @@ const IncomingCallScreen = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    zIndex: 9999,
+    elevation: 9999, // Android
     backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',

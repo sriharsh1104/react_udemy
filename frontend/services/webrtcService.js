@@ -340,7 +340,7 @@ class WebRTCService {
   cleanupCallResources(sessionId) {
     try {
       console.log('🧹 webrtcService: Cleaning up call resources for session:', sessionId);
-      
+
       // Stop local stream
       if (this.localStream) {
         this.localStream.getTracks().forEach(track => {
@@ -352,15 +352,15 @@ class WebRTCService {
 
       // Close peer connection for this session
       if (sessionId) {
-        const peerConnection = this.peerConnections.get(sessionId);
-        if (peerConnection) {
-          try {
-            peerConnection.close();
-          } catch (pcError) {
-            console.warn('Error closing peer connection:', pcError);
-          }
-          this.peerConnections.delete(sessionId);
+      const peerConnection = this.peerConnections.get(sessionId);
+      if (peerConnection) {
+        try {
+          peerConnection.close();
+        } catch (pcError) {
+          console.warn('Error closing peer connection:', pcError);
         }
+        this.peerConnections.delete(sessionId);
+      }
       } else {
         // Close all peer connections if sessionId not provided
         this.peerConnections.forEach((pc, sid) => {
@@ -375,7 +375,7 @@ class WebRTCService {
 
       // Clear current call
       this.currentCall = null;
-      
+
       console.log('✅ webrtcService: Call resources cleaned up');
     } catch (error) {
       console.error('Error cleaning up call resources:', error);

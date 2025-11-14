@@ -319,24 +319,30 @@ class CallingService {
         this.callRingTimeouts.delete(sessionId);
       }
 
-      // Update status to 'busy' (as per user requirement: receiver decline = busy for caller)
-      await this.updateCallStatus(sessionId, 'busy');
+      // Update status to 'declined'
+      await this.updateCallStatus(sessionId, 'declined');
 
-      // Notify caller with 'busy' status
+      // Notify caller that call was declined - emit callEnded to end call on caller side
+      const callEndedData = {
+        sessionId,
+        duration: 0,
+        endedBy: receiverEmail,
+        timestamp: new Date().toISOString(),
+      };
+      
+      if (callData.callerSocketId) {
+        io.to(callData.callerSocketId).emit('callEnded', callEndedData);
+        io.to(callData.callerSocketId).emit('CALL_ENDED', callEndedData);
+        console.log('📞 Backend: Emitted callEnded to caller after decline');
+      }
+      
+      // Also emit callDeclined for backward compatibility
       io.to(callData.callerSocketId).emit('callDeclined', {
         sessionId,
         receiverEmail,
-        status: 'busy',
-        message: 'User is busy',
+        status: 'declined',
+        message: 'Call declined',
         timestamp: new Date().toISOString(),
-      });
-      
-      // Also emit callFailed with busy status for consistency
-      io.to(callData.callerSocketId).emit('callFailed', {
-        sessionId,
-        status: 'busy',
-        message: 'User is busy',
-        reason: 'User is busy',
       });
 
       // Cleanup
@@ -515,7 +521,7 @@ class CallingService {
           endedBy,
           timestamp: new Date().toISOString(),
         };
-
+        
         // Notify caller
         if (callData.callerSocketId) {
           io.to(callData.callerSocketId).emit('callEnded', callEndedData);
@@ -527,17 +533,17 @@ class CallingService {
 
         // Handle private call (receiver)
         if (callData.receiverEmail && !callData.groupId) {
-          let receiverSocketId = callData.receiverSocketId;
+        let receiverSocketId = callData.receiverSocketId;
           if (!receiverSocketId) {
-            receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
-          }
+          receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+        }
 
-          if (receiverSocketId) {
+        if (receiverSocketId) {
             io.to(receiverSocketId).emit('callEnded', callEndedData);
             io.to(receiverSocketId).emit('CALL_ENDED', callEndedData);
-            console.log('📞 Backend: Emitted callEnded to receiver:', receiverSocketId);
-          } else {
-            console.warn('⚠️ Backend: Receiver socket ID not found for callEnded event');
+          console.log('📞 Backend: Emitted callEnded to receiver:', receiverSocketId);
+        } else {
+          console.warn('⚠️ Backend: Receiver socket ID not found for callEnded event');
           }
         }
         
@@ -753,17 +759,17 @@ class CallingService {
       // Handle private call signaling
       if (callData.receiverEmail && !callData.groupId) {
         // Determine target for private call
-        const targetEmail = callData.callerEmail === fromEmail 
-          ? callData.receiverEmail 
-          : callData.callerEmail;
-        
-        const targetSocketId = userService.getSocketByEmail(targetEmail);
-        if (targetSocketId) {
-          io.to(targetSocketId).emit('callSignal', {
-            sessionId,
-            signal: signalData,
-            from: fromEmail,
-          });
+      const targetEmail = callData.callerEmail === fromEmail 
+        ? callData.receiverEmail 
+        : callData.callerEmail;
+      
+      const targetSocketId = userService.getSocketByEmail(targetEmail);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('callSignal', {
+          sessionId,
+          signal: signalData,
+          from: fromEmail,
+        });
           console.log('📞 Backend: Emitted callSignal to private call target:', targetEmail);
         } else {
           console.warn('⚠️ Backend: Target socket ID not found for signaling:', targetEmail);

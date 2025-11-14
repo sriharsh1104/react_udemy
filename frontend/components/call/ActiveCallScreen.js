@@ -174,6 +174,9 @@ const ActiveCallScreen = ({
       animationType="fade"
       onRequestClose={onEndCall}
       statusBarTranslucent={true}
+      presentationStyle="overFullScreen"
+      style={{ zIndex: 9999 }}
+      hardwareAccelerated={true}
     >
       <View style={styles.container}>
         <StatusBar barStyle="light-content" />
