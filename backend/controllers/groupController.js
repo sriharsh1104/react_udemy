@@ -3,6 +3,7 @@ const userService = require('../services/userService');
 const userProfileService = require('../services/userProfileService');
 const chatService = require('../services/chatService');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
 
 class GroupController {
   // Create a new group
@@ -12,12 +13,12 @@ class GroupController {
       const { name, members } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!name || !name.trim()) {
@@ -61,7 +62,7 @@ class GroupController {
         });
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Group created successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.GROUP_CREATED_SUCCESSFULLY, {
         group,
       });
     } catch (error) {
@@ -76,12 +77,12 @@ class GroupController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       const groups = await groupService.getUserGroups(userEmail);
@@ -139,12 +140,12 @@ class GroupController {
       const { groupId } = req.params;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       const group = await groupService.getGroupById(groupId);
@@ -169,7 +170,7 @@ class GroupController {
         })
       );
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Group retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.GROUP_RETRIEVED_SUCCESSFULLY, {
         group: {
           ...group,
           members: memberProfiles,
@@ -188,12 +189,12 @@ class GroupController {
       const { groupId, members } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!members || !Array.isArray(members) || members.length === 0) {
@@ -215,7 +216,7 @@ class GroupController {
 
       const group = await groupService.addMembers(groupId, userEmail, validMembers);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Members added successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MEMBERS_ADDED_SUCCESSFULLY, {
         group,
       });
     } catch (error) {
@@ -231,12 +232,12 @@ class GroupController {
       const { groupId, memberEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!memberEmail) {
@@ -245,7 +246,7 @@ class GroupController {
 
       const group = await groupService.removeMember(groupId, userEmail, memberEmail);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Member removed successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MEMBER_REMOVED_SUCCESSFULLY, {
         group,
       });
     } catch (error) {
@@ -261,12 +262,12 @@ class GroupController {
       const { groupId, name } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!name || !name.trim()) {
@@ -275,7 +276,7 @@ class GroupController {
 
       const group = await groupService.updateGroupName(groupId, userEmail, name);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Group name updated successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.GROUP_NAME_UPDATED_SUCCESSFULLY, {
         group,
       });
     } catch (error) {
@@ -291,17 +292,17 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       await groupService.deleteGroup(groupId, userEmail);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Group deleted successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.GROUP_DELETED_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in deleteGroup:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
@@ -315,12 +316,12 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!groupId) {
@@ -352,12 +353,12 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!groupId) {
@@ -420,12 +421,12 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!groupId) {
@@ -435,7 +436,7 @@ class GroupController {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:19006';
       const result = await groupService.generateInviteLink(groupId, userEmail, frontendUrl);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Invite link generated successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.INVITE_LINK_GENERATED_SUCCESSFULLY, {
         inviteLink: result.inviteLink,
         expiresAt: result.expiresAt,
       });
@@ -452,12 +453,12 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!groupId) {
@@ -467,7 +468,7 @@ class GroupController {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:19006';
       const result = await groupService.resetInviteLink(groupId, userEmail, frontendUrl);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Invite link reset successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.INVITE_LINK_RESET_SUCCESSFULLY, {
         inviteLink: result.inviteLink,
         expiresAt: result.expiresAt,
       });
@@ -484,16 +485,16 @@ class GroupController {
       const { inviteToken } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!inviteToken) {
-        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Invite token is required');
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.INVITE_TOKEN_REQUIRED);
       }
 
       const result = await groupService.joinGroupViaLink(inviteToken, userEmail);
@@ -504,7 +505,7 @@ class GroupController {
         });
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Successfully joined the group', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.SUCCESSFULLY_JOINED_THE_GROUP, {
         group: result.group,
       });
     } catch (error) {
@@ -519,7 +520,7 @@ class GroupController {
       const { inviteToken } = req.params;
 
       if (!inviteToken) {
-        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Invite token is required');
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.INVITE_TOKEN_REQUIRED);
       }
 
       const group = await groupService.getGroupByInviteToken(inviteToken);
@@ -529,7 +530,7 @@ class GroupController {
       }
 
       // Return only basic info (name, member count) without member emails for privacy
-      return sendSuccess(res, HTTP_STATUS.OK, 'Group info retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.GROUP_INFO_RETRIEVED_SUCCESSFULLY, {
         group: {
           _id: group._id,
           name: group.name,
@@ -549,12 +550,12 @@ class GroupController {
       const { messageId, groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!messageId || !groupId) {
@@ -576,7 +577,7 @@ class GroupController {
         });
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Message pinned successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MESSAGE_PINNED_SUCCESSFULLY, {
         pinnedMessage: message,
       });
     } catch (error) {
@@ -592,12 +593,12 @@ class GroupController {
       const { messageId, groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!messageId || !groupId) {
@@ -619,7 +620,7 @@ class GroupController {
         });
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Message unpinned successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MESSAGE_UNPINNED_SUCCESSFULLY, {
         unpinnedMessage: message,
       });
     } catch (error) {
@@ -635,12 +636,12 @@ class GroupController {
       const { groupId } = req.params;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!groupId) {
@@ -656,7 +657,7 @@ class GroupController {
       const chatService = require('../services/chatService');
       const pinnedMessages = await chatService.getPinnedMessages(groupId);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Pinned messages retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PINNED_MESSAGES_RETRIEVED_SUCCESSFULLY, {
         pinnedMessages,
       });
     } catch (error) {
@@ -672,12 +673,12 @@ class GroupController {
       const { messageId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!messageId) {
@@ -698,7 +699,7 @@ class GroupController {
           });
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Message deleted successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MESSAGE_DELETED_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in deleteMessage:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
@@ -712,12 +713,12 @@ class GroupController {
       const { messageId, newMessage } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!messageId || !newMessage) {
@@ -740,7 +741,7 @@ class GroupController {
         });
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Message edited successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MESSAGE_EDITED_SUCCESSFULLY, {
         data: editedMessage,
       });
     } catch (error) {
@@ -756,12 +757,12 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!groupId) {
@@ -823,7 +824,7 @@ class GroupController {
         console.error('❌ Socket IO instance not available!');
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Chat cleared successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.CHAT_CLEARED_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in clearChat:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
@@ -837,12 +838,12 @@ class GroupController {
       const { messageId } = req.params;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!messageId) {
@@ -909,7 +910,7 @@ class GroupController {
         }
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Message info retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MESSAGE_INFO_RETRIEVED_SUCCESSFULLY, {
         messageInfo: {
           messageId: message._id,
           senderEmail: message.senderEmail,
@@ -935,12 +936,12 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!groupId) {
@@ -987,12 +988,12 @@ class GroupController {
       const { groupId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!groupId) {
@@ -1039,12 +1040,12 @@ class GroupController {
       const { groupId, mutedUntil } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!groupId) {

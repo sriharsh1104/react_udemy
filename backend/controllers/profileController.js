@@ -4,6 +4,7 @@ const followService = require('../services/followService');
 const cacheService = require('../services/cacheService');
 const User = require('../models/User');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
 
 class ProfileController {
   // Get user profile
@@ -12,12 +13,12 @@ class ProfileController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
       
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const email = await userService.getUserByToken(token);
       if (!email) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       // Check cache first
@@ -25,7 +26,7 @@ class ProfileController {
       let cachedData = cacheService.get(cacheKey);
       
       if (cachedData) {
-        return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully (cached)', cachedData);
+        return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PROFILE_RETRIEVED_SUCCESSFULLY_CACHED, cachedData);
       }
 
       const profile = await userProfileService.getProfileByEmail(email);
@@ -72,7 +73,7 @@ class ProfileController {
         // Cache the response (5 minutes TTL)
         cacheService.set(cacheKey, responseData, 5 * 60 * 1000);
         
-        return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', responseData);
+        return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PROFILE_RETRIEVED_SUCCESSFULLY, responseData);
       }
 
       const isComplete = await userProfileService.isProfileComplete(email);
@@ -106,12 +107,12 @@ class ProfileController {
       const { email } = req.body;
       
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!email) {
@@ -121,11 +122,11 @@ class ProfileController {
       const profile = await userProfileService.getProfileByEmail(email);
       
       if (!profile) {
-        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Profile not found');
+        return sendError(res, HTTP_STATUS.NOT_FOUND, ERROR_MESSAGES.PROFILE_NOT_FOUND);
       }
 
       // Return profile with phone numbers (but exclude sensitive data)
-      return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PROFILE_RETRIEVED_SUCCESSFULLY, {
         profile: {
           email: profile.email,
           name: profile.name,
@@ -166,7 +167,7 @@ class ProfileController {
 
       if (!token) {
         console.error(`[${timestamp}] ❌ No token provided`);
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const email = await userService.getUserByToken(token);
@@ -174,7 +175,7 @@ class ProfileController {
       
       if (!email) {
         console.error(`[${timestamp}] ❌ Invalid token - user not found`);
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       // Validate phone numbers (max 2)
@@ -233,7 +234,7 @@ class ProfileController {
         cacheService.delete(contactCacheKey);
         
         console.log(`[${timestamp}] ✅ Profile updated successfully for:`, email);
-        return sendSuccess(res, HTTP_STATUS.OK, 'Profile updated successfully', {
+        return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PROFILE_UPDATED_SUCCESSFULLY, {
           profile: { 
             ...profile, 
             isProfileComplete: isComplete,

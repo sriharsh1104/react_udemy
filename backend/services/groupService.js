@@ -1,4 +1,5 @@
 const Group = require('../models/Group');
+const { ERROR_MESSAGES } = require('../constants');
 
 class GroupService {
   // Create a new group
@@ -52,7 +53,7 @@ class GroupService {
     try {
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       // Check if user is a member
@@ -79,7 +80,7 @@ class GroupService {
     try {
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       // Check if user is a member
@@ -124,7 +125,7 @@ class GroupService {
     try {
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       // Only creator can update name
@@ -148,7 +149,7 @@ class GroupService {
     try {
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       // Only creator can delete group
@@ -183,7 +184,7 @@ class GroupService {
     try {
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       // Check if user is a member
@@ -224,7 +225,7 @@ class GroupService {
     try {
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       // Check if user is a member
@@ -271,7 +272,7 @@ class GroupService {
     try {
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       // Check if user is a member
@@ -368,7 +369,7 @@ class GroupService {
     try {
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       // Check if user is a member

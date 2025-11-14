@@ -1,4 +1,5 @@
 const Message = require('../models/Message');
+const { ERROR_MESSAGES } = require('../constants');
 
 class ChatService {
   // Generate room ID from two emails (sorted to ensure same room for both users)
@@ -299,7 +300,7 @@ class ChatService {
     try {
       const message = await Message.findById(messageId);
       if (!message) {
-        throw new Error('Message not found');
+        throw new Error(ERROR_MESSAGES.MESSAGE_NOT_FOUND);
       }
 
       // Verify it's a group message
@@ -311,7 +312,7 @@ class ChatService {
       const Group = require('../models/Group');
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       if (group.createdBy !== userEmail) {
@@ -342,7 +343,7 @@ class ChatService {
     try {
       const message = await Message.findById(messageId);
       if (!message) {
-        throw new Error('Message not found');
+        throw new Error(ERROR_MESSAGES.MESSAGE_NOT_FOUND);
       }
 
       // Verify it's a group message
@@ -354,7 +355,7 @@ class ChatService {
       const Group = require('../models/Group');
       const group = await Group.findById(groupId);
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
       }
 
       if (group.createdBy !== userEmail) {
@@ -396,7 +397,7 @@ class ChatService {
     try {
       const message = await Message.findById(messageId);
       if (!message) {
-        throw new Error('Message not found');
+        throw new Error(ERROR_MESSAGES.MESSAGE_NOT_FOUND);
       }
 
       // Only sender can delete their own message
@@ -422,7 +423,7 @@ class ChatService {
     try {
       const message = await Message.findById(messageId);
       if (!message) {
-        throw new Error('Message not found');
+        throw new Error(ERROR_MESSAGES.MESSAGE_NOT_FOUND);
       }
 
       // Only sender can edit their own message

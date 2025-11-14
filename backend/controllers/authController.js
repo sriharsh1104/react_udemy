@@ -4,6 +4,7 @@ const userProfileService = require('../services/userProfileService');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
 
 class AuthController {
   // Send OTP to email or phone
@@ -13,17 +14,17 @@ class AuthController {
       const identifier = email || phone;
 
       if (!identifier) {
-        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide email or phone number');
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.EMAIL_OR_PHONE_REQUIRED);
       }
 
       // Validate email format
       if (email && !email.includes('@')) {
-        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide a valid email address');
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.INVALID_EMAIL);
       }
 
       // Validate phone format (basic)
       if (phone && !/^\+?[1-9]\d{1,14}$/.test(phone.replace(/\s/g, ''))) {
-        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide a valid phone number');
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.INVALID_PHONE);
       }
 
       const result = await otpService.sendOTP(identifier);
@@ -35,7 +36,7 @@ class AuthController {
       }
     } catch (error) {
       console.error('Error in sendOTP:', error);
-      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -79,7 +80,7 @@ class AuthController {
         const profile = await userProfileService.getProfileByEmail(userEmail);
         const isProfileComplete = profile ? await userProfileService.isProfileComplete(userEmail) : false;
 
-        return sendSuccess(res, HTTP_STATUS.OK, 'Login successful', {
+        return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.LOGIN_SUCCESSFUL, {
           token,
           email: userEmail,
           profile: profile || null,
@@ -90,7 +91,7 @@ class AuthController {
       }
     } catch (error) {
       console.error('Error in verifyOTP:', error);
-      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -157,7 +158,7 @@ class AuthController {
       });
     } catch (error) {
       console.error('Error in loginWithPassword:', error);
-      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -168,7 +169,7 @@ class AuthController {
       const identifier = email || phone;
 
       if (!identifier) {
-        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide email or phone number');
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.EMAIL_OR_PHONE_REQUIRED);
       }
 
       // Check if user exists
@@ -204,7 +205,7 @@ class AuthController {
       }
     } catch (error) {
       console.error('Error in forgetPassword:', error);
-      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -251,10 +252,10 @@ class AuthController {
       // Update password
       await userProfileService.updatePassword(userEmail, hashedPassword);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Password reset successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PASSWORD_RESET_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in resetPassword:', error);
-      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -269,7 +270,7 @@ class AuthController {
 
       // Validate email format
       if (!email.includes('@') || !email.includes('.')) {
-        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Please provide a valid email address');
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.INVALID_EMAIL);
       }
 
       // Validate password length
@@ -280,7 +281,7 @@ class AuthController {
       // Check if user already exists
       const existingUser = await User.findOne({ email: email.toLowerCase() });
       if (existingUser) {
-        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email already registered. Please login instead.');
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.EMAIL_ALREADY_REGISTERED);
       }
 
       // Hash password
@@ -306,7 +307,7 @@ class AuthController {
       const profile = await userProfileService.getProfileByEmail(newUser.email);
       const isProfileComplete = profile ? await userProfileService.isProfileComplete(newUser.email) : false;
 
-      return sendSuccess(res, HTTP_STATUS.CREATED, 'Registration successful', {
+      return sendSuccess(res, HTTP_STATUS.CREATED, SUCCESS_MESSAGES.REGISTRATION_SUCCESSFUL, {
         token,
         email: newUser.email,
         profile: profile || null,
@@ -317,10 +318,10 @@ class AuthController {
       
       // Handle duplicate key error (MongoDB unique constraint)
       if (error.code === 11000 || error.message.includes('duplicate')) {
-        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email already registered. Please login instead.');
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.EMAIL_ALREADY_REGISTERED);
       }
 
-      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -336,10 +337,10 @@ class AuthController {
       // Remove user session from MongoDB
       await userService.removeSession(token);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Logout successful');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.LOGOUT_SUCCESSFUL);
     } catch (error) {
       console.error('Error in logout:', error);
-      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
     }
   }
 }

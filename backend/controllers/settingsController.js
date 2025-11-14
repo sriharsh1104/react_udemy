@@ -2,6 +2,7 @@ const userService = require('../services/userService');
 const userProfileService = require('../services/userProfileService');
 const bcrypt = require('bcryptjs');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
 
 class SettingsController {
   // Set password (first time)
@@ -11,12 +12,12 @@ class SettingsController {
       const { password } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!password || password.length < 6) {
@@ -36,7 +37,7 @@ class SettingsController {
       // Update user with password
       await userProfileService.updatePassword(userEmail, hashedPassword);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Password set successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PASSWORD_SET_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in setPassword:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
@@ -50,12 +51,12 @@ class SettingsController {
       const { currentPassword, newPassword } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!currentPassword || !newPassword) {
@@ -85,7 +86,7 @@ class SettingsController {
       // Update password
       await userProfileService.updatePassword(userEmail, hashedPassword);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Password changed successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PASSWORD_CHANGED_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in changePassword:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Internal server error');
@@ -98,12 +99,12 @@ class SettingsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       // Check password status (need to query with password field)
@@ -111,7 +112,7 @@ class SettingsController {
       const user = await User.findOne({ email: userEmail }).select('password');
       const hasPassword = !!(user && user.password);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Password status retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PASSWORD_STATUS_RETRIEVED_SUCCESSFULLY, {
         hasPassword,
       });
     } catch (error) {
@@ -126,19 +127,19 @@ class SettingsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       const User = require('../models/User');
       const user = await User.findOne({ email: userEmail }).select('offlineMode');
       const offlineMode = user?.offlineMode || false;
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Offline mode status retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.OFFLINE_MODE_STATUS_RETRIEVED_SUCCESSFULLY, {
         offlineMode,
       });
     } catch (error) {
@@ -154,12 +155,12 @@ class SettingsController {
       const { offlineMode } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (typeof offlineMode !== 'boolean') {

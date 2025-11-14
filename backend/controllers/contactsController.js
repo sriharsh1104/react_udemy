@@ -3,6 +3,7 @@ const userService = require('../services/userService');
 const userProfileService = require('../services/userProfileService');
 const cacheService = require('../services/cacheService');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
 
 class ContactsController {
   // Check if phone number is registered in app
@@ -12,12 +13,12 @@ class ContactsController {
       const { phone } = req.query;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!phone) {
@@ -55,12 +56,12 @@ class ContactsController {
       const { phones } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!phones || !Array.isArray(phones)) {
@@ -105,12 +106,12 @@ class ContactsController {
       const { query } = req.query;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!query || query.trim().length === 0) {
@@ -171,12 +172,12 @@ class ContactsController {
       const { email } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!email) {
@@ -206,12 +207,12 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -242,7 +243,7 @@ class ContactsController {
         }
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Contact added successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.CONTACT_ADDED_SUCCESSFULLY, {
         contacts,
       });
     } catch (error) {
@@ -257,12 +258,12 @@ class ContactsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       const chatService = require('../services/chatService');
@@ -519,12 +520,12 @@ class ContactsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       // Check cache first
@@ -727,12 +728,12 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -764,12 +765,12 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -816,12 +817,12 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -868,12 +869,12 @@ class ContactsController {
       const { contactEmail, mutedUntil } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -919,12 +920,12 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -946,7 +947,7 @@ class ContactsController {
         }
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Contact deleted successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.CONTACT_DELETED_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in deleteContact:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
@@ -960,12 +961,12 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -978,7 +979,7 @@ class ContactsController {
       const cacheKey = cacheService.keys.userContacts(userEmail);
       cacheService.delete(cacheKey);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Contact removed successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.CONTACT_REMOVED_SUCCESSFULLY, {
         contacts,
       });
     } catch (error) {
@@ -994,12 +995,12 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -1034,19 +1035,19 @@ class ContactsController {
       const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       // Generate invite link with user email encoded
       const inviteCode = Buffer.from(userEmail).toString('base64');
       const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:19006'}/invite/${inviteCode}`;
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Invite link generated successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.INVITE_LINK_GENERATED_SUCCESSFULLY, {
         inviteLink,
         inviteCode,
       });
@@ -1063,12 +1064,12 @@ class ContactsController {
       const { messageId } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!messageId) {
@@ -1089,7 +1090,7 @@ class ContactsController {
         });
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Message deleted successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MESSAGE_DELETED_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in deleteMessage:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
@@ -1103,12 +1104,12 @@ class ContactsController {
       const { messageId, newMessage } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!messageId || !newMessage) {
@@ -1131,7 +1132,7 @@ class ContactsController {
         });
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Message edited successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MESSAGE_EDITED_SUCCESSFULLY, {
         data: editedMessage,
       });
     } catch (error) {
@@ -1147,12 +1148,12 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -1175,7 +1176,7 @@ class ContactsController {
         }
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Chat deleted successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.CHAT_DELETED_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in deleteChat:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
@@ -1189,12 +1190,12 @@ class ContactsController {
       const { contactEmail } = req.body;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!contactEmail) {
@@ -1248,7 +1249,7 @@ class ContactsController {
         console.error('❌ Socket IO instance not available!');
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Chat cleared successfully');
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.CHAT_CLEARED_SUCCESSFULLY);
     } catch (error) {
       console.error('Error in clearChat:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message || 'Internal server error');
@@ -1262,12 +1263,12 @@ class ContactsController {
       const { messageId } = req.params;
 
       if (!token) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
       }
 
       const userEmail = await userService.getUserByToken(token);
       if (!userEmail) {
-        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
       if (!messageId) {
@@ -1278,7 +1279,7 @@ class ContactsController {
       const message = await chatService.getMessageById(messageId);
 
       if (!message) {
-        return sendError(res, HTTP_STATUS.NOT_FOUND, 'Message not found');
+        return sendError(res, HTTP_STATUS.NOT_FOUND, ERROR_MESSAGES.MESSAGE_NOT_FOUND);
       }
 
       // Check if user has access to this message
@@ -1337,7 +1338,7 @@ class ContactsController {
         }
       }
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Message info retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.MESSAGE_INFO_RETRIEVED_SUCCESSFULLY, {
         messageInfo: {
           messageId: message._id,
           senderEmail: message.senderEmail,

@@ -3,6 +3,7 @@ const userService = require('../services/userService');
 const followService = require('../services/followService');
 const User = require('../models/User');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
 
 // Helper to wrap async handlers
 const asyncHandler = (fn) => {
@@ -17,19 +18,19 @@ const verifyToken = async (req, res, next) => {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'No token provided');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.NO_TOKEN_PROVIDED);
     }
     
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid or expired token');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
     }
     
     req.userEmail = userEmail;
     next();
   } catch (error) {
     console.error('Token verification error:', error);
-    return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Token verification failed');
+    return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.TOKEN_VERIFICATION_FAILED);
   }
 };
 
@@ -45,7 +46,7 @@ class FeedController {
 
       const result = await feedService.getFeed(req.userEmail, pageNum, limitNum, mode);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Feed retrieved successfully', result);
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.FEED_RETRIEVED_SUCCESSFULLY, result);
     }),
   ];
 
@@ -61,7 +62,7 @@ class FeedController {
 
       const result = await feedService.toggleLike(statusId, req.userEmail);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Like toggled successfully', result);
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.LIKE_TOGGLED_SUCCESSFULLY, result);
     }),
   ];
 
@@ -81,7 +82,7 @@ class FeedController {
 
       const result = await feedService.addComment(statusId, req.userEmail, comment);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Comment added successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.COMMENT_ADDED_SUCCESSFULLY, {
         comment: result,
       });
     }),
@@ -99,7 +100,7 @@ class FeedController {
 
       const comments = await feedService.getComments(statusId, req.userEmail);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Comments retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.COMMENTS_RETRIEVED_SUCCESSFULLY, {
         comments,
       });
     }),
@@ -117,7 +118,7 @@ class FeedController {
 
       const result = await feedService.updateCaption(statusId, req.userEmail, caption);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Caption updated successfully', result);
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.CAPTION_UPDATED_SUCCESSFULLY, result);
     }),
   ];
 
@@ -164,7 +165,7 @@ class FeedController {
 
       const filteredProfiles = profiles.filter(p => p !== null);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Profiles found successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PROFILES_FOUND_SUCCESSFULLY, {
         profiles: filteredProfiles,
         total: filteredProfiles.length,
       });
@@ -183,7 +184,7 @@ class FeedController {
 
       const user = await User.findOne({ email }).lean();
       if (!user) {
-        return sendError(res, HTTP_STATUS.NOT_FOUND, 'User not found');
+        return sendError(res, HTTP_STATUS.NOT_FOUND, ERROR_MESSAGES.USER_NOT_FOUND);
       }
 
       const followStatus = await followService.getFollowStatus(req.userEmail, email);
@@ -202,7 +203,7 @@ class FeedController {
       const followersList = await followService.getFollowersList(email);
       const followingList = await followService.getFollowingList(email);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Profile retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PROFILE_RETRIEVED_SUCCESSFULLY, {
         profile: {
           email: user.email,
           name: user.name || user.email.split('@')[0],
@@ -326,7 +327,7 @@ class FeedController {
         requestedAt: r.requestedAt,
       }));
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Pending requests retrieved successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PENDING_REQUESTS_RETRIEVED_SUCCESSFULLY, {
         requests: requestsWithNames,
       });
     }),

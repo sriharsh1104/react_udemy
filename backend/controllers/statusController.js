@@ -6,6 +6,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const File = require('../models/File');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
 
 // Reuse file upload configuration
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -47,19 +48,19 @@ const verifyToken = async (req, res, next) => {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'No token provided');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.NO_TOKEN_PROVIDED);
     }
     
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid or expired token');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
     }
     
     req.userEmail = userEmail;
     next();
   } catch (error) {
     console.error('Token verification error:', error);
-    return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Token verification failed');
+    return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.TOKEN_VERIFICATION_FAILED);
   }
 };
 
@@ -137,7 +138,7 @@ class StatusController {
       // Create status
       const status = await statusService.createStatus(req.userEmail, fileId, type);
 
-      return sendSuccess(res, HTTP_STATUS.OK, 'Status uploaded successfully', {
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.STATUS_UPLOADED_SUCCESSFULLY, {
         status: {
           statusId: status._id.toString(),
           fileId: fileId,
@@ -153,12 +154,12 @@ class StatusController {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
     }
 
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
     }
 
     // Get contacts' statuses
@@ -167,7 +168,7 @@ class StatusController {
     // Get user's own status
     const myStatus = await statusService.getUserStatus(userEmail);
 
-    return sendSuccess(res, HTTP_STATUS.OK, 'Status feed retrieved successfully', {
+    return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.STATUS_FEED_RETRIEVED_SUCCESSFULLY, {
       statuses,
       myStatus,
     });
@@ -178,22 +179,22 @@ class StatusController {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
     
     if (!token) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
     }
 
     const viewerEmail = await userService.getUserByToken(token);
     if (!viewerEmail) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
     }
 
     const { statusId } = req.body;
     if (!statusId) {
-      return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
+      return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.STATUS_ID_REQUIRED);
     }
 
     await statusService.markAsViewed(statusId, viewerEmail);
 
-    return sendSuccess(res, HTTP_STATUS.OK, 'Status marked as viewed');
+    return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.STATUS_MARKED_AS_VIEWED);
   });
 
   // Get viewers list for a status
@@ -201,22 +202,22 @@ class StatusController {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Authentication required');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.AUTH_REQUIRED);
     }
 
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid token');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
     }
 
     const { statusId } = req.params;
     if (!statusId) {
-      return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
+      return sendError(res, HTTP_STATUS.BAD_REQUEST, ERROR_MESSAGES.STATUS_ID_REQUIRED);
     }
 
     const viewers = await statusService.getViewers(statusId, userEmail);
 
-    return sendSuccess(res, HTTP_STATUS.OK, 'Viewers retrieved successfully', {
+    return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.VIEWERS_RETRIEVED_SUCCESSFULLY, {
       viewers,
     });
   });

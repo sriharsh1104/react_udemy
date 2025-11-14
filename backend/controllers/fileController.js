@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const File = require('../models/File');
 const userService = require('../services/userService');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -48,19 +49,19 @@ const verifyToken = async (req, res, next) => {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     
     if (!token) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'No token provided');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.NO_TOKEN_PROVIDED);
     }
     
     const userEmail = await userService.getUserByToken(token);
     if (!userEmail) {
-      return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid or expired token');
+      return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
     }
     
     req.userEmail = userEmail;
     next();
   } catch (error) {
     console.error('Token verification error:', error);
-    return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Token verification failed');
+    return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.TOKEN_VERIFICATION_FAILED);
   }
 };
 
@@ -120,7 +121,7 @@ class FileController {
         
         await fileRecord.save();
         
-        return sendSuccess(res, HTTP_STATUS.OK, 'File uploaded successfully', {
+        return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.FILE_UPLOADED_SUCCESSFULLY, {
           fileId,
           fileName: req.file.originalname,
           fileType: type,
@@ -205,7 +206,7 @@ class FileController {
         // Delete from database
         await fileRecord.deleteOne();
         
-        return sendSuccess(res, HTTP_STATUS.OK, 'File deleted successfully');
+        return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.FILE_DELETED_SUCCESSFULLY);
       } catch (error) {
         console.error('File deletion error:', error);
         return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'File deletion failed');
