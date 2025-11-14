@@ -108,5 +108,7 @@ setInterval(() => {
   cacheService.cleanup();
 }, 10 * 60 * 1000);
 
+// Export both instance and class (for static keys access)
+cacheService.keys = CacheService.keys;
 module.exports = cacheService;
 

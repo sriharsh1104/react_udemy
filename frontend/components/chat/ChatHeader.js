@@ -100,7 +100,7 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat, hideUsername = false, onStatusToggle }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat, hideUsername = false, onStatusToggle, onAudioCall, onVideoCall }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleStatusPress = () => {
@@ -168,6 +168,26 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
+          {showBackButton && (
+            <View style={styles.callButtonsContainer}>
+              {onAudioCall && (
+                <TouchableOpacity 
+                  onPress={onAudioCall}
+                  style={styles.callButton}
+                >
+                  <Text style={styles.callButtonText}>📞</Text>
+                </TouchableOpacity>
+              )}
+              {onVideoCall && (
+                <TouchableOpacity 
+                  onPress={onVideoCall}
+                  style={styles.callButton}
+                >
+                  <Text style={styles.callButtonText}>📹</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
           <TouchableOpacity 
             onPress={() => setShowDropdown(true)} 
             style={styles.profileButton}
@@ -303,6 +323,24 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: COLORS.headerText,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  callButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: SPACING.sm,
+  },
+  callButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SPACING.sm,
+  },
+  callButtonText: {
+    fontSize: 18,
+    color: COLORS.white,
   },
   modalOverlay: {
     flex: 1,

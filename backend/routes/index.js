@@ -7,6 +7,7 @@ const groupController = require('../controllers/groupController');
 const fileController = require('../controllers/fileController');
 const statusController = require('../controllers/statusController');
 const feedController = require('../controllers/feedController');
+const { controller: callController, verifyToken: verifyCallToken } = require('../controllers/callController');
 const { authLimiter, writeLimiter, uploadLimiter } = require('../middleware/rateLimiter');
 
 const router = require('express').Router();
@@ -124,6 +125,12 @@ router.post('/feed/unfollow', feedController.unfollowUser);
 router.post('/feed/accept-request', feedController.acceptFollowRequest);
 router.post('/feed/reject-request', feedController.rejectFollowRequest);
 router.get('/feed/pending-requests', feedController.getPendingRequests);
+
+// Call routes
+router.get('/calls/history', verifyCallToken, asyncHandler(callController.getCallHistory.bind(callController)));
+router.post('/calls', verifyCallToken, writeLimiter, asyncHandler(callController.createCall.bind(callController)));
+router.put('/calls/:callId/status', verifyCallToken, writeLimiter, asyncHandler(callController.updateCallStatus.bind(callController)));
+router.get('/calls/stats', verifyCallToken, asyncHandler(callController.getCallStats.bind(callController)));
 
 module.exports = router;
 

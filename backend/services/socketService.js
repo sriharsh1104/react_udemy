@@ -84,6 +84,27 @@ class SocketService {
         this.handleMessageRead(socket, data);
       });
 
+      // Call events
+      socket.on('initiateCall', (data) => {
+        this.handleInitiateCall(socket, data);
+      });
+
+      socket.on('acceptCall', (data) => {
+        this.handleAcceptCall(socket, data);
+      });
+
+      socket.on('declineCall', (data) => {
+        this.handleDeclineCall(socket, data);
+      });
+
+      socket.on('endCall', (data) => {
+        this.handleEndCall(socket, data);
+      });
+
+      socket.on('callSignal', (data) => {
+        this.handleCallSignal(socket, data);
+      });
+
       // Handle user disconnection
       socket.on('disconnect', () => {
         this.handleDisconnect(socket);
@@ -705,6 +726,117 @@ class SocketService {
   getEmailFromSocket(socketId) {
     const user = userService.getUser(socketId);
     return user || null;
+  }
+
+  // Call handlers
+  async handleInitiateCall(socket, data) {
+    try {
+      const callingService = require('./callingService');
+      const email = this.getEmailFromSocket(socket.id);
+      
+      if (!email) {
+        socket.emit('callError', { message: 'User not authenticated' });
+        return;
+      }
+
+      const { receiverEmail, groupId, type } = data;
+      const result = await callingService.initiateCall(
+        email,
+        receiverEmail,
+        groupId,
+        type,
+        socket.id
+      );
+
+      if (result.success) {
+        socket.emit('callInitiated', {
+          sessionId: result.sessionId,
+          status: result.status,
+        });
+      } else {
+        socket.emit('callFailed', {
+          sessionId: result.sessionId,
+          status: result.status,
+          message: result.message,
+        });
+      }
+    } catch (error) {
+      console.error('Error handling initiate call:', error);
+      socket.emit('callError', { message: 'Failed to initiate call' });
+    }
+  }
+
+  async handleAcceptCall(socket, data) {
+    try {
+      const callingService = require('./callingService');
+      const email = this.getEmailFromSocket(socket.id);
+      
+      if (!email) {
+        socket.emit('callError', { message: 'User not authenticated' });
+        return;
+      }
+
+      const { sessionId } = data;
+      const result = await callingService.acceptCall(sessionId, email, socket.id);
+      
+      if (result.success) {
+        socket.emit('callAccepted', {
+          sessionId,
+          status: result.status,
+        });
+      }
+    } catch (error) {
+      console.error('Error handling accept call:', error);
+      socket.emit('callError', { message: 'Failed to accept call' });
+    }
+  }
+
+  async handleDeclineCall(socket, data) {
+    try {
+      const callingService = require('./callingService');
+      const email = this.getEmailFromSocket(socket.id);
+      
+      if (!email) {
+        return;
+      }
+
+      const { sessionId } = data;
+      await callingService.declineCall(sessionId, email);
+    } catch (error) {
+      console.error('Error handling decline call:', error);
+    }
+  }
+
+  async handleEndCall(socket, data) {
+    try {
+      const callingService = require('./callingService');
+      const email = this.getEmailFromSocket(socket.id);
+      
+      if (!email) {
+        return;
+      }
+
+      const { sessionId } = data;
+      await callingService.endCall(sessionId, email);
+    } catch (error) {
+      console.error('Error handling end call:', error);
+    }
+  }
+
+  async handleCallSignal(socket, data) {
+    try {
+      const callingService = require('./callingService');
+      const email = this.getEmailFromSocket(socket.id);
+      
+      if (!email) {
+        return;
+      }
+
+      const { sessionId, signal } = data;
+      await callingService.handleSignaling(sessionId, email, signal);
+    } catch (error) {
+      console.error('Error handling call signal:', error);
+    }
   }
 }
 

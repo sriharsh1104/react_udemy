@@ -5,6 +5,7 @@ const config = require('./config');
 const connectDB = require('./config/database');
 const routes = require('./routes');
 const SocketService = require('./services/socketService');
+const redisService = require('./services/redisService');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const { HTTP_STATUS } = require('./constants');
@@ -14,6 +15,11 @@ const server = http.createServer(app);
 
 // Connect to MongoDB
 connectDB();
+
+// Connect to Redis (non-blocking)
+redisService.connect().catch(err => {
+  console.warn('Redis connection failed, continuing without Redis:', err.message);
+});
 
 // Middleware
 // CORS configuration - allow frontend URL from environment

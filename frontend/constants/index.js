@@ -81,6 +81,21 @@ export const SOCKET_EVENTS = {
   CONTACTS_UPDATED: 'contactsUpdated',
   GROUPS_UPDATED: 'groupsUpdated',
   CONTACT_ONLINE_STATUS: 'contactOnlineStatus',
+  // Call events
+  INITIATE_CALL: 'initiateCall',
+  ACCEPT_CALL: 'acceptCall',
+  DECLINE_CALL: 'declineCall',
+  END_CALL: 'endCall',
+  CALL_SIGNAL: 'callSignal',
+  INCOMING_CALL: 'incomingCall',
+  INCOMING_GROUP_CALL: 'incomingGroupCall',
+  CALL_INITIATED: 'callInitiated',
+  CALL_ACCEPTED: 'callAccepted',
+  CALL_DECLINED: 'callDeclined',
+  CALL_ENDED: 'callEnded',
+  CALL_MISSED: 'callMissed',
+  CALL_FAILED: 'callFailed',
+  CALL_ERROR: 'callError',
 };
 
 // Premium Color Scheme (WhatsApp-inspired but with premium colors)

@@ -30,7 +30,10 @@ import PinnedMessageBanner from '../components/chat/PinnedMessageBanner';
 import GLoader from '../components/common/GLoader';
 import StatusFeed from '../components/chat/StatusFeed';
 import Status from '../components/chat/Status';
+import CallHistory from '../components/call/CallHistory';
+import CallHistoryTab from '../components/call/CallHistoryTab';
 import contactsService from '../services/contactsService';
+import webrtcService from '../services/webrtcService';
 import groupService from '../services/groupService';
 import fileUploadService from '../services/fileUploadService';
 import settingsService from '../services/settingsService';
@@ -84,6 +87,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [offlineMode, setOfflineMode] = useState(false);
+  const [showCallHistory, setShowCallHistory] = useState(false);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket(userEmail);
@@ -1262,6 +1266,51 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
   }, [contactEmail, chatType, markPrivateMessagesAsRead, messages.length, contacts]); // Added contacts to check unread count
 
+  // Call handlers
+  const handleAudioCall = async () => {
+    try {
+      if (chatType === 'group' && groupId) {
+        await webrtcService.initiateCall(null, groupId, 'audio');
+      } else if (contactEmail) {
+        await webrtcService.initiateCall(contactEmail, null, 'audio');
+      }
+    } catch (error) {
+      console.error('Error initiating audio call:', error);
+      Alert.alert('Error', 'Failed to initiate call');
+    }
+  };
+
+  const handleVideoCall = async () => {
+    try {
+      if (chatType === 'group' && groupId) {
+        await webrtcService.initiateCall(null, groupId, 'video');
+      } else if (contactEmail) {
+        await webrtcService.initiateCall(contactEmail, null, 'video');
+      }
+    } catch (error) {
+      console.error('Error initiating video call:', error);
+      Alert.alert('Error', 'Failed to initiate call');
+    }
+  };
+
+  const handleCallHistory = () => {
+    setShowCallHistory(true);
+  };
+
+  const handleCallFromHistory = async (type, targetEmail, targetGroupId) => {
+    try {
+      setShowCallHistory(false);
+      if (targetGroupId) {
+        await webrtcService.initiateCall(null, targetGroupId, type);
+      } else if (targetEmail) {
+        await webrtcService.initiateCall(targetEmail, null, type);
+      }
+    } catch (error) {
+      console.error('Error calling from history:', error);
+      Alert.alert('Error', 'Failed to initiate call');
+    }
+  };
+
   // Render content based on active bottom tab
   const renderTabContent = () => {
     if (activeBottomTab === 'chat') {
@@ -1483,10 +1532,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       );
     } else if (activeBottomTab === 'call') {
       return (
-        <View style={styles.comingSoonContainer}>
-          <Text style={styles.comingSoonText}>Coming Soon</Text>
-          <Text style={styles.comingSoonSubtext}>Call feature is under development</Text>
-        </View>
+        <CallHistoryTab
+          userEmail={userEmail}
+          onCallPress={handleCallFromHistory}
+        />
       );
     }
     return null;
@@ -1599,6 +1648,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onGroupInfoPress={() => setShowGroupInfoModal(true)}
         onContactInfoPress={() => setShowContactInfoModal(true)}
         onClearChat={handleClearChat}
+        onAudioCall={handleAudioCall}
+        onVideoCall={handleVideoCall}
       />
       
       <Sidebar
@@ -1678,6 +1729,17 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onConfirm={handleDeleteMessageConfirm}
         onCancel={handleDeleteMessageCancel}
         confirmButtonStyle="destructive"
+      />
+
+      {/* Call History Modal */}
+      <CallHistory
+        visible={showCallHistory}
+        onClose={() => setShowCallHistory(false)}
+        userEmail={userEmail}
+        contactEmail={contactEmail}
+        groupId={groupId}
+        isGroup={chatType === 'group'}
+        onCallPress={handleCallFromHistory}
       />
     </KeyboardAvoidingView>
       </SafeAreaView>
