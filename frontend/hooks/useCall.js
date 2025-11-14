@@ -341,10 +341,12 @@ export const useCall = (userEmail) => {
       console.log('📞 useCall: Ending call from this side...');
       const currentCallData = callDataRef.current;
       if (currentCallData && currentCallData.sessionId) {
+        // Emit end call to backend - backend will notify both parties
         await webrtcService.endCall(currentCallData.sessionId);
-        // Backend will emit callEnded to both parties
-        // Don't reset immediately - wait for callEnded event from backend for proper sync
-        console.log('✅ useCall: End call request sent, waiting for callEnded event...');
+        // Don't reset immediately - wait for callEnded event from backend
+        // This ensures both sides receive the event and cleanup properly
+        console.log('✅ useCall: End call request sent to backend, waiting for callEnded event...');
+        // The handleCallEnded will be called when backend emits callEnded event
       } else {
         // No sessionId, just reset locally
         console.warn('⚠️ useCall: No sessionId found, resetting locally');
@@ -352,8 +354,15 @@ export const useCall = (userEmail) => {
       }
     } catch (error) {
       console.error('Error ending call:', error);
-      // Force reset even on error
-      resetCall();
+      // On error, still try to cleanup locally
+      // But also wait a bit for backend event in case it comes
+      setTimeout(() => {
+        const stillActive = callDataRef.current;
+        if (stillActive && stillActive.sessionId) {
+          console.warn('⚠️ useCall: Call still active after error, forcing reset');
+          resetCall();
+        }
+      }, 1000);
     }
   };
 

@@ -443,16 +443,54 @@ class CallingService {
    */
   async endCall(sessionId, endedBy) {
     try {
-      const callData = await redisService.get(`call:${sessionId}`);
+      console.log('📞 Backend: endCall called with sessionId:', sessionId, 'endedBy:', endedBy);
+      
+      // Try to get from Redis first
+      let callData = await redisService.get(`call:${sessionId}`);
+      
+      // If not in Redis, try to get from database as fallback
+      if (!callData) {
+        console.warn('⚠️ Backend: Call session not found in Redis, checking database...');
+        const dbCall = await Call.findOne({ sessionId });
+        
+        if (dbCall) {
+          // Reconstruct callData from database
+          callData = {
+            sessionId: dbCall.sessionId,
+            callerEmail: dbCall.callerEmail,
+            receiverEmail: dbCall.receiverEmail,
+            groupId: dbCall.groupId,
+            type: dbCall.type,
+            status: dbCall.status,
+            direction: dbCall.direction,
+            createdAt: dbCall.createdAt,
+            startedAt: dbCall.startedAt,
+            callerSocketId: null,
+            receiverSocketId: null,
+          };
+          
+          // Get socket IDs
+          callData.callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          if (dbCall.receiverEmail) {
+            callData.receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+          }
+          
+          console.log('✅ Backend: Recovered call session from database for endCall');
+        }
+      }
       
       const io = SocketService.getIO();
       let duration = 0;
       let status = 'cancelled';
+      let startedAt = null;
 
       if (callData) {
         // Calculate duration if call was started
-        if (callData.startedAt) {
-          duration = Math.floor((new Date() - callData.startedAt) / 1000);
+        startedAt = callData.startedAt;
+        if (startedAt) {
+          // Handle both Date objects and ISO strings
+          const startTime = startedAt instanceof Date ? startedAt : new Date(startedAt);
+          duration = Math.floor((new Date() - startTime) / 1000);
           status = duration > 0 ? 'completed' : 'cancelled';
         } else {
           // Call was ended before being accepted
@@ -470,43 +508,69 @@ class CallingService {
           }
         );
 
-        // Notify both parties - CRITICAL: both must receive callEnded event
-        // Emit both event names for compatibility
+        // Prepare callEnded data
         const callEndedData = {
           sessionId,
           duration,
           endedBy,
           timestamp: new Date().toISOString(),
         };
-        
+
+        // Notify caller
         if (callData.callerSocketId) {
           io.to(callData.callerSocketId).emit('callEnded', callEndedData);
           io.to(callData.callerSocketId).emit('CALL_ENDED', callEndedData);
           console.log('📞 Backend: Emitted callEnded to caller:', callData.callerSocketId);
-        }
-
-        // Get receiver socket ID (might not be in callData if call ended during ringing)
-        let receiverSocketId = callData.receiverSocketId;
-        if (!receiverSocketId && callData.receiverEmail) {
-          receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
-        }
-
-        if (receiverSocketId) {
-          const receiverCallEndedData = {
-            ...callEndedData,
-            status: 'cancelled',
-          };
-          io.to(receiverSocketId).emit('callEnded', receiverCallEndedData);
-          io.to(receiverSocketId).emit('CALL_ENDED', receiverCallEndedData);
-          console.log('📞 Backend: Emitted callEnded to receiver:', receiverSocketId);
         } else {
-          console.warn('⚠️ Backend: Receiver socket ID not found for callEnded event');
+          console.warn('⚠️ Backend: Caller socket ID not found');
+        }
+
+        // Handle private call (receiver)
+        if (callData.receiverEmail && !callData.groupId) {
+          let receiverSocketId = callData.receiverSocketId;
+          if (!receiverSocketId) {
+            receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+          }
+
+          if (receiverSocketId) {
+            io.to(receiverSocketId).emit('callEnded', callEndedData);
+            io.to(receiverSocketId).emit('CALL_ENDED', callEndedData);
+            console.log('📞 Backend: Emitted callEnded to receiver:', receiverSocketId);
+          } else {
+            console.warn('⚠️ Backend: Receiver socket ID not found for callEnded event');
+          }
+        }
+        
+        // Handle group call - notify all group members
+        if (callData.groupId) {
+          const Group = require('../models/Group');
+          const group = await Group.findById(callData.groupId);
+          
+          if (group && group.members) {
+            const memberEmails = group.members || [];
+            let notifiedCount = 0;
+            
+            for (const memberEmail of memberEmails) {
+              if (memberEmail === endedBy) continue; // Skip the person who ended
+              
+              const memberSocketId = userService.getSocketByEmail(memberEmail);
+              if (memberSocketId) {
+                io.to(memberSocketId).emit('callEnded', callEndedData);
+                io.to(memberSocketId).emit('CALL_ENDED', callEndedData);
+                notifiedCount++;
+                console.log('📞 Backend: Emitted callEnded to group member:', memberEmail);
+              }
+            }
+            
+            console.log(`📞 Backend: Notified ${notifiedCount} group members about call end`);
+          }
         }
 
         // Cleanup Redis
         await redisService.delete(`call:${sessionId}`);
       } else {
-        // Call data not in Redis, but try to update database anyway
+        // Call data not in Redis or database, but try to update database anyway
+        console.warn('⚠️ Backend: Call data not found, updating database with cancelled status');
         await Call.updateOne(
           { sessionId },
           {
@@ -641,25 +705,96 @@ class CallingService {
    */
   async handleSignaling(sessionId, fromEmail, signalData) {
     try {
+      console.log('📞 Backend: handleSignaling called with sessionId:', sessionId, 'fromEmail:', fromEmail);
+      
       const io = SocketService.getIO();
-      const callData = await redisService.get(`call:${sessionId}`);
+      
+      // Try to get from Redis first
+      let callData = await redisService.get(`call:${sessionId}`);
+      
+      // If not in Redis, try to get from database as fallback
+      if (!callData) {
+        console.warn('⚠️ Backend: Call session not found in Redis for signaling, checking database...');
+        const dbCall = await Call.findOne({ sessionId });
+        
+        if (dbCall) {
+          // Reconstruct callData from database
+          callData = {
+            sessionId: dbCall.sessionId,
+            callerEmail: dbCall.callerEmail,
+            receiverEmail: dbCall.receiverEmail,
+            groupId: dbCall.groupId,
+            type: dbCall.type,
+            status: dbCall.status,
+            direction: dbCall.direction,
+            createdAt: dbCall.createdAt,
+            startedAt: dbCall.startedAt,
+            callerSocketId: null,
+            receiverSocketId: null,
+          };
+          
+          // Get socket IDs
+          callData.callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          if (dbCall.receiverEmail) {
+            callData.receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+          }
+          
+          // Store back in Redis
+          await redisService.set(`call:${sessionId}`, callData, 3600);
+          console.log('✅ Backend: Recovered call session from database for signaling');
+        }
+      }
       
       if (!callData) {
+        console.error('❌ Backend: Call session not found in Redis or database for signaling:', sessionId);
         throw new Error('Call session not found');
       }
 
-      // Determine target
-      const targetEmail = callData.callerEmail === fromEmail 
-        ? callData.receiverEmail 
-        : callData.callerEmail;
-      
-      const targetSocketId = userService.getSocketByEmail(targetEmail);
-      if (targetSocketId) {
-        io.to(targetSocketId).emit('callSignal', {
-          sessionId,
-          signal: signalData,
-          from: fromEmail,
-        });
+      // Handle private call signaling
+      if (callData.receiverEmail && !callData.groupId) {
+        // Determine target for private call
+        const targetEmail = callData.callerEmail === fromEmail 
+          ? callData.receiverEmail 
+          : callData.callerEmail;
+        
+        const targetSocketId = userService.getSocketByEmail(targetEmail);
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('callSignal', {
+            sessionId,
+            signal: signalData,
+            from: fromEmail,
+          });
+          console.log('📞 Backend: Emitted callSignal to private call target:', targetEmail);
+        } else {
+          console.warn('⚠️ Backend: Target socket ID not found for signaling:', targetEmail);
+        }
+      } 
+      // Handle group call signaling
+      else if (callData.groupId) {
+        const Group = require('../models/Group');
+        const group = await Group.findById(callData.groupId);
+        
+        if (group && group.members) {
+          const memberEmails = group.members || [];
+          let notifiedCount = 0;
+          
+          // Send signal to all other group members (except sender)
+          for (const memberEmail of memberEmails) {
+            if (memberEmail === fromEmail) continue; // Skip sender
+            
+            const memberSocketId = userService.getSocketByEmail(memberEmail);
+            if (memberSocketId) {
+              io.to(memberSocketId).emit('callSignal', {
+                sessionId,
+                signal: signalData,
+                from: fromEmail,
+              });
+              notifiedCount++;
+            }
+          }
+          
+          console.log(`📞 Backend: Emitted callSignal to ${notifiedCount} group members`);
+        }
       }
     } catch (error) {
       console.error('Error handling signaling:', error);

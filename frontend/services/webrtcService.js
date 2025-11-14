@@ -334,15 +334,13 @@ class WebRTCService {
   }
 
   /**
-   * End call
+   * Cleanup call resources (called when callEnded event is received)
+   * This is separate from endCall to avoid loops
    */
-  async endCall(sessionId) {
+  cleanupCallResources(sessionId) {
     try {
-      // Emit end call to backend first (so it can cleanup)
-      if (sessionId) {
-        socketService.emit(SOCKET_EVENTS.END_CALL, { sessionId });
-      }
-
+      console.log('🧹 webrtcService: Cleaning up call resources for session:', sessionId);
+      
       // Stop local stream
       if (this.localStream) {
         this.localStream.getTracks().forEach(track => {
@@ -352,19 +350,19 @@ class WebRTCService {
         this.localStream = null;
       }
 
-      // Close all peer connections for this session
-      const peerConnection = this.peerConnections.get(sessionId);
-      if (peerConnection) {
-        try {
-          peerConnection.close();
-        } catch (pcError) {
-          console.warn('Error closing peer connection:', pcError);
+      // Close peer connection for this session
+      if (sessionId) {
+        const peerConnection = this.peerConnections.get(sessionId);
+        if (peerConnection) {
+          try {
+            peerConnection.close();
+          } catch (pcError) {
+            console.warn('Error closing peer connection:', pcError);
+          }
+          this.peerConnections.delete(sessionId);
         }
-        this.peerConnections.delete(sessionId);
-      }
-
-      // Close all peer connections if sessionId not provided (cleanup all)
-      if (!sessionId) {
+      } else {
+        // Close all peer connections if sessionId not provided
         this.peerConnections.forEach((pc, sid) => {
           try {
             pc.close();
@@ -377,20 +375,39 @@ class WebRTCService {
 
       // Clear current call
       this.currentCall = null;
+      
+      console.log('✅ webrtcService: Call resources cleaned up');
+    } catch (error) {
+      console.error('Error cleaning up call resources:', error);
+    }
+  }
 
-      // Don't notify listeners here - let the backend's callEnded event handle it
-      // This prevents duplicate notifications
-      // The backend will emit callEnded to both parties
+  /**
+   * End call - emits to backend, backend will send callEnded event to both parties
+   */
+  async endCall(sessionId) {
+    try {
+      console.log('📞 webrtcService: endCall called with sessionId:', sessionId);
+      
+      // Emit end call to backend first (so it can cleanup and notify both parties)
+      if (sessionId) {
+        const emitSuccess = socketService.emit(SOCKET_EVENTS.END_CALL, { sessionId });
+        if (!emitSuccess) {
+          console.error('❌ webrtcService: Failed to emit END_CALL event');
+          throw new Error('Failed to send end call request');
+        }
+        console.log('✅ webrtcService: END_CALL event emitted to backend');
+      }
+
+      // Don't cleanup immediately - wait for backend's callEnded event
+      // This ensures both sides are notified properly
+      // The cleanupCallResources will be called when callEnded event is received
 
       return { success: true };
     } catch (error) {
       console.error('Error ending call:', error);
-      // Still try to cleanup
-      this.localStream = null;
-      this.currentCall = null;
-      if (sessionId) {
-        this.peerConnections.delete(sessionId);
-      }
+      // On error, still cleanup locally
+      this.cleanupCallResources(sessionId);
       throw error;
     }
   }
@@ -607,8 +624,8 @@ class WebRTCService {
       console.log('📞 webrtcService: CALL_ENDED event received:', data);
       // Notify listeners first
       this.notifyListeners('callEnded', data);
-      // Then cleanup local resources
-      this.endCall(data.sessionId);
+      // Then cleanup local resources (but don't emit endCall again to avoid loop)
+      this.cleanupCallResources(data.sessionId);
     });
 
     // Also listen for lowercase event name (backend emits both)
@@ -616,8 +633,8 @@ class WebRTCService {
       console.log('📞 webrtcService: callEnded event received (lowercase):', data);
       // Notify listeners first
       this.notifyListeners('callEnded', data);
-      // Then cleanup local resources
-      this.endCall(data.sessionId);
+      // Then cleanup local resources (but don't emit endCall again to avoid loop)
+      this.cleanupCallResources(data.sessionId);
     });
 
     socket.on(SOCKET_EVENTS.CALL_MISSED, (data) => {
