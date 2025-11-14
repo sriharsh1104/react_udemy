@@ -154,6 +154,8 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             replyToSender: data.replyToSender || null,
             isDeleted: data.isDeleted || false,
             editedAt: data.editedAt || null,
+            isCallMessage: data.isCallMessage || false,
+            callRecord: data.callRecord || null,
           };
 
           // Send read receipt immediately if we have messageId
@@ -193,6 +195,8 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
               replyToSender: msg.replyToSender || null,
               isDeleted: msg.isDeleted || false,
               editedAt: msg.editedAt || null,
+              isCallMessage: msg.isCallMessage || false,
+              callRecord: msg.callRecord || null,
             };
           })
         );

@@ -1248,6 +1248,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         userEmail={userEmail}
         isDeleted={item.isDeleted || false}
         editedAt={item.editedAt || null}
+        isCallMessage={item.isCallMessage || false}
+        callRecord={item.callRecord || null}
       />
     );
   }, [userEmail, chatType, currentGroup, groupId, selectedMessages, handleMessageSelect, handleMenuPress, handlePinMessage, handleUnpinMessage]);

@@ -98,6 +98,25 @@ const MessageSchema = new mongoose.Schema({
     type: String, // Store edited message text
     default: null,
   },
+  isCallMessage: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  callRecord: {
+    type: {
+      sessionId: String,
+      callerEmail: String,
+      receiverEmail: String,
+      type: String, // 'audio' or 'video'
+      direction: String, // 'outgoing' or 'incoming'
+      status: String, // 'completed', 'missed', 'declined', 'cancelled'
+      duration: Number, // in seconds
+      startedAt: Date,
+      endedAt: Date,
+    },
+    default: null,
+  },
 });
 
 // Compound index for efficient querying

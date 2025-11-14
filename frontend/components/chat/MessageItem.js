@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
 
-const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt, onMenuPress }) => {
+const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt, onMenuPress, isCallMessage, callRecord }) => {
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
@@ -577,6 +577,26 @@ const styles = StyleSheet.create({
   editedLabel: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontStyle: 'italic',
+    marginTop: SPACING.xs / 2,
+  },
+  callBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  callMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  callIcon: {
+    fontSize: 20,
+    marginRight: SPACING.sm,
+  },
+  callMessageTextContainer: {
+    flex: 1,
+  },
+  callDurationText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
     marginTop: SPACING.xs / 2,
   },
 });

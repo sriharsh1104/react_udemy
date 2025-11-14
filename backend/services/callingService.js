@@ -406,7 +406,7 @@ class CallingService {
           status: 'declined',
           message: 'Call declined',
           timestamp: new Date().toISOString(),
-        });
+      });
       }
 
       // Cleanup
@@ -615,6 +615,80 @@ class CallingService {
             console.error('❌ Backend: This means receiver will not be notified of call cancellation');
             // Even if socket not found, try to emit to all sockets for that email (fallback)
             // This handles cases where socket ID might not be in callData
+          }
+
+          // Create call record message in chat history for both users
+          try {
+            const Message = require('../models/Message');
+            const chatService = require('./chatService');
+            const roomId = chatService.getRoomId(callData.callerEmail, callData.receiverEmail);
+            
+            // Determine call message text based on status
+            const callTypeIcon = callData.type === 'video' ? '📹' : '📞';
+            const callStatusText = status === 'completed' ? 'Call ended' : 
+                                  status === 'missed' ? 'Missed call' :
+                                  status === 'declined' ? 'Call declined' : 'Call cancelled';
+            
+            // Format duration
+            const durationText = duration > 0 ? ` (${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')})` : '';
+            const callMessageText = `${callTypeIcon} ${callStatusText}${durationText}`;
+            
+            // Create call record message (sender is caller, but both users will see it)
+            const callMessage = new Message({
+              roomId,
+              senderEmail: callData.callerEmail, // Caller is the sender
+              receiverEmail: callData.receiverEmail,
+              messageType: 'private',
+              message: callMessageText,
+              timestamp: new Date(),
+              readBy: [callData.callerEmail], // Caller has "read" it
+              status: 'sent',
+              isCallMessage: true,
+              callRecord: {
+                sessionId: callData.sessionId,
+                callerEmail: callData.callerEmail,
+                receiverEmail: callData.receiverEmail,
+                type: callData.type,
+                direction: 'outgoing', // Default, frontend will determine based on user
+                status: status,
+                duration: duration,
+                startedAt: startedAt ? (startedAt instanceof Date ? startedAt : new Date(startedAt)) : null,
+                endedAt: new Date(),
+              },
+            });
+            
+            await callMessage.save();
+            console.log('📞 Backend: Created call record message in private chat');
+            
+            // Emit private message event to both users to sync chat history
+            const messageData = {
+              _id: callMessage._id.toString(),
+              messageId: callMessage._id.toString(),
+              senderEmail: callData.callerEmail,
+              receiverEmail: callData.receiverEmail,
+              message: callMessageText,
+              timestamp: callMessage.timestamp,
+              roomId: roomId,
+              isCallMessage: true,
+              callRecord: callMessage.callRecord,
+              readBy: [callData.callerEmail],
+              status: 'sent',
+            };
+            
+            // Emit to caller
+            if (callData.callerSocketId) {
+              io.to(callData.callerSocketId).emit('privateMessage', messageData);
+            }
+            
+            // Emit to receiver
+            if (receiverSocketId) {
+              io.to(receiverSocketId).emit('privateMessage', messageData);
+            }
+            
+            console.log('📞 Backend: Emitted call record message to both users for sync');
+          } catch (callMessageError) {
+            console.error('❌ Backend: Error creating call record message:', callMessageError);
+            // Don't fail the call end process if message creation fails
           }
         } else {
           console.log('📞 Backend: Not a private call or no receiverEmail, skipping receiver notification');
