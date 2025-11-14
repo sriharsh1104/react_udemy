@@ -30,18 +30,39 @@ const corsOptions = {
       process.env.FRONTEND_URL,
       'http://localhost:8081',
       'http://localhost:3000',
+      'http://172.16.15.87:3001',
+      'http://172.16.15.87:8081',
+      /^http:\/\/172\.16\.\d+\.\d+:\d+$/, // Allow local network IPs
+      /^http:\/\/192\.168\.\d+\.\d+:\d+$/, // Allow local network IPs
+      /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/, // Allow local network IPs
     ].filter(Boolean);
     
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    
+    // Check if origin matches any allowed origin (including regex patterns)
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (typeof allowed === 'string') {
+        return allowed === '*' || allowed === origin;
+      } else if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.warn('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 
 app.use(cors(corsOptions));

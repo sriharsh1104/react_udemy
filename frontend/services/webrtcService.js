@@ -129,6 +129,9 @@ class WebRTCService {
 
       // Emit initiate call event
       socketService.emit(SOCKET_EVENTS.INITIATE_CALL, callData);
+      
+      // Wait for sessionId before creating peer connection
+      // Peer connection will be created after we get sessionId from backend
 
       // Wait for call initiated response to get sessionId
       return new Promise((resolve, reject) => {
@@ -150,14 +153,38 @@ class WebRTCService {
           socket.off('callFailed', onCallFailed);
         };
 
-        const onCallInitiated = (data) => {
+        const onCallInitiated = async (data) => {
           if (resolved) return;
           resolved = true;
           cleanup();
           
+          const sessionId = data.sessionId;
+          
+          // Create peer connection for caller
+          const peerConnection = this.createPeerConnection(sessionId);
+          this.peerConnections.set(sessionId, peerConnection);
+          
+          // Add local stream tracks to peer connection
+          this.localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, this.localStream);
+          });
+          
+          // Create and set local offer
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          
+          // Send offer via signaling
+          socketService.emit(SOCKET_EVENTS.CALL_SIGNAL, {
+            sessionId,
+            signal: {
+              type: 'offer',
+              sdp: offer,
+            },
+          });
+          
           resolve({
             success: true,
-            sessionId: data.sessionId,
+            sessionId,
             localStream: this.localStream,
             status: data.status,
           });
@@ -196,6 +223,7 @@ class WebRTCService {
    */
   async handleIncomingCall(sessionId, callerEmail, type) {
     try {
+      console.log('📞 webrtcService.handleIncomingCall called:', { sessionId, callerEmail, type });
       this.currentCall = {
         sessionId,
         callerEmail,
@@ -204,11 +232,13 @@ class WebRTCService {
       };
 
       // Notify listeners
-      this.notifyListeners('incomingCall', {
+      const callData = {
         sessionId,
         callerEmail,
         type,
-      });
+      };
+      console.log('📞 Notifying listeners with data:', callData);
+      this.notifyListeners('incomingCall', callData);
 
       return this.currentCall;
     } catch (error) {
@@ -246,21 +276,11 @@ class WebRTCService {
         peerConnection.addTrack(track, this.localStream);
       });
 
-      // Create and send answer
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-
-      // Emit accept call
+      // Emit accept call first
       socketService.emit(SOCKET_EVENTS.ACCEPT_CALL, { sessionId });
-
-      // Send answer via signaling
-      socketService.emit(SOCKET_EVENTS.CALL_SIGNAL, {
-        sessionId,
-        signal: {
-          type: 'answer',
-          sdp: offer,
-        },
-      });
+      
+      // Wait for offer from caller, then create answer
+      // The answer will be sent in handleSignaling when offer is received
 
       this.currentCall.status = 'connecting';
 
@@ -334,8 +354,9 @@ class WebRTCService {
       // Clear current call
       this.currentCall = null;
 
-      // Notify listeners
-      this.notifyListeners('callEnded', { sessionId });
+      // Don't notify listeners here - let the backend's callEnded event handle it
+      // This prevents duplicate notifications
+      // The backend will emit callEnded to both parties
 
       return { success: true };
     } catch (error) {
@@ -429,10 +450,12 @@ class WebRTCService {
       }
 
       if (signal.type === 'offer') {
+        // Receiver side: received offer from caller
         await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
 
+        // Send answer back to caller
         socketService.emit(SOCKET_EVENTS.CALL_SIGNAL, {
           sessionId,
           signal: {
@@ -441,9 +464,13 @@ class WebRTCService {
           },
         });
       } else if (signal.type === 'answer') {
+        // Caller side: received answer from receiver
         await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
       } else if (signal.type === 'ice-candidate') {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        // Add ICE candidate for both sides
+        if (signal.candidate) {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        }
       }
     } catch (error) {
       console.error('Error handling signaling:', error);
@@ -490,6 +517,7 @@ class WebRTCService {
    */
   notifyListeners(event, data) {
     const listeners = this.callListeners.get(event);
+    console.log(`📢 notifyListeners: event="${event}", listeners count=${listeners?.size || 0}`, data);
     if (listeners) {
       listeners.forEach(callback => {
         try {
@@ -498,6 +526,8 @@ class WebRTCService {
           console.error('Error in call listener:', error);
         }
       });
+    } else {
+      console.warn(`⚠️ No listeners registered for event: ${event}`);
     }
   }
 
@@ -506,14 +536,34 @@ class WebRTCService {
    */
   setupSocketListeners() {
     const socket = socketService.getSocket();
-    if (!socket) return;
+    if (!socket) {
+      // If socket not available, try to setup when it connects
+      // This will be called again when socket connects
+      return;
+    }
+
+    // Remove existing listeners to avoid duplicates
+    socket.off(SOCKET_EVENTS.INCOMING_CALL);
+    socket.off(SOCKET_EVENTS.CALL_ACCEPTED);
+    socket.off(SOCKET_EVENTS.CALL_DECLINED);
+    socket.off(SOCKET_EVENTS.CALL_ENDED);
+    socket.off(SOCKET_EVENTS.CALL_MISSED);
+    socket.off(SOCKET_EVENTS.CALL_FAILED);
+    socket.off(SOCKET_EVENTS.CALL_SIGNAL);
+    socket.off(SOCKET_EVENTS.CALL_ERROR);
 
     socket.on(SOCKET_EVENTS.INCOMING_CALL, async (data) => {
+      console.log('📞 Incoming call received:', data);
       await this.handleIncomingCall(data.sessionId, data.callerEmail, data.type);
     });
 
     socket.on(SOCKET_EVENTS.CALL_ACCEPTED, (data) => {
       this.notifyListeners('callAccepted', data);
+    });
+
+    socket.on(SOCKET_EVENTS.CALL_ACTIVE, (data) => {
+      console.log('📞 webrtcService: CALL_ACTIVE event received:', data);
+      this.notifyListeners('callActive', data);
     });
 
     socket.on(SOCKET_EVENTS.CALL_DECLINED, (data) => {
@@ -522,7 +572,19 @@ class WebRTCService {
     });
 
     socket.on(SOCKET_EVENTS.CALL_ENDED, (data) => {
+      console.log('📞 webrtcService: CALL_ENDED event received:', data);
+      // Notify listeners first
       this.notifyListeners('callEnded', data);
+      // Then cleanup local resources
+      this.endCall(data.sessionId);
+    });
+
+    // Also listen for lowercase event name (backend emits both)
+    socket.on('callEnded', (data) => {
+      console.log('📞 webrtcService: callEnded event received (lowercase):', data);
+      // Notify listeners first
+      this.notifyListeners('callEnded', data);
+      // Then cleanup local resources
       this.endCall(data.sessionId);
     });
 
@@ -567,8 +629,47 @@ class WebRTCService {
 
 const webrtcService = new WebRTCService();
 
-// Setup socket listeners when service is created
+// Setup socket listeners when service is created (if socket is available)
+// Also setup when socket connects
 webrtcService.setupSocketListeners();
+
+// Also setup listeners when socket becomes available
+// This handles the case where socket connects after service creation
+let setupAttempts = 0;
+const MAX_SETUP_ATTEMPTS = 10;
+const setupListenersWhenSocketReady = () => {
+  if (setupAttempts >= MAX_SETUP_ATTEMPTS) {
+    console.warn('⚠️ Max attempts reached for setting up call listeners');
+    return;
+  }
+  
+  const socket = socketService.getSocket();
+  if (socket) {
+    if (socket.connected) {
+      webrtcService.setupSocketListeners();
+      setupAttempts = MAX_SETUP_ATTEMPTS; // Stop retrying
+    } else {
+      // Wait for socket to connect
+      socket.once('connect', () => {
+        webrtcService.setupSocketListeners();
+        setupAttempts = MAX_SETUP_ATTEMPTS; // Stop retrying
+      });
+      setupAttempts++;
+    }
+  } else {
+    // Socket not created yet, try again after a short delay
+    setupAttempts++;
+    if (setupAttempts < MAX_SETUP_ATTEMPTS) {
+      setTimeout(setupListenersWhenSocketReady, 1000);
+    }
+  }
+};
+
+// Try to setup listeners when socket is ready (only if socket not already connected)
+const socket = socketService.getSocket();
+if (!socket || !socket.connected) {
+  setupListenersWhenSocketReady();
+}
 
 export default webrtcService;
 

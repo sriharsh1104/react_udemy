@@ -1,6 +1,6 @@
 // API Configuration
 // Production backend URL
-const PRODUCTION_API_URL = 'https://react-udemy-yaks.onrender.com';
+const PRODUCTION_API_URL = 'http://172.16.15.87:3001';
 
 // Use environment variables if available, otherwise use defaults
 const getApiUrl = () => {
@@ -91,6 +91,7 @@ export const SOCKET_EVENTS = {
   INCOMING_GROUP_CALL: 'incomingGroupCall',
   CALL_INITIATED: 'callInitiated',
   CALL_ACCEPTED: 'callAccepted',
+  CALL_ACTIVE: 'callActive',
   CALL_DECLINED: 'callDeclined',
   CALL_ENDED: 'callEnded',
   CALL_MISSED: 'callMissed',

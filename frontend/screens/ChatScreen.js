@@ -1770,17 +1770,37 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       />
 
       {/* Incoming/Outgoing Call Screen */}
-      <IncomingCallScreen
-        visible={callState === 'ringing'}
-        callerName={callData?.direction === 'incoming' ? contactName : null}
-        callerEmail={callData?.callerEmail}
-        callType={callData?.type || 'audio'}
-        isOutgoing={callData?.direction === 'outgoing'}
-        receiverName={callData?.direction === 'outgoing' ? contactName : null}
-        receiverEmail={callData?.receiverEmail || contactEmail}
-        onAccept={acceptCall}
-        onDecline={declineCall}
-      />
+      {(() => {
+        const isOutgoing = callData?.direction === 'outgoing';
+        console.log('🎨 ChatScreen: Rendering IncomingCallScreen', {
+          visible: callState === 'ringing',
+          callState,
+          callData,
+          isOutgoing,
+          direction: callData?.direction,
+        });
+        // For incoming calls, use callerEmail to get name if contactName is not available
+        const incomingCallerName = callData?.direction === 'incoming' 
+          ? (contactName || callData?.callerEmail?.split('@')[0] || 'Unknown')
+          : null;
+        const outgoingReceiverName = callData?.direction === 'outgoing'
+          ? (contactName || callData?.receiverEmail?.split('@')[0] || 'Unknown')
+          : null;
+        
+        return (
+          <IncomingCallScreen
+            visible={callState === 'ringing'}
+            callerName={incomingCallerName}
+            callerEmail={callData?.callerEmail}
+            callType={callData?.type || 'audio'}
+            isOutgoing={isOutgoing}
+            receiverName={outgoingReceiverName}
+            receiverEmail={callData?.receiverEmail || contactEmail}
+            onAccept={acceptCall}
+            onDecline={declineCall}
+          />
+        );
+      })()}
 
       {/* Active Call Screen */}
       <ActiveCallScreen

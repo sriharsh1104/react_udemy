@@ -1,4 +1,3 @@
-import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CryptoJS from 'crypto-js';
 
@@ -31,11 +30,9 @@ class EncryptionService {
     const salt = 'e2ee_salt_v1'; // In production, use a unique salt per chat
     const keyMaterial = `${sortedEmails[0]}_${sortedEmails[1]}_${salt}`;
     
-    // Use expo-crypto to create a deterministic hash
-    const hash = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      keyMaterial
-    );
+    // Use crypto-js for hashing (works on HTTP, doesn't require WebCrypto API)
+    // This is more reliable across platforms and doesn't require HTTPS
+    const hash = CryptoJS.SHA256(keyMaterial).toString(CryptoJS.enc.Hex);
     
     // Store the key for future use
     await AsyncStorage.setItem(`${this.KEY_STORAGE_PREFIX}${keyId}`, hash);
@@ -59,10 +56,8 @@ class EncryptionService {
     const salt = 'e2ee_group_salt_v1';
     const keyMaterial = `group_${groupId}_${salt}`;
     
-    const hash = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      keyMaterial
-    );
+    // Use crypto-js for hashing (works on HTTP, doesn't require WebCrypto API)
+    const hash = CryptoJS.SHA256(keyMaterial).toString(CryptoJS.enc.Hex);
     
     // Store the key
     await AsyncStorage.setItem(`${this.KEY_STORAGE_PREFIX}${keyId}`, hash);

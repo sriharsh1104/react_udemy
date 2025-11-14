@@ -213,16 +213,25 @@ class CallingService {
         }
       );
 
-      // Notify caller
+      // Start call duration tracking - use same timestamp for both sides
+      const callStartTime = new Date();
+      callData.startedAt = callStartTime;
+      this.activeCalls.set(sessionId, callData);
+
+      // Notify caller with start time for timer sync
       io.to(callData.callerSocketId).emit('callAccepted', {
         sessionId,
         receiverEmail,
-        timestamp: new Date().toISOString(),
+        startedAt: callStartTime.toISOString(),
+        timestamp: callStartTime.toISOString(),
       });
 
-      // Start call duration tracking
-      callData.startedAt = new Date();
-      this.activeCalls.set(sessionId, callData);
+      // Notify receiver with start time for timer sync
+      io.to(socketId).emit('callActive', {
+        sessionId,
+        startedAt: callStartTime.toISOString(),
+        timestamp: callStartTime.toISOString(),
+      });
 
       return {
         success: true,
@@ -254,21 +263,31 @@ class CallingService {
         this.callRingTimeouts.delete(sessionId);
       }
 
-      // Update status
-      await this.updateCallStatus(sessionId, 'declined');
+      // Update status to 'busy' (as per user requirement: receiver decline = busy for caller)
+      await this.updateCallStatus(sessionId, 'busy');
 
-      // Notify caller
+      // Notify caller with 'busy' status
       io.to(callData.callerSocketId).emit('callDeclined', {
         sessionId,
         receiverEmail,
+        status: 'busy',
+        message: 'User is busy',
         timestamp: new Date().toISOString(),
+      });
+      
+      // Also emit callFailed with busy status for consistency
+      io.to(callData.callerSocketId).emit('callFailed', {
+        sessionId,
+        status: 'busy',
+        message: 'User is busy',
+        reason: 'User is busy',
       });
 
       // Cleanup
       await redisService.delete(`call:${sessionId}`);
       this.activeCalls.delete(sessionId);
 
-      return { success: true, status: 'declined' };
+      return { success: true, status: 'busy' };
     } catch (error) {
       console.error('Error declining call:', error);
       throw error;
@@ -395,23 +414,37 @@ class CallingService {
           }
         );
 
-        // Notify both parties
+        // Notify both parties - CRITICAL: both must receive callEnded event
+        // Emit both event names for compatibility
+        const callEndedData = {
+          sessionId,
+          duration,
+          endedBy,
+          timestamp: new Date().toISOString(),
+        };
+        
         if (callData.callerSocketId) {
-          io.to(callData.callerSocketId).emit('callEnded', {
-            sessionId,
-            duration,
-            endedBy,
-            timestamp: new Date().toISOString(),
-          });
+          io.to(callData.callerSocketId).emit('callEnded', callEndedData);
+          io.to(callData.callerSocketId).emit('CALL_ENDED', callEndedData);
+          console.log('📞 Backend: Emitted callEnded to caller:', callData.callerSocketId);
         }
 
-        if (callData.receiverSocketId) {
-          io.to(callData.receiverSocketId).emit('callEnded', {
-            sessionId,
-            duration,
-            endedBy,
-            timestamp: new Date().toISOString(),
-          });
+        // Get receiver socket ID (might not be in callData if call ended during ringing)
+        let receiverSocketId = callData.receiverSocketId;
+        if (!receiverSocketId && callData.receiverEmail) {
+          receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+        }
+
+        if (receiverSocketId) {
+          const receiverCallEndedData = {
+            ...callEndedData,
+            status: 'cancelled',
+          };
+          io.to(receiverSocketId).emit('callEnded', receiverCallEndedData);
+          io.to(receiverSocketId).emit('CALL_ENDED', receiverCallEndedData);
+          console.log('📞 Backend: Emitted callEnded to receiver:', receiverSocketId);
+        } else {
+          console.warn('⚠️ Backend: Receiver socket ID not found for callEnded event');
         }
 
         // Cleanup Redis

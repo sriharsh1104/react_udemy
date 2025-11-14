@@ -1,6 +1,6 @@
 // API Configuration
 const API_CONFIG = {
-  BASE_URL: process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3001',
+  BASE_URL: process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3001' || 'http://172.16.15.87:3001',
   PORT: process.env.PORT || 3001,
   CORS_ORIGIN: process.env.FRONTEND_URL || process.env.CORS_ORIGIN || '*',
   NODE_ENV: process.env.NODE_ENV || 'development',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,11 @@ const ActiveCallScreen = ({
   isVideoOn = true,
 }) => {
   const [callDuration, setCallDuration] = useState(duration || 0);
+  const remoteAudioRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const localVideoRef = useRef(null);
+  const remoteVideoContainerRef = useRef(null);
+  const localVideoContainerRef = useRef(null);
 
   useEffect(() => {
     if (visible && duration === 0) {
@@ -39,6 +44,120 @@ const ActiveCallScreen = ({
       setCallDuration(duration);
     }
   }, [visible, duration]);
+
+  // Attach remote audio stream for web platform
+  useEffect(() => {
+    if (Platform.OS === 'web' && remoteStream) {
+      // Create audio element if it doesn't exist
+      if (!remoteAudioRef.current) {
+        const audioElement = document.createElement('audio');
+        audioElement.autoplay = true;
+        audioElement.playsInline = true;
+        audioElement.style.display = 'none';
+        document.body.appendChild(audioElement);
+        remoteAudioRef.current = audioElement;
+      }
+      
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.play().catch(err => {
+          console.error('Error playing remote audio:', err);
+        });
+      }
+    }
+    return () => {
+      if (Platform.OS === 'web' && remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = null;
+        if (remoteAudioRef.current.parentNode) {
+          remoteAudioRef.current.parentNode.removeChild(remoteAudioRef.current);
+        }
+        remoteAudioRef.current = null;
+      }
+    };
+  }, [remoteStream]);
+
+  // Attach remote video stream for web platform
+  useEffect(() => {
+    if (Platform.OS === 'web' && callType === 'video' && remoteStream && remoteVideoContainerRef.current) {
+      // Create video element if it doesn't exist
+      if (!remoteVideoRef.current) {
+        const videoElement = document.createElement('video');
+        videoElement.autoplay = true;
+        videoElement.playsInline = true;
+        videoElement.style.width = '100%';
+        videoElement.style.height = '100%';
+        videoElement.style.objectFit = 'cover';
+        videoElement.style.position = 'absolute';
+        videoElement.style.top = '0';
+        videoElement.style.left = '0';
+        
+        // Get the native DOM element from React Native View
+        const container = remoteVideoContainerRef.current;
+        if (container && container._nativeNode) {
+          container._nativeNode.appendChild(videoElement);
+          remoteVideoRef.current = videoElement;
+        }
+      }
+      
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.play().catch(err => {
+          console.error('Error playing remote video:', err);
+        });
+      }
+    }
+    return () => {
+      if (Platform.OS === 'web' && remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+        if (remoteVideoRef.current.parentNode) {
+          remoteVideoRef.current.parentNode.removeChild(remoteVideoRef.current);
+        }
+        remoteVideoRef.current = null;
+      }
+    };
+  }, [remoteStream, callType]);
+
+  // Attach local video stream for web platform
+  useEffect(() => {
+    if (Platform.OS === 'web' && callType === 'video' && localStream && localVideoContainerRef.current) {
+      // Create video element if it doesn't exist
+      if (!localVideoRef.current) {
+        const videoElement = document.createElement('video');
+        videoElement.autoplay = true;
+        videoElement.playsInline = true;
+        videoElement.muted = true;
+        videoElement.style.width = '100%';
+        videoElement.style.height = '100%';
+        videoElement.style.objectFit = 'cover';
+        videoElement.style.position = 'absolute';
+        videoElement.style.top = '0';
+        videoElement.style.left = '0';
+        
+        // Get the native DOM element from React Native View
+        const container = localVideoContainerRef.current;
+        if (container && container._nativeNode) {
+          container._nativeNode.appendChild(videoElement);
+          localVideoRef.current = videoElement;
+        }
+      }
+      
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+        localVideoRef.current.play().catch(err => {
+          console.error('Error playing local video:', err);
+        });
+      }
+    }
+    return () => {
+      if (Platform.OS === 'web' && localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
+        if (localVideoRef.current.parentNode) {
+          localVideoRef.current.parentNode.removeChild(localVideoRef.current);
+        }
+        localVideoRef.current = null;
+      }
+    };
+  }, [localStream, callType]);
 
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -61,8 +180,7 @@ const ActiveCallScreen = ({
       
       {/* Video View (if video call) */}
       {callType === 'video' && remoteStream && (
-        <View style={styles.videoContainer}>
-          {/* Remote video will be rendered here */}
+        <View style={styles.videoContainer} ref={remoteVideoContainerRef}>
           <View style={styles.remoteVideoPlaceholder}>
             <Text style={styles.videoPlaceholderText}>Remote Video</Text>
           </View>
@@ -71,8 +189,7 @@ const ActiveCallScreen = ({
 
       {/* Local video (if video call) */}
       {callType === 'video' && localStream && (
-        <View style={styles.localVideoContainer}>
-          {/* Local video will be rendered here */}
+        <View style={styles.localVideoContainer} ref={localVideoContainerRef}>
           <View style={styles.localVideoPlaceholder}>
             <Text style={styles.videoPlaceholderText}>You</Text>
           </View>

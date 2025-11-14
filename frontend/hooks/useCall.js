@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import webrtcService from '../services/webrtcService';
 import { Alert, Platform } from 'react-native';
 
@@ -15,7 +15,20 @@ export const useCall = (userEmail) => {
   const [permissionDeviceType, setPermissionDeviceType] = useState('microphone');
   const durationIntervalRef = useRef(null);
 
+  const handleIncomingCall = useCallback((data) => {
+    console.log('📞 useCall: Incoming call handler called:', data);
+    console.log('📞 useCall: Setting callState to ringing, direction to incoming');
+    setCallState('ringing');
+    setCallData({
+      sessionId: data.sessionId,
+      callerEmail: data.callerEmail,
+      type: data.type,
+      direction: 'incoming',
+    });
+  }, []);
+
   useEffect(() => {
+    console.log('🔧 useCall: Setting up webrtc service listeners');
     // Setup webrtc service listeners
     webrtcService.on('incomingCall', handleIncomingCall);
     webrtcService.on('callAccepted', handleCallAccepted);
@@ -24,8 +37,10 @@ export const useCall = (userEmail) => {
     webrtcService.on('callMissed', handleCallMissed);
     webrtcService.on('callFailed', handleCallFailed);
     webrtcService.on('remoteStream', handleRemoteStream);
+    webrtcService.on('callActive', handleCallActive);
 
     return () => {
+      console.log('🔧 useCall: Cleaning up webrtc service listeners');
       webrtcService.off('incomingCall', handleIncomingCall);
       webrtcService.off('callAccepted', handleCallAccepted);
       webrtcService.off('callDeclined', handleCallDeclined);
@@ -33,31 +48,82 @@ export const useCall = (userEmail) => {
       webrtcService.off('callMissed', handleCallMissed);
       webrtcService.off('callFailed', handleCallFailed);
       webrtcService.off('remoteStream', handleRemoteStream);
+      webrtcService.off('callActive', handleCallActive);
     };
-  }, []);
+  }, [handleIncomingCall]);
 
-  const handleIncomingCall = (data) => {
-    setCallState('ringing');
-    setCallData({
-      sessionId: data.sessionId,
-      callerEmail: data.callerEmail,
-      type: data.type,
-      direction: 'incoming',
-    });
-  };
+  // Update timer every second when call is active
+  // Duration is set by handleCallAccepted (caller) or handleCallActive (receiver)
+  useEffect(() => {
+    if (callState === 'active' && !durationIntervalRef.current) {
+      console.log('⏱️ useCall: Starting timer interval, current duration:', callDuration);
+      // Don't reset duration - it's already set by handleCallAccepted/handleCallActive
+      durationIntervalRef.current = setInterval(() => {
+        setCallDuration(prev => prev + 1);
+      }, 1000);
+    } else if (callState !== 'active' && durationIntervalRef.current) {
+      // Stop timer if call is not active
+      console.log('⏱️ useCall: Stopping timer');
+      clearInterval(durationIntervalRef.current);
+      durationIntervalRef.current = null;
+    }
+    
+    return () => {
+      if (durationIntervalRef.current) {
+        clearInterval(durationIntervalRef.current);
+        durationIntervalRef.current = null;
+      }
+    };
+  }, [callState]);
+
+  // Debug: Log callState and callData changes
+  useEffect(() => {
+    console.log('📊 useCall: callState changed to:', callState);
+    console.log('📊 useCall: callData:', callData);
+  }, [callState, callData]);
 
   const handleCallAccepted = (data) => {
-    setCallState('connecting');
+    console.log('✅ useCall: Call accepted on other side:', data);
+    // When receiver accepts, caller side moves to connecting state
+    if (callData?.direction === 'outgoing') {
+      setCallState('connecting');
+      // Start timer immediately when call is accepted (for sync)
+      if (data.startedAt) {
+        const startTime = new Date(data.startedAt);
+        const now = new Date();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        setCallDuration(Math.max(0, elapsed));
+        setCallState('active');
+        console.log('⏱️ useCall: Timer started on caller side from accepted time');
+      }
+    }
+  };
+
+  const handleCallActive = (data) => {
+    console.log('✅ useCall: Call active event received:', data);
+    // Receiver side: start timer when call becomes active
+    if (data.startedAt) {
+      const startTime = new Date(data.startedAt);
+      const now = new Date();
+      const elapsed = Math.floor((now - startTime) / 1000);
+      setCallDuration(Math.max(0, elapsed));
+      setCallState('active');
+      console.log('⏱️ useCall: Timer started on receiver side from active time');
+    }
   };
 
   const handleCallDeclined = (data) => {
     resetCall();
-    Alert.alert('Call Declined', 'The call was declined');
+    const message = data.status === 'busy' ? 'User is busy' : 'The call was declined';
+    Alert.alert('Call Ended', message);
   };
 
   const handleCallEnded = (data) => {
+    console.log('📞 useCall: Call ended event received:', data);
     resetCall();
-    if (data.duration) {
+    // Don't show alert if call was ended by current user (they already know)
+    // Only show alert if call was ended by the other party
+    if (data.duration !== undefined && data.endedBy !== userEmail) {
       Alert.alert('Call Ended', `Call duration: ${formatDuration(data.duration)}`);
     }
   };
@@ -73,10 +139,20 @@ export const useCall = (userEmail) => {
   };
 
   const handleRemoteStream = (data) => {
+    console.log('🎥 useCall: Remote stream received:', data);
     setRemoteStream(data.stream);
-    if (callState === 'connecting') {
+    
+    // Attach remote stream to audio element for playback
+    if (data.stream && Platform.OS === 'web') {
+      // For web, we need to attach the stream to an audio element
+      // This will be handled by ActiveCallScreen component
+    }
+    
+    // Only update state if not already active (timer already started via callAccepted/callActive)
+    if (callState !== 'active') {
+      console.log('✅ useCall: Remote stream received, call is active');
       setCallState('active');
-      startCallTimer();
+      // Timer will continue/start via useEffect when callState becomes 'active'
     }
   };
 
@@ -166,10 +242,13 @@ export const useCall = (userEmail) => {
   const acceptCall = async () => {
     try {
       if (!callData) return;
+      console.log('📞 useCall: Receiver accepting call...');
       const result = await webrtcService.acceptCall(callData.sessionId);
       if (result.success) {
         setLocalStream(result.localStream);
         setCallState('connecting');
+        console.log('✅ useCall: Call accepted, waiting for callActive event...');
+        // Timer will start when callActive event is received from backend
       }
     } catch (error) {
       console.error('Error accepting call:', error);
@@ -201,11 +280,15 @@ export const useCall = (userEmail) => {
 
   const endCall = async () => {
     try {
+      console.log('📞 useCall: Ending call from this side...');
       if (callData && callData.sessionId) {
         await webrtcService.endCall(callData.sessionId);
+        // Backend will emit callEnded to both parties
+        // The other side will receive it and reset their UI
       }
-      // Always reset call state, even if there's an error
+      // Reset this side immediately
       resetCall();
+      console.log('✅ useCall: Call ended on this side, UI reset');
     } catch (error) {
       console.error('Error ending call:', error);
       // Force reset even on error
