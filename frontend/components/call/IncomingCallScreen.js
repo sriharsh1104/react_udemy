@@ -7,6 +7,7 @@ import {
   Animated,
   Platform,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 
@@ -43,8 +44,6 @@ const IncomingCallScreen = ({
     }
   }, [visible]);
 
-  if (!visible) return null;
-
   const displayName = isOutgoing 
     ? (receiverName || receiverEmail?.split('@')[0] || 'Unknown')
     : (callerName || callerEmail?.split('@')[0] || 'Unknown');
@@ -55,9 +54,16 @@ const IncomingCallScreen = ({
   });
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.content}>
+    <Modal
+      visible={visible}
+      transparent={false}
+      animationType="fade"
+      onRequestClose={onDecline}
+      statusBarTranslucent={true}
+    >
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.content}>
         {/* Avatar */}
         <Animated.View style={[styles.avatarContainer, { transform: [{ scale }] }]}>
           <View style={styles.avatar}>
@@ -132,20 +138,16 @@ const IncomingCallScreen = ({
             </>
           )}
         </View>
+        </View>
       </View>
-    </View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: COLORS.background,
-    zIndex: 1000,
     justifyContent: 'center',
     alignItems: 'center',
   },

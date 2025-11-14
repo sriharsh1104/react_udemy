@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 
@@ -45,13 +46,18 @@ const ActiveCallScreen = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (!visible) return null;
-
   const displayName = participantName || participantEmail?.split('@')[0] || 'Unknown';
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <Modal
+      visible={visible}
+      transparent={false}
+      animationType="fade"
+      onRequestClose={onEndCall}
+      statusBarTranslucent={true}
+    >
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" />
       
       {/* Video View (if video call) */}
       {callType === 'video' && remoteStream && (
@@ -129,19 +135,15 @@ const ActiveCallScreen = ({
           <Text style={styles.endCallButtonIcon}>📞</Text>
         </TouchableOpacity>
       </View>
-    </View>
+      </View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: COLORS.background,
-    zIndex: 1000,
   },
   videoContainer: {
     flex: 1,
