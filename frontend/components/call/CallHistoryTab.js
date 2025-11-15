@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
   Platform,
   StatusBar,
   RefreshControl,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SOCKET_EVENTS } from '../../constants';
 import callService from '../../services/callService';
 import socketService from '../../services/socketService';
+import contactsService from '../../services/contactsService';
 import { Alert } from 'react-native';
 
 const CallHistoryTab = ({ userEmail, onCallPress }) => {
@@ -19,6 +22,10 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'missed', 'outgoing', 'incoming'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [contacts, setContacts] = useState([]);
+  const [searchingContacts, setSearchingContacts] = useState(false);
+  const [filteredContactsFromAPI, setFilteredContactsFromAPI] = useState([]);
 
   const loadCallHistory = useCallback(async () => {
     setLoading(true);
@@ -43,7 +50,19 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
 
   useEffect(() => {
     loadCallHistory();
+    loadContacts();
   }, [loadCallHistory]);
+
+  const loadContacts = useCallback(async () => {
+    try {
+      const result = await contactsService.getContacts();
+      if (result.success && result.contacts) {
+        setContacts(result.contacts || []);
+      }
+    } catch (error) {
+      console.error('Error loading contacts:', error);
+    }
+  }, []);
 
   // Listen to socket events to refresh call history
   useEffect(() => {
@@ -151,6 +170,141 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
     }
   };
 
+  // Extract unique contacts from call history
+  const uniqueContacts = useMemo(() => {
+    const contactMap = new Map();
+    
+    calls.forEach(call => {
+      if (call.groupId) {
+        // Group calls
+        const key = `group_${call.groupId}`;
+        if (!contactMap.has(key)) {
+          contactMap.set(key, {
+            id: key,
+            type: 'group',
+            groupId: call.groupId,
+            name: call.groupName || 'Group Call',
+            email: null,
+            lastCallTime: call.createdAt,
+          });
+        } else {
+          const existing = contactMap.get(key);
+          if (new Date(call.createdAt) > new Date(existing.lastCallTime)) {
+            existing.lastCallTime = call.createdAt;
+          }
+        }
+      } else {
+        // Private calls
+        const isOutgoing = call.direction === 'outgoing';
+        const contactEmail = isOutgoing ? call.receiverEmail : call.callerEmail;
+        const contactName = isOutgoing 
+          ? (call.receiverName || call.receiverEmail?.split('@')[0] || 'Unknown')
+          : (call.callerName || call.callerEmail?.split('@')[0] || 'Unknown');
+        
+        if (contactEmail && contactEmail !== userEmail) {
+          if (!contactMap.has(contactEmail)) {
+            contactMap.set(contactEmail, {
+              id: contactEmail,
+              type: 'contact',
+              email: contactEmail,
+              name: contactName,
+              groupId: null,
+              lastCallTime: call.createdAt,
+            });
+          } else {
+            const existing = contactMap.get(contactEmail);
+            if (new Date(call.createdAt) > new Date(existing.lastCallTime)) {
+              existing.lastCallTime = call.createdAt;
+            }
+            // Update name if we have a better one
+            if (contactName && contactName !== 'Unknown' && existing.name === 'Unknown') {
+              existing.name = contactName;
+            }
+          }
+        }
+      }
+    });
+    
+    return Array.from(contactMap.values()).sort((a, b) => 
+      new Date(b.lastCallTime) - new Date(a.lastCallTime)
+    );
+  }, [calls, userEmail]);
+
+  // Search contacts from API when search query changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredContactsFromAPI([]);
+      return;
+    }
+
+    const searchContacts = async () => {
+      setSearchingContacts(true);
+      try {
+        const query = searchQuery.trim().toLowerCase();
+        
+        // Filter contacts from API
+        const apiContacts = contacts
+          .filter(contact => {
+            const name = (contact.name || contact.contactName || '').toLowerCase();
+            const email = (contact.email || contact.contactEmail || '').toLowerCase();
+            return name.includes(query) || email.includes(query);
+          })
+          .map(contact => ({
+            id: contact.email || contact.contactEmail,
+            type: 'contact',
+            email: contact.email || contact.contactEmail,
+            name: contact.name || contact.contactName || contact.email?.split('@')[0] || 'Unknown',
+            groupId: null,
+          }));
+
+        // Also filter call history contacts
+        const callHistoryContacts = uniqueContacts.filter(contact => {
+          const name = contact.name?.toLowerCase() || '';
+          const email = contact.email?.toLowerCase() || '';
+          return name.includes(query) || email.includes(query);
+        });
+
+        // Combine and deduplicate by email
+        const combined = [...apiContacts, ...callHistoryContacts];
+        const contactMap = new Map();
+        combined.forEach(contact => {
+          if (contact.email && !contactMap.has(contact.email)) {
+            contactMap.set(contact.email, contact);
+          } else if (contact.groupId && !contactMap.has(contact.id)) {
+            contactMap.set(contact.id, contact);
+          }
+        });
+
+        setFilteredContactsFromAPI(Array.from(contactMap.values()));
+      } catch (error) {
+        console.error('Error searching contacts:', error);
+      } finally {
+        setSearchingContacts(false);
+      }
+    };
+
+    const timeoutId = setTimeout(searchContacts, 300); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, contacts, uniqueContacts]);
+
+  // Filter contacts based on search query (fallback to call history only)
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    
+    // Use API search results if available
+    if (filteredContactsFromAPI.length > 0) {
+      return filteredContactsFromAPI;
+    }
+    
+    // Fallback to call history contacts
+    const query = searchQuery.toLowerCase().trim();
+    return uniqueContacts.filter(contact => {
+      const name = contact.name?.toLowerCase() || '';
+      const email = contact.email?.toLowerCase() || '';
+      return name.includes(query) || email.includes(query);
+    });
+  }, [searchQuery, filteredContactsFromAPI, uniqueContacts]);
+
   const filteredCalls = calls.filter(call => {
     if (filter === 'all') return true;
     if (filter === 'missed') return call.status === 'missed';
@@ -173,6 +327,56 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
       console.error('Error calling from history:', error);
       Alert.alert('Error', 'Failed to initiate call');
     }
+  };
+
+  const handleCallFromSearch = async (type, contact) => {
+    try {
+      if (onCallPress) {
+        await onCallPress(type, contact.email, contact.groupId);
+        setSearchQuery(''); // Clear search after calling
+      } else {
+        Alert.alert('Error', 'Call functionality not available');
+      }
+    } catch (error) {
+      console.error('Error calling from search:', error);
+      Alert.alert('Error', 'Failed to initiate call');
+    }
+  };
+
+  const renderSearchResult = ({ item }) => {
+    return (
+      <View style={styles.searchResultItem}>
+        <View style={styles.searchResultLeft}>
+          <View style={styles.searchResultIconContainer}>
+            <Text style={styles.searchResultIcon}>
+              {item.type === 'group' ? '👥' : '👤'}
+            </Text>
+          </View>
+          <View style={styles.searchResultInfo}>
+            <Text style={styles.searchResultName} numberOfLines={1}>{item.name}</Text>
+            {item.email && (
+              <Text style={styles.searchResultEmail} numberOfLines={1}>{item.email}</Text>
+            )}
+          </View>
+        </View>
+        <View style={styles.searchResultActions}>
+          <TouchableOpacity
+            style={[styles.callActionButton, styles.audioCallButton]}
+            onPress={() => handleCallFromSearch('audio', item)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.callActionIcon}>📞</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.callActionButton, styles.videoCallButton, { marginLeft: SPACING.sm }]}
+            onPress={() => handleCallFromSearch('video', item)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.callActionIcon}>📹</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   const renderCallItem = ({ item }) => {
@@ -218,6 +422,55 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
 
   return (
     <View style={styles.container}>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search contacts..."
+          placeholderTextColor={COLORS.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setSearchQuery('')}
+            style={styles.clearButton}
+          >
+            <Text style={styles.clearIcon}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Search Results */}
+      {searchQuery.trim().length > 0 && (
+        <View style={styles.searchResultsContainer}>
+          <Text style={styles.searchResultsTitle}>
+            {searchingContacts 
+              ? 'Searching...'
+              : filteredContacts.length > 0 
+                ? `Found ${filteredContacts.length} contact${filteredContacts.length > 1 ? 's' : ''}`
+                : 'No contacts found'}
+          </Text>
+          {searchingContacts ? (
+            <View style={styles.searchLoadingContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            </View>
+          ) : (
+            <FlatList
+              data={filteredContacts}
+              renderItem={renderSearchResult}
+              keyExtractor={(item) => item.id}
+              style={styles.searchResultsList}
+              contentContainerStyle={styles.searchResultsContent}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      )}
+
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
@@ -245,32 +498,36 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
         </TouchableOpacity>
       </View>
 
-      {loading && calls.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading call history...</Text>
-        </View>
-      ) : filteredCalls.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📞</Text>
-          <Text style={styles.emptyText}>No call history</Text>
-          <Text style={styles.emptySubtext}>Your call history will appear here</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredCalls}
-          renderItem={renderCallItem}
-          keyExtractor={(item, index) => `call-${item._id || index}-${item.createdAt}`}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[COLORS.primary]}
-              tintColor={COLORS.primary}
+      {!searchQuery.trim() && (
+        <>
+          {loading && calls.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading call history...</Text>
+            </View>
+          ) : filteredCalls.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>📞</Text>
+              <Text style={styles.emptyText}>No call history</Text>
+              <Text style={styles.emptySubtext}>Your call history will appear here</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredCalls}
+              renderItem={renderCallItem}
+              keyExtractor={(item, index) => `call-${item._id || index}-${item.createdAt}`}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={[COLORS.primary]}
+                  tintColor={COLORS.primary}
+                />
+              }
             />
-          }
-        />
+          )}
+        </>
       )}
     </View>
   );
@@ -280,6 +537,122 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.headerBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  searchIcon: {
+    fontSize: 18,
+    marginRight: SPACING.sm,
+    color: COLORS.textSecondary,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.text,
+    backgroundColor: COLORS.receivedMessage,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginRight: SPACING.sm,
+  },
+  clearButton: {
+    padding: SPACING.xs,
+  },
+  clearIcon: {
+    fontSize: 18,
+    color: COLORS.textSecondary,
+  },
+  searchResultsContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  searchResultsTitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.headerBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  searchResultsList: {
+    flex: 1,
+  },
+  searchResultsContent: {
+    padding: SPACING.md,
+  },
+  searchLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xxl,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.receivedMessage,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.sm,
+  },
+  searchResultLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  searchResultIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  searchResultIcon: {
+    fontSize: 20,
+  },
+  searchResultInfo: {
+    flex: 1,
+  },
+  searchResultName: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  searchResultEmail: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+  },
+  searchResultActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  callActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  audioCallButton: {
+    backgroundColor: COLORS.primary,
+  },
+  videoCallButton: {
+    backgroundColor: '#10B981', // Green color for video calls
+  },
+  callActionIcon: {
+    fontSize: 18,
   },
   filterContainer: {
     flexDirection: 'row',
