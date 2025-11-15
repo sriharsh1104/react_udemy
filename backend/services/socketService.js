@@ -116,8 +116,8 @@ class SocketService {
     const { email } = data;
     const timestamp = new Date().toISOString();
     if (email) {
-      userService.setEmailToSocket(email, socket.id);
-      userService.addUser(socket.id, email);
+      await userService.setEmailToSocket(email, socket.id);
+      await userService.addUser(socket.id, email);
       
       // Check if user is in offline mode
       const User = require('../models/User');
@@ -135,7 +135,7 @@ class SocketService {
         const socketNotifications = [];
         
         for (const contactEmail of contactEmails) {
-          const contactSocketId = userService.getSocketByEmail(contactEmail);
+          const contactSocketId = await userService.getSocketByEmail(contactEmail);
           if (contactSocketId) {
             socketNotifications.push({
               socketId: contactSocketId,
@@ -181,7 +181,7 @@ class SocketService {
     socket.join(roomId);
     
     // Also ensure the contact is in the room if they're online
-    const contactSocketId = userService.getSocketByEmail(contactEmail);
+    const contactSocketId = await userService.getSocketByEmail(contactEmail);
     if (contactSocketId) {
       const contactSocket = this.io.sockets.sockets.get(contactSocketId);
       if (contactSocket && !contactSocket.rooms.has(roomId)) {
@@ -343,7 +343,7 @@ class SocketService {
     const roomId = chatService.getRoomId(senderEmail, contactEmail);
     
     // Check if contact is online
-    const contactSocketId = userService.getSocketByEmail(contactEmail);
+    const contactSocketId = await userService.getSocketByEmail(contactEmail);
     const isContactOnline = !!contactSocketId;
     
     if (isContactOnline) {
@@ -413,7 +413,7 @@ class SocketService {
       });
       
       // Emit contacts update event to sender to refresh their contact list (in case contact was re-added)
-      const senderSocketId = userService.getSocketByEmail(senderEmail);
+      const senderSocketId = await userService.getSocketByEmail(senderEmail);
       if (senderSocketId) {
         this.io.to(senderSocketId).emit('contactsUpdated', {
           contactEmail: contactEmail,
@@ -442,12 +442,12 @@ class SocketService {
     });
   }
 
-  handleDisconnect(socket) {
+  async handleDisconnect(socket) {
     const timestamp = new Date().toISOString();
     const socketId = socket.id;
     
     // COMPREHENSIVE CLEANUP: Remove socket from all maps to prevent memory leaks
-    const email = userService.cleanupSocket(socketId);
+    const email = await userService.cleanupSocket(socketId);
     
     if (email) {
       console.log(`[${timestamp}] 🔌 SOCKET DISCONNECTED:`, {
@@ -458,13 +458,21 @@ class SocketService {
       // Notify all contacts that this user is now offline
       // OPTIMIZED: Batch socket lookups to avoid N+1 queries
       const Contact = require('../models/Contact');
-      Contact.find({ contactEmail: email }).select('userEmail').lean().then((contacts) => {
+      Contact.find({ contactEmail: email }).select('userEmail').lean().then(async (contacts) => {
         // Batch all socket lookups at once
         const contactEmails = contacts.map(c => c.userEmail);
         const socketNotifications = [];
         
-        for (const contactEmail of contactEmails) {
-          const contactSocketId = userService.getSocketByEmail(contactEmail);
+        // Use Promise.all for parallel lookups
+        const socketLookups = await Promise.all(
+          contactEmails.map(async (contactEmail) => {
+            const contactSocketId = await userService.getSocketByEmail(contactEmail);
+            return { contactEmail, contactSocketId };
+          })
+        );
+        
+        // Build notifications array
+        for (const { contactEmail, contactSocketId } of socketLookups) {
           if (contactSocketId) {
             socketNotifications.push({
               socketId: contactSocketId,
@@ -580,7 +588,7 @@ class SocketService {
         groupUnarchived = true;  
         // Emit groupsUpdated event to sender immediately after unarchiving
         // This ensures the group appears in Recent Chats right away
-        const senderSocketId = userService.getSocketByEmail(senderEmail);
+        const senderSocketId = await userService.getSocketByEmail(senderEmail);
         if (senderSocketId) {
           this.io.to(senderSocketId).emit('groupsUpdated', {
             groupId: groupId,
@@ -706,7 +714,7 @@ class SocketService {
         const updatedMessage = await chatService.markMessageAsRead(messageId, readerEmail);
         if (updatedMessage) {
           // Notify sender that message was read
-          const senderSocketId = userService.getSocketByEmail(message.senderEmail);
+          const senderSocketId = await userService.getSocketByEmail(message.senderEmail);
           if (senderSocketId) {
             const senderSocket = this.io.sockets.sockets.get(senderSocketId);
             if (senderSocket) {

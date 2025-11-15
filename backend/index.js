@@ -166,6 +166,41 @@ const io = require('socket.io')(server, {
   maxHttpBufferSize: 1e8, // 100MB - for large file uploads
 });
 
+// Setup Redis adapter for Socket.io horizontal scaling
+// This allows multiple server instances to share socket state
+if (redisService.isReady()) {
+  try {
+    const { createAdapter } = require('@socket.io/redis-adapter');
+    const { createClient } = require('redis');
+    
+    // Create Redis clients for pub/sub (required for adapter)
+    const pubClient = createClient({
+      url: process.env.REDIS_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`,
+      username: process.env.REDIS_USERNAME,
+      password: process.env.REDIS_PASSWORD,
+    });
+    
+    const subClient = pubClient.duplicate();
+    
+    // Connect clients
+    Promise.all([pubClient.connect(), subClient.connect()])
+      .then(() => {
+        io.adapter(createAdapter(pubClient, subClient));
+        console.log('✅ Socket.io Redis adapter initialized - ready for horizontal scaling');
+      })
+      .catch((err) => {
+        console.warn('⚠️ Failed to initialize Socket.io Redis adapter:', err.message);
+        console.warn('⚠️ Socket.io will work but won\'t scale horizontally without Redis adapter');
+      });
+  } catch (error) {
+    console.warn('⚠️ Socket.io Redis adapter not available:', error.message);
+    console.warn('⚠️ Install @socket.io/redis-adapter for horizontal scaling');
+  }
+} else {
+  console.warn('⚠️ Redis not connected - Socket.io Redis adapter disabled');
+  console.warn('⚠️ Socket.io will work but won\'t scale horizontally without Redis');
+}
+
 // Initialize Socket Service
 new SocketService(io);
 

@@ -5,9 +5,123 @@ const SocketService = require('./socketService');
 
 class CallingService {
   constructor() {
+    // Keep in-memory as fallback for call state
     this.callTimeouts = new Map(); // Track call timeouts
     this.activeCalls = new Map(); // Track active calls
     this.callRingTimeouts = new Map(); // Track ringing timeouts
+    
+    // Use Redis for distributed call state if available
+    this.useRedis = false;
+    this.checkRedisAvailability();
+  }
+  
+  async checkRedisAvailability() {
+    // Check if Redis is available for distributed call state
+    if (redisService.isReady()) {
+      this.useRedis = true;
+      console.log('✅ CallingService: Using Redis for distributed call state management');
+    } else {
+      this.useRedis = false;
+      console.warn('⚠️ CallingService: Redis not available, using in-memory state (won\'t scale horizontally)');
+    }
+  }
+  
+  // Store call timeout in Redis
+  async setCallTimeout(sessionId, timeoutId) {
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        // Store timeout reference (we can't store the actual timeout, but we can track it)
+        await redisService.set(`call:timeout:${sessionId}`, Date.now(), 300); // 5 min TTL
+      } catch (error) {
+        console.error('Error storing call timeout in Redis:', error);
+      }
+    }
+    this.callTimeouts.set(sessionId, timeoutId);
+  }
+  
+  // Get and clear call timeout
+  async getAndClearCallTimeout(sessionId) {
+    const timeout = this.callTimeouts.get(sessionId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.callTimeouts.delete(sessionId);
+    }
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        await redisService.delete(`call:timeout:${sessionId}`);
+      } catch (error) {
+        // Ignore
+      }
+    }
+    return timeout;
+  }
+  
+  // Store active call in Redis
+  async setActiveCall(sessionId, callData) {
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        await redisService.set(`call:active:${sessionId}`, callData, 3600); // 1 hour TTL
+      } catch (error) {
+        console.error('Error storing active call in Redis:', error);
+      }
+    }
+    this.activeCalls.set(sessionId, callData);
+  }
+  
+  // Get active call from Redis or memory
+  async getActiveCall(sessionId) {
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        const callData = await redisService.get(`call:active:${sessionId}`);
+        if (callData) {
+          return callData;
+        }
+      } catch (error) {
+        // Fallback to memory
+      }
+    }
+    return this.activeCalls.get(sessionId);
+  }
+  
+  // Remove active call
+  async removeActiveCall(sessionId) {
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        await redisService.delete(`call:active:${sessionId}`);
+      } catch (error) {
+        // Ignore
+      }
+    }
+    this.activeCalls.delete(sessionId);
+  }
+  
+  // Store ring timeout in Redis
+  async setRingTimeout(sessionId, timeoutId) {
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        await redisService.set(`call:ring:${sessionId}`, Date.now(), 300); // 5 min TTL
+      } catch (error) {
+        console.error('Error storing ring timeout in Redis:', error);
+      }
+    }
+    this.callRingTimeouts.set(sessionId, timeoutId);
+  }
+  
+  // Get and clear ring timeout
+  async getAndClearRingTimeout(sessionId) {
+    const timeout = this.callRingTimeouts.get(sessionId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.callRingTimeouts.delete(sessionId);
+    }
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        await redisService.delete(`call:ring:${sessionId}`);
+      } catch (error) {
+        // Ignore
+      }
+    }
+    return timeout;
   }
 
   /**
@@ -25,7 +139,7 @@ class CallingService {
       // Get receiver socket ID early if receiverEmail is provided
       let receiverSocketId = null;
       if (receiverEmail) {
-        receiverSocketId = userService.getSocketByEmail(receiverEmail);
+        receiverSocketId = await userService.getSocketByEmail(receiverEmail);
       }
       
       const callData = {
@@ -118,10 +232,10 @@ class CallingService {
         const ringTimeout = setTimeout(async () => {
           await this.handleCallTimeout(sessionId);
         }, 30000);
-        this.callRingTimeouts.set(sessionId, ringTimeout);
+        await this.setRingTimeout(sessionId, ringTimeout);
 
         // Track active call
-        this.activeCalls.set(sessionId, {
+        await this.setActiveCall(sessionId, {
           ...callData,
           receiverSocketId,
         });
@@ -145,13 +259,28 @@ class CallingService {
         const memberEmails = group.members || [];
         const onlineMembers = [];
 
-        for (const memberEmail of memberEmails) {
-          if (memberEmail === callerEmail) continue; // Skip caller
-
-          const memberSocketId = userService.getSocketByEmail(memberEmail);
-          if (memberSocketId) {
-            const isBusy = await this.isUserBusy(memberEmail);
-            if (!isBusy) {
+        // OPTIMIZED: Batch socket lookups to avoid N+1 queries
+        const socketLookups = await Promise.all(
+          memberEmails
+            .filter(email => email !== callerEmail)
+            .map(async (memberEmail) => {
+              const memberSocketId = await userService.getSocketByEmail(memberEmail);
+              return { memberEmail, memberSocketId };
+            })
+        );
+        
+        // Batch check if users are busy
+        const busyChecks = await Promise.all(
+          socketLookups.map(async ({ memberEmail }) => ({
+            memberEmail,
+            isBusy: await this.isUserBusy(memberEmail)
+          }))
+        );
+        
+        // Emit to all available members
+        for (const { memberEmail, memberSocketId } of socketLookups) {
+          const busyCheck = busyChecks.find(b => b.memberEmail === memberEmail);
+          if (memberSocketId && !busyCheck?.isBusy) {
               io.to(memberSocketId).emit('incomingGroupCall', {
                 sessionId,
                 groupId,
@@ -160,7 +289,6 @@ class CallingService {
                 timestamp: new Date().toISOString(),
               });
               onlineMembers.push(memberEmail);
-            }
           }
         }
 
@@ -178,7 +306,7 @@ class CallingService {
         const ringTimeout = setTimeout(async () => {
           await this.handleCallTimeout(sessionId);
         }, 30000);
-        this.callRingTimeouts.set(sessionId, ringTimeout);
+        await this.setRingTimeout(sessionId, ringTimeout);
 
         // Return success for group call
         return {
@@ -235,7 +363,7 @@ class CallingService {
           
           // Get caller socket ID
           const userService = require('./userService');
-          callData.callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          callData.callerSocketId = await userService.getSocketByEmail(dbCall.callerEmail);
           
           // Store back in Redis
           await redisService.set(`call:${sessionId}`, callData, 3600);
@@ -256,11 +384,7 @@ class CallingService {
       });
 
       // Clear ringing timeout
-      const ringTimeout = this.callRingTimeouts.get(sessionId);
-      if (ringTimeout) {
-        clearTimeout(ringTimeout);
-        this.callRingTimeouts.delete(sessionId);
-      }
+      await this.getAndClearRingTimeout(sessionId);
 
       // Update call status
       callData.status = 'connecting';
@@ -280,7 +404,7 @@ class CallingService {
       // Start call duration tracking - use same timestamp for both sides
       const callStartTime = new Date();
       callData.startedAt = callStartTime;
-      this.activeCalls.set(sessionId, callData);
+      await this.setActiveCall(sessionId, callData);
 
       // Notify caller with start time for timer sync
       io.to(callData.callerSocketId).emit('callAccepted', {
@@ -341,9 +465,9 @@ class CallingService {
           };
           
           // Get socket IDs
-          callData.callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          callData.callerSocketId = await userService.getSocketByEmail(dbCall.callerEmail);
           if (dbCall.receiverEmail) {
-            callData.receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+            callData.receiverSocketId = await userService.getSocketByEmail(dbCall.receiverEmail);
           }
           
           // Store back in Redis
@@ -358,11 +482,7 @@ class CallingService {
       }
 
       // Clear ringing timeout
-      const ringTimeout = this.callRingTimeouts.get(sessionId);
-      if (ringTimeout) {
-        clearTimeout(ringTimeout);
-        this.callRingTimeouts.delete(sessionId);
-      }
+      await this.getAndClearRingTimeout(sessionId);
 
       // Update status to 'declined'
       await this.updateCallStatus(sessionId, 'declined');
@@ -387,7 +507,7 @@ class CallingService {
       // IMPORTANT: Also notify receiver to close incoming call screen
       let receiverSocketId = callData.receiverSocketId;
       if (!receiverSocketId && callData.receiverEmail) {
-        receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+        receiverSocketId = await userService.getSocketByEmail(callData.receiverEmail);
       }
       
       if (receiverSocketId) {
@@ -411,7 +531,7 @@ class CallingService {
 
       // Cleanup
       await redisService.delete(`call:${sessionId}`);
-      this.activeCalls.delete(sessionId);
+      await this.removeActiveCall(sessionId);
 
       return { success: true, status: 'declined' };
     } catch (error) {
@@ -442,8 +562,8 @@ class CallingService {
 
       // Cleanup
       await redisService.delete(`call:${sessionId}`);
-      this.activeCalls.delete(sessionId);
-      this.callRingTimeouts.delete(sessionId);
+      await this.removeActiveCall(sessionId);
+      await this.getAndClearRingTimeout(sessionId);
     } catch (error) {
       console.error('Error handling call timeout:', error);
     }
@@ -482,7 +602,7 @@ class CallingService {
           await receiverCall.save();
 
           // Try to notify receiver if they're online
-          const receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+          const receiverSocketId = await userService.getSocketByEmail(callData.receiverEmail);
           if (receiverSocketId) {
             // Receiver is online - notify them immediately
             io.to(receiverSocketId).emit('callMissed', {
@@ -569,7 +689,7 @@ class CallingService {
               }
               
               // Emit to receiver if online
-              const receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+              const receiverSocketId = await userService.getSocketByEmail(callData.receiverEmail);
               if (receiverSocketId) {
                 io.to(receiverSocketId).emit('privateMessage', messageData);
               }
@@ -609,7 +729,7 @@ class CallingService {
               await receiverCall.save();
 
               // Try to notify receiver if they're online
-              const receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+              const receiverSocketId = await userService.getSocketByEmail(dbCall.receiverEmail);
               if (receiverSocketId) {
                 io.to(receiverSocketId).emit('callMissed', {
                   sessionId: `${sessionId}_incoming`,
@@ -685,13 +805,13 @@ class CallingService {
                 };
                 
                 // Emit to caller
-                const callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+                const callerSocketId = await userService.getSocketByEmail(dbCall.callerEmail);
                 if (callerSocketId) {
                   io.to(callerSocketId).emit('privateMessage', messageData);
                 }
                 
                 // Emit to receiver if online
-                const receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+                const receiverSocketId = await userService.getSocketByEmail(dbCall.receiverEmail);
                 if (receiverSocketId) {
                   io.to(receiverSocketId).emit('privateMessage', messageData);
                 }
@@ -706,13 +826,8 @@ class CallingService {
       }
 
       await redisService.delete(`call:${sessionId}`);
-      this.activeCalls.delete(sessionId);
-      
-      const ringTimeout = this.callRingTimeouts.get(sessionId);
-      if (ringTimeout) {
-        clearTimeout(ringTimeout);
-        this.callRingTimeouts.delete(sessionId);
-      }
+      await this.removeActiveCall(sessionId);
+      await this.getAndClearRingTimeout(sessionId);
     } catch (error) {
       console.error('Error handling call failed:', error);
     }
@@ -737,10 +852,10 @@ class CallingService {
           });
         }
         await redisService.delete(`call:${sessionId}`);
-        this.activeCalls.delete(sessionId);
+        await this.removeActiveCall(sessionId);
       }, 30000);
 
-      this.callTimeouts.set(sessionId, timeout);
+      await this.setCallTimeout(sessionId, timeout);
     } catch (error) {
       console.error('Error handling blocked call:', error);
     }
@@ -778,9 +893,9 @@ class CallingService {
           };
           
           // Get socket IDs
-          callData.callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          callData.callerSocketId = await userService.getSocketByEmail(dbCall.callerEmail);
           if (dbCall.receiverEmail) {
-            callData.receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+            callData.receiverSocketId = await userService.getSocketByEmail(dbCall.receiverEmail);
           }
           
           console.log('✅ Backend: Recovered call session from database for endCall');
@@ -860,7 +975,7 @@ class CallingService {
           
           if (!receiverSocketId) {
             console.log('📞 Backend: receiverSocketId not in callData, fetching from userService...');
-          receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+          receiverSocketId = await userService.getSocketByEmail(callData.receiverEmail);
             console.log('📞 Backend: Fetched receiverSocketId:', receiverSocketId);
         }
 
@@ -982,7 +1097,7 @@ class CallingService {
             for (const memberEmail of memberEmails) {
               if (memberEmail === endedBy) continue; // Skip the person who ended
               
-              const memberSocketId = userService.getSocketByEmail(memberEmail);
+              const memberSocketId = await userService.getSocketByEmail(memberEmail);
               if (memberSocketId) {
                 io.to(memberSocketId).emit('callEnded', callEndedData);
                 io.to(memberSocketId).emit('CALL_ENDED', callEndedData);
@@ -1013,7 +1128,7 @@ class CallingService {
               endedBy,
               timestamp: new Date().toISOString(),
             };
-            const callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+            const callerSocketId = await userService.getSocketByEmail(dbCall.callerEmail);
             if (callerSocketId) {
               io.to(callerSocketId).emit('callEnded', callEndedData);
             }
@@ -1048,7 +1163,7 @@ class CallingService {
           
           // Notify receiver if exists (IMPORTANT: When caller cancels, receiver must be notified)
           if (dbCall.receiverEmail) {
-            const receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+            const receiverSocketId = await userService.getSocketByEmail(dbCall.receiverEmail);
             if (receiverSocketId) {
               io.to(receiverSocketId).emit('callEnded', callEndedData);
               io.to(receiverSocketId).emit('CALL_ENDED', callEndedData);
@@ -1063,29 +1178,19 @@ class CallingService {
       }
 
       // Always cleanup from activeCalls (even if Redis data is missing)
-      this.activeCalls.delete(sessionId);
+      await this.removeActiveCall(sessionId);
       
       // Clear any timeouts
-      const ringTimeout = this.callRingTimeouts.get(sessionId);
-      if (ringTimeout) {
-        clearTimeout(ringTimeout);
-        this.callRingTimeouts.delete(sessionId);
-      }
-
-      // Also clear any call timeouts
-      const callTimeout = this.callTimeouts.get(sessionId);
-      if (callTimeout) {
-        clearTimeout(callTimeout);
-        this.callTimeouts.delete(sessionId);
-      }
+      await this.getAndClearRingTimeout(sessionId);
+      await this.getAndClearCallTimeout(sessionId);
 
       return { success: true, duration, status };
     } catch (error) {
       console.error('Error ending call:', error);
       // Even if there's an error, try to cleanup
-      this.activeCalls.delete(sessionId);
-      this.callRingTimeouts.delete(sessionId);
-      this.callTimeouts.delete(sessionId);
+      await this.removeActiveCall(sessionId);
+      await this.getAndClearRingTimeout(sessionId);
+      await this.getAndClearCallTimeout(sessionId);
       throw error;
     }
   }
@@ -1174,9 +1279,9 @@ class CallingService {
     }
     
     // Cleanup stale entries
-    staleKeys.forEach(sessionId => {
-      this.activeCalls.delete(sessionId);
-    });
+    for (const sessionId of staleKeys) {
+      await this.removeActiveCall(sessionId);
+    }
     
     return activeKeys;
   }
@@ -1215,9 +1320,9 @@ class CallingService {
           };
           
           // Get socket IDs
-          callData.callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          callData.callerSocketId = await userService.getSocketByEmail(dbCall.callerEmail);
           if (dbCall.receiverEmail) {
-            callData.receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+            callData.receiverSocketId = await userService.getSocketByEmail(dbCall.receiverEmail);
           }
           
           // Store back in Redis
@@ -1238,7 +1343,7 @@ class CallingService {
         ? callData.receiverEmail 
         : callData.callerEmail;
       
-      const targetSocketId = userService.getSocketByEmail(targetEmail);
+      const targetSocketId = await userService.getSocketByEmail(targetEmail);
       if (targetSocketId) {
         io.to(targetSocketId).emit('callSignal', {
           sessionId,

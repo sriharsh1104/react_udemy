@@ -1,14 +1,42 @@
-// In-memory caching service with TTL support
-// Can be upgraded to Redis later for distributed caching
+// Distributed caching service with Redis support
+// Falls back to in-memory if Redis is not available
+
+const redisService = require('./redisService');
 
 class CacheService {
   constructor() {
-    this.cache = new Map();
+    this.cache = new Map(); // In-memory fallback
     this.defaultTTL = 5 * 60 * 1000; // 5 minutes default TTL
+    this.useRedis = false;
+    this.checkRedisAvailability();
+  }
+  
+  async checkRedisAvailability() {
+    // Check if Redis is available for distributed caching
+    if (redisService.isReady()) {
+      this.useRedis = true;
+      console.log('✅ CacheService: Using Redis for distributed caching');
+    } else {
+      this.useRedis = false;
+      console.warn('⚠️ CacheService: Redis not available, using in-memory cache (won\'t scale horizontally)');
+    }
   }
 
   // Set a value in cache with optional TTL
-  set(key, value, ttl = this.defaultTTL) {
+  async set(key, value, ttl = this.defaultTTL) {
+    // Store in Redis if available
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        const ttlSeconds = Math.floor(ttl / 1000); // Convert to seconds
+        await redisService.set(`cache:${key}`, value, ttlSeconds);
+      } catch (error) {
+        console.error('Error setting cache in Redis:', error);
+        // Fallback to in-memory
+        this.useRedis = false;
+      }
+    }
+    
+    // Always maintain in-memory as fallback
     const expiresAt = Date.now() + ttl;
     this.cache.set(key, {
       value,
@@ -17,7 +45,21 @@ class CacheService {
   }
 
   // Get a value from cache (returns null if expired or not found)
-  get(key) {
+  async get(key) {
+    // Try Redis first if available
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        const value = await redisService.get(`cache:${key}`);
+        if (value !== null) {
+          return value;
+        }
+      } catch (error) {
+        console.error('Error getting cache from Redis:', error);
+        // Fallback to in-memory
+      }
+    }
+    
+    // Fallback to in-memory
     const item = this.cache.get(key);
     
     if (!item) {
@@ -34,16 +76,28 @@ class CacheService {
   }
 
   // Delete a key from cache
-  delete(key) {
+  async delete(key) {
+    // Delete from Redis if available
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        await redisService.delete(`cache:${key}`);
+      } catch (error) {
+        console.error('Error deleting cache from Redis:', error);
+      }
+    }
+    
+    // Delete from in-memory
     this.cache.delete(key);
   }
 
   // Delete multiple keys matching a pattern
-  deletePattern(pattern) {
+  async deletePattern(pattern) {
+    // Note: Redis pattern deletion would require SCAN command
+    // For now, only delete from in-memory
     const regex = new RegExp(pattern);
     for (const key of this.cache.keys()) {
       if (regex.test(key)) {
-        this.cache.delete(key);
+        await this.delete(key);
       }
     }
   }

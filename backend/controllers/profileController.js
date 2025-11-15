@@ -23,7 +23,7 @@ class ProfileController {
 
       // Check cache first
       const cacheKey = cacheService.keys.userProfile(email);
-      let cachedData = cacheService.get(cacheKey);
+      let cachedData = await cacheService.get(cacheKey);
       
       if (cachedData) {
         return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PROFILE_RETRIEVED_SUCCESSFULLY_CACHED, cachedData);
@@ -71,7 +71,7 @@ class ProfileController {
         };
         
         // Cache the response (5 minutes TTL)
-        cacheService.set(cacheKey, responseData, 5 * 60 * 1000);
+        await cacheService.set(cacheKey, responseData, 5 * 60 * 1000);
         
         return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PROFILE_RETRIEVED_SUCCESSFULLY, responseData);
       }

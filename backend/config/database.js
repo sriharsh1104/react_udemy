@@ -16,8 +16,8 @@ const connectDB = async () => {
       socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
       
       // Connection pooling configuration for scalability
-      maxPoolSize: 50, // Maximum number of connections in the pool (default: 100)
-      minPoolSize: 5, // Minimum number of connections to maintain (default: 0)
+      maxPoolSize: parseInt(process.env.MONGODB_MAX_POOL_SIZE || '100', 10), // Increased for millions of users
+      minPoolSize: parseInt(process.env.MONGODB_MIN_POOL_SIZE || '10', 10), // Maintain more connections
       maxIdleTimeMS: 30000, // Close connections after 30s of inactivity
       connectTimeoutMS: 10000, // Timeout after 10s when connecting
       

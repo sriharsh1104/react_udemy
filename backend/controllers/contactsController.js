@@ -227,7 +227,7 @@ class ContactsController {
 
       // Invalidate contacts cache
       const cacheKey = cacheService.keys.userContacts(userEmail);
-      cacheService.delete(cacheKey);
+      await cacheService.delete(cacheKey);
 
       // Emit socket event to notify user about contacts update
       const SocketService = require('../services/socketService');
@@ -530,7 +530,7 @@ class ContactsController {
 
       // Check cache first
       const cacheKey = cacheService.keys.userContacts(userEmail);
-      let cachedData = cacheService.get(cacheKey);
+      let cachedData = await cacheService.get(cacheKey);
       
       if (cachedData) {
         return sendSuccess(res, HTTP_STATUS.OK, `Found ${cachedData.contacts.length} contact(s) (cached)`, cachedData);
@@ -712,7 +712,7 @@ class ContactsController {
       };
       
       // Cache the response (2 minutes TTL - contacts change more frequently)
-      cacheService.set(cacheKey, responseData, 2 * 60 * 1000);
+      await cacheService.set(cacheKey, responseData, 2 * 60 * 1000);
       
       return sendSuccess(res, HTTP_STATUS.OK, `Found ${contacts.length} contact(s)`, responseData);
     } catch (error) {
@@ -744,7 +744,7 @@ class ContactsController {
 
       // Invalidate contacts cache
       const cacheKey = cacheService.keys.userContacts(userEmail);
-      cacheService.delete(cacheKey);
+      await cacheService.delete(cacheKey);
 
       return sendSuccess(res, HTTP_STATUS.OK, contact.isFavorite ? 'Contact marked as favorite' : 'Contact removed from favorites', {
         contact: {
@@ -796,7 +796,7 @@ class ContactsController {
 
       // Invalidate contacts cache
       const cacheKey = cacheService.keys.userContacts(userEmail);
-      cacheService.delete(cacheKey);
+      await cacheService.delete(cacheKey);
 
       return sendSuccess(res, HTTP_STATUS.OK, contact.isPinned ? 'Chat pinned' : 'Chat unpinned', {
         contact: {
@@ -848,7 +848,7 @@ class ContactsController {
 
       // Invalidate contacts cache
       const cacheKey = cacheService.keys.userContacts(userEmail);
-      cacheService.delete(cacheKey);
+      await cacheService.delete(cacheKey);
 
       return sendSuccess(res, HTTP_STATUS.OK, contact.isArchived ? 'Chat archived' : 'Chat unarchived', {
         contact: {
@@ -977,7 +977,7 @@ class ContactsController {
 
       // Invalidate contacts cache
       const cacheKey = cacheService.keys.userContacts(userEmail);
-      cacheService.delete(cacheKey);
+      await cacheService.delete(cacheKey);
 
       return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.CONTACT_REMOVED_SUCCESSFULLY, {
         contacts,

@@ -1,15 +1,31 @@
 const Session = require('../models/Session');
+const redisService = require('./redisService');
 
 class UserService {
   constructor() {
-    // Keep in-memory for socket connections (temporary)
+    // Keep in-memory as fallback for socket connections
     this.users = new Map(); // socketId -> username (email)
     this.emailToSocket = new Map(); // email -> socketId
     this.socketToEmail = new Map(); // socketId -> email (reverse lookup for cleanup)
     this.socketLastActivity = new Map(); // socketId -> timestamp (for cleanup)
     
+    // Use Redis for distributed state if available
+    this.useRedis = false;
+    this.checkRedisAvailability();
+    
     // Start periodic cleanup to prevent memory leaks
     this.startCleanupInterval();
+  }
+  
+  async checkRedisAvailability() {
+    // Check if Redis is available and use it for distributed state
+    if (redisService.isReady()) {
+      this.useRedis = true;
+      console.log('✅ UserService: Using Redis for distributed socket state management');
+    } else {
+      this.useRedis = false;
+      console.warn('⚠️ UserService: Redis not available, using in-memory state (won\'t scale horizontally)');
+    }
   }
   
   // Periodic cleanup to remove stale entries and prevent memory leaks
@@ -64,30 +80,13 @@ class UserService {
     };
   }
 
-  addUser(socketId, username) {
-    this.users.set(socketId, username);
-    this.socketToEmail.set(socketId, username); // Track reverse mapping
-    this.socketLastActivity.set(socketId, Date.now()); // Track activity
+  async addUser(socketId, username) {
+    await this.setEmailToSocket(username, socketId);
     return Array.from(this.users.values());
   }
 
-  removeUser(socketId) {
-    const username = this.users.get(socketId);
-    
-    // Clean up all related entries
-    this.users.delete(socketId);
-    this.socketToEmail.delete(socketId);
-    this.socketLastActivity.delete(socketId);
-    
-    // Also remove from emailToSocket if this socket is mapped
-    if (username) {
-      const currentSocketId = this.emailToSocket.get(username);
-      if (currentSocketId === socketId) {
-        this.emailToSocket.delete(username);
-      }
-    }
-    
-    return username;
+  async removeUser(socketId) {
+    return await this.cleanupSocket(socketId);
   }
 
   getUser(socketId) {
@@ -173,23 +172,63 @@ class UserService {
     }
   }
 
-  // Socket management (in-memory)
-  setEmailToSocket(email, socketId) {
+  // Socket management (Redis-backed for horizontal scaling)
+  async setEmailToSocket(email, socketId) {
     // If email already has a different socket, clean up the old one
-    const oldSocketId = this.emailToSocket.get(email);
+    const oldSocketId = await this.getSocketByEmail(email);
     if (oldSocketId && oldSocketId !== socketId) {
       // Remove old socket mapping
-      this.users.delete(oldSocketId);
-      this.socketToEmail.delete(oldSocketId);
-      this.socketLastActivity.delete(oldSocketId);
+      await this.removeSocketMapping(oldSocketId);
     }
     
+    // Store in Redis for distributed access
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        // Store email -> socketId mapping with TTL (1 hour)
+        await redisService.set(`socket:email:${email}`, socketId, 3600);
+        // Store socketId -> email mapping with TTL
+        await redisService.set(`socket:id:${socketId}`, email, 3600);
+        // Store socket activity timestamp
+        await redisService.set(`socket:activity:${socketId}`, Date.now(), 3600);
+      } catch (error) {
+        console.error('Error storing socket mapping in Redis:', error);
+        // Fallback to in-memory
+        this.useRedis = false;
+      }
+    }
+    
+    // Always maintain in-memory as fallback
     this.emailToSocket.set(email, socketId);
-    this.socketToEmail.set(socketId, email); // Maintain reverse mapping
-    this.socketLastActivity.set(socketId, Date.now()); // Update activity
+    this.socketToEmail.set(socketId, email);
+    this.socketLastActivity.set(socketId, Date.now());
+    this.users.set(socketId, email);
   }
 
-  getSocketByEmail(email) {
+  async getSocketByEmail(email) {
+    // Try Redis first if available
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        const socketId = await redisService.get(`socket:email:${email}`);
+        if (socketId) {
+          // Verify socket is still active by checking activity
+          const activity = await redisService.get(`socket:activity:${socketId}`);
+          if (activity) {
+            // Update activity
+            await redisService.set(`socket:activity:${socketId}`, Date.now(), 3600);
+            return socketId;
+          } else {
+            // Socket is stale, clean up
+            await redisService.delete(`socket:email:${email}`);
+            await redisService.delete(`socket:id:${socketId}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error getting socket from Redis:', error);
+        // Fallback to in-memory
+      }
+    }
+    
+    // Fallback to in-memory
     const socketId = this.emailToSocket.get(email);
     
     // Verify socket still exists and is active
@@ -207,37 +246,62 @@ class UserService {
     return null;
   }
 
-  removeEmailToSocket(email) {
-    const socketId = this.emailToSocket.get(email);
+  async removeSocketMapping(socketId) {
+    // Remove from Redis
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        const email = await redisService.get(`socket:id:${socketId}`);
+        if (email) {
+          await redisService.delete(`socket:email:${email}`);
+        }
+        await redisService.delete(`socket:id:${socketId}`);
+        await redisService.delete(`socket:activity:${socketId}`);
+      } catch (error) {
+        console.error('Error removing socket mapping from Redis:', error);
+      }
+    }
     
-    if (socketId) {
-      // Remove from all maps
+    // Remove from in-memory
+    const email = this.socketToEmail.get(socketId);
+    if (email) {
       this.emailToSocket.delete(email);
-      this.users.delete(socketId);
+    }
       this.socketToEmail.delete(socketId);
       this.socketLastActivity.delete(socketId);
+    this.users.delete(socketId);
+  }
+
+  async removeEmailToSocket(email) {
+    const socketId = await this.getSocketByEmail(email);
+    
+    if (socketId) {
+      await this.removeSocketMapping(socketId);
     }
   }
   
   // Comprehensive cleanup for a socket (called on disconnect)
-  cleanupSocket(socketId) {
-    const email = this.socketToEmail.get(socketId) || this.users.get(socketId);
-    
-    // Remove from all maps
-    this.users.delete(socketId);
-    this.socketToEmail.delete(socketId);
-    this.socketLastActivity.delete(socketId);
-    
-    // Remove email mapping if this socket is still mapped
-    if (email) {
-      const currentSocketId = this.emailToSocket.get(email);
-      if (currentSocketId === socketId) {
-    this.emailToSocket.delete(email);
+  async cleanupSocket(socketId) {
+    // Try to get email from Redis first
+    let email = null;
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        email = await redisService.get(`socket:id:${socketId}`);
+      } catch (error) {
+        // Fallback to in-memory
       }
     }
+    
+    // Fallback to in-memory
+    if (!email) {
+      email = this.socketToEmail.get(socketId) || this.users.get(socketId);
+    }
+    
+    // Remove from Redis
+    await this.removeSocketMapping(socketId);
     
     return email;
   }
 }
 
 module.exports = new UserService();
+

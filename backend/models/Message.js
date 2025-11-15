@@ -119,10 +119,15 @@ const MessageSchema = new mongoose.Schema({
   },
 });
 
-// Compound index for efficient querying
-MessageSchema.index({ roomId: 1, timestamp: 1 });
-MessageSchema.index({ groupId: 1, timestamp: 1 });
+// Compound indexes for efficient querying
+MessageSchema.index({ roomId: 1, timestamp: -1 }); // For paginated message retrieval
+MessageSchema.index({ groupId: 1, timestamp: -1 }); // For group message pagination
 MessageSchema.index({ groupId: 1, isPinned: 1 }); // For querying pinned messages
+MessageSchema.index({ senderEmail: 1, timestamp: -1 }); // For user message history
+MessageSchema.index({ receiverEmail: 1, read: 1, timestamp: -1 }); // For unread message queries
+MessageSchema.index({ receiverEmail: 1, senderEmail: 1, read: 1 }); // For unread count queries
+MessageSchema.index({ timestamp: -1 }); // For feed and general queries
+MessageSchema.index({ expiresAt: 1 }); // For status expiration cleanup (if used for messages)
 
 module.exports = mongoose.model('Message', MessageSchema);
 
