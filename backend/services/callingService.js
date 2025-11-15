@@ -500,7 +500,7 @@ class CallingService {
         }
 
         // Update caller's call record status
-        await this.updateCallStatus(sessionId, status);
+      await this.updateCallStatus(sessionId, status);
 
         // Create call message in chat for "User offline" case
         if (status === 'missed' && reason === 'User offline' && callData.receiverEmail) {
@@ -896,18 +896,18 @@ class CallingService {
             });
 
             if (!anyExistingMessage) {
-              // Determine call message text based on status
-              const callTypeIcon = callData.type === 'video' ? '📹' : '📞';
-              const callStatusText = status === 'completed' ? 'Call ended' : 
-                                    status === 'missed' ? 'Missed call' :
-                                    status === 'declined' ? 'Call declined' : 'Call cancelled';
-              
-              // Format duration
-              const durationText = duration > 0 ? ` (${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')})` : '';
-              const callMessageText = `${callTypeIcon} ${callStatusText}${durationText}`;
-              
-              // Create call record message (sender is caller, but both users will see it)
-              const callMessage = new Message({
+            // Determine call message text based on status
+            const callTypeIcon = callData.type === 'video' ? '📹' : '📞';
+            const callStatusText = status === 'completed' ? 'Call ended' : 
+                                  status === 'missed' ? 'Missed call' :
+                                  status === 'declined' ? 'Call declined' : 'Call cancelled';
+            
+            // Format duration
+            const durationText = duration > 0 ? ` (${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')})` : '';
+            const callMessageText = `${callTypeIcon} ${callStatusText}${durationText}`;
+            
+            // Create call record message (sender is caller, but both users will see it)
+            const callMessage = new Message({
               roomId,
               senderEmail: callData.callerEmail, // Caller is the sender
               receiverEmail: callData.receiverEmail,
@@ -930,35 +930,35 @@ class CallingService {
               },
             });
             
-              await callMessage.save();
-              console.log('📞 Backend: Created call record message in private chat');
-              
-              // Emit private message event to both users to sync chat history
-              const messageData = {
-                _id: callMessage._id.toString(),
-                messageId: callMessage._id.toString(),
-                senderEmail: callData.callerEmail,
-                receiverEmail: callData.receiverEmail,
-                message: callMessageText,
-                timestamp: callMessage.timestamp,
-                roomId: roomId,
-                isCallMessage: true,
-                callRecord: callMessage.callRecord,
-                readBy: [callData.callerEmail],
-                status: 'sent',
-              };
-              
-              // Emit to caller
-              if (callData.callerSocketId) {
-                io.to(callData.callerSocketId).emit('privateMessage', messageData);
-              }
-              
-              // Emit to receiver
-              if (receiverSocketId) {
-                io.to(receiverSocketId).emit('privateMessage', messageData);
-              }
-              
-              console.log('📞 Backend: Emitted call record message to both users for sync');
+            await callMessage.save();
+            console.log('📞 Backend: Created call record message in private chat');
+            
+            // Emit private message event to both users to sync chat history
+            const messageData = {
+              _id: callMessage._id.toString(),
+              messageId: callMessage._id.toString(),
+              senderEmail: callData.callerEmail,
+              receiverEmail: callData.receiverEmail,
+              message: callMessageText,
+              timestamp: callMessage.timestamp,
+              roomId: roomId,
+              isCallMessage: true,
+              callRecord: callMessage.callRecord,
+              readBy: [callData.callerEmail],
+              status: 'sent',
+            };
+            
+            // Emit to caller
+            if (callData.callerSocketId) {
+              io.to(callData.callerSocketId).emit('privateMessage', messageData);
+            }
+            
+            // Emit to receiver
+            if (receiverSocketId) {
+              io.to(receiverSocketId).emit('privateMessage', messageData);
+            }
+            
+            console.log('📞 Backend: Emitted call record message to both users for sync');
             } else {
               console.log('📞 Backend: Call message already exists, skipping duplicate in endCall');
             }

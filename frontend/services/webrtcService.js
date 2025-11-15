@@ -192,7 +192,7 @@ class WebRTCService {
             sessionId,
             signal: {
               type: 'offer',
-              sdp: offer,
+              sdp: offer.sdp,
             },
           });
           
@@ -490,9 +490,25 @@ class WebRTCService {
         return;
       }
 
-      if (signal.type === 'offer') {
+      // Normalize signal data - ensure sdp is a string
+      let normalizedSignal = { ...signal };
+      if (normalizedSignal.sdp && typeof normalizedSignal.sdp === 'object') {
+        // If sdp is an object, extract the sdp string from it
+        normalizedSignal.sdp = normalizedSignal.sdp.sdp || normalizedSignal.sdp;
+      }
+
+      if (normalizedSignal.type === 'offer') {
         // Receiver side: received offer from caller
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+        // Ensure sdp is a string
+        if (typeof normalizedSignal.sdp !== 'string') {
+          console.error('Invalid SDP format in offer:', normalizedSignal);
+          throw new Error('Invalid SDP format: expected string');
+        }
+        
+        await peerConnection.setRemoteDescription(new RTCSessionDescription({
+          type: 'offer',
+          sdp: normalizedSignal.sdp,
+        }));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
 
@@ -501,16 +517,31 @@ class WebRTCService {
           sessionId,
           signal: {
             type: 'answer',
-            sdp: answer,
+            sdp: answer.sdp,
           },
         });
-      } else if (signal.type === 'answer') {
+      } else if (normalizedSignal.type === 'answer') {
         // Caller side: received answer from receiver
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-      } else if (signal.type === 'ice-candidate') {
+        // Ensure sdp is a string
+        if (typeof normalizedSignal.sdp !== 'string') {
+          console.error('Invalid SDP format in answer:', normalizedSignal);
+          throw new Error('Invalid SDP format: expected string');
+        }
+        
+        await peerConnection.setRemoteDescription(new RTCSessionDescription({
+          type: 'answer',
+          sdp: normalizedSignal.sdp,
+        }));
+      } else if (normalizedSignal.type === 'ice-candidate') {
         // Add ICE candidate for both sides
-        if (signal.candidate) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        if (normalizedSignal.candidate) {
+          // Ensure candidate is properly formatted
+          const candidate = normalizedSignal.candidate.candidate || normalizedSignal.candidate;
+          if (candidate) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(
+              typeof candidate === 'string' ? { candidate } : candidate
+            ));
+          }
         }
       }
     } catch (error) {

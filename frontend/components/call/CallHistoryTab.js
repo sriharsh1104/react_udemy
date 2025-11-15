@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,9 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
-import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
+import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SOCKET_EVENTS } from '../../constants';
 import callService from '../../services/callService';
-import webrtcService from '../../services/webrtcService';
+import socketService from '../../services/socketService';
 import { Alert } from 'react-native';
 
 const CallHistoryTab = ({ userEmail, onCallPress }) => {
@@ -20,11 +20,7 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'missed', 'outgoing', 'incoming'
 
-  useEffect(() => {
-    loadCallHistory();
-  }, []);
-
-  const loadCallHistory = async () => {
+  const loadCallHistory = useCallback(async () => {
     setLoading(true);
     try {
       const response = await callService.getCallHistory({});
@@ -43,7 +39,49 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCallHistory();
+  }, [loadCallHistory]);
+
+  // Listen to socket events to refresh call history
+  useEffect(() => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+
+    const handleCallEnded = () => {
+      console.log('📞 CallHistoryTab: Call ended, refreshing history...');
+      loadCallHistory();
+    };
+
+    const handleCallInitiated = () => {
+      console.log('📞 CallHistoryTab: Call initiated, refreshing history...');
+      loadCallHistory();
+    };
+
+    const handleCallMissed = () => {
+      console.log('📞 CallHistoryTab: Call missed, refreshing history...');
+      loadCallHistory();
+    };
+
+    const handleCallFailed = () => {
+      console.log('📞 CallHistoryTab: Call failed, refreshing history...');
+      loadCallHistory();
+    };
+
+    socket.on(SOCKET_EVENTS.CALL_ENDED, handleCallEnded);
+    socket.on(SOCKET_EVENTS.CALL_INITIATED, handleCallInitiated);
+    socket.on(SOCKET_EVENTS.CALL_MISSED, handleCallMissed);
+    socket.on(SOCKET_EVENTS.CALL_FAILED, handleCallFailed);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.CALL_ENDED, handleCallEnded);
+      socket.off(SOCKET_EVENTS.CALL_INITIATED, handleCallInitiated);
+      socket.off(SOCKET_EVENTS.CALL_MISSED, handleCallMissed);
+      socket.off(SOCKET_EVENTS.CALL_FAILED, handleCallFailed);
+    };
+  }, [loadCallHistory]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -129,12 +167,7 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
       if (onCallPress) {
         await onCallPress(call.type, targetEmail, targetGroupId);
       } else {
-        // Fallback: initiate call directly
-        if (targetGroupId) {
-          await webrtcService.initiateCall(null, targetGroupId, call.type);
-        } else if (targetEmail) {
-          await webrtcService.initiateCall(targetEmail, null, call.type);
-        }
+        Alert.alert('Error', 'Call functionality not available');
       }
     } catch (error) {
       console.error('Error calling from history:', error);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,21 +9,16 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
+import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SOCKET_EVENTS } from '../../constants';
 import callService from '../../services/callService';
+import socketService from '../../services/socketService';
 
 const CallHistory = ({ visible, onClose, userEmail, contactEmail, groupId, isGroup = false, onCallPress }) => {
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'missed', 'outgoing', 'incoming'
 
-  useEffect(() => {
-    if (visible) {
-      loadCallHistory();
-    }
-  }, [visible, contactEmail, groupId]);
-
-  const loadCallHistory = async () => {
+  const loadCallHistory = useCallback(async () => {
     setLoading(true);
     try {
       const params = isGroup ? { groupId } : { contactEmail };
@@ -35,7 +30,53 @@ const CallHistory = ({ visible, onClose, userEmail, contactEmail, groupId, isGro
     } finally {
       setLoading(false);
     }
-  };
+  }, [contactEmail, groupId, isGroup]);
+
+  useEffect(() => {
+    if (visible) {
+      loadCallHistory();
+    }
+  }, [visible, loadCallHistory]);
+
+  // Listen to socket events to refresh call history
+  useEffect(() => {
+    if (!visible) return; // Only listen when modal is visible
+    
+    const socket = socketService.getSocket();
+    if (!socket) return;
+
+    const handleCallEnded = () => {
+      console.log('📞 CallHistory: Call ended, refreshing history...');
+      loadCallHistory();
+    };
+
+    const handleCallInitiated = () => {
+      console.log('📞 CallHistory: Call initiated, refreshing history...');
+      loadCallHistory();
+    };
+
+    const handleCallMissed = () => {
+      console.log('📞 CallHistory: Call missed, refreshing history...');
+      loadCallHistory();
+    };
+
+    const handleCallFailed = () => {
+      console.log('📞 CallHistory: Call failed, refreshing history...');
+      loadCallHistory();
+    };
+
+    socket.on(SOCKET_EVENTS.CALL_ENDED, handleCallEnded);
+    socket.on(SOCKET_EVENTS.CALL_INITIATED, handleCallInitiated);
+    socket.on(SOCKET_EVENTS.CALL_MISSED, handleCallMissed);
+    socket.on(SOCKET_EVENTS.CALL_FAILED, handleCallFailed);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.CALL_ENDED, handleCallEnded);
+      socket.off(SOCKET_EVENTS.CALL_INITIATED, handleCallInitiated);
+      socket.off(SOCKET_EVENTS.CALL_MISSED, handleCallMissed);
+      socket.off(SOCKET_EVENTS.CALL_FAILED, handleCallFailed);
+    };
+  }, [visible, loadCallHistory]);
 
   const getCallTypeIcon = (type) => {
     return type === 'video' ? '📹' : '📞';

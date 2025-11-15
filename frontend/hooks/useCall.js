@@ -176,7 +176,7 @@ export const useCall = (userEmail) => {
     if (data.status === 'missed' && (data.reason === 'User offline' || data.reason?.includes('offline'))) {
       Alert.alert('Missed Call', 'User is offline. Call marked as missed.');
     } else {
-      Alert.alert('Call Failed', data.reason || 'Call connection failed');
+    Alert.alert('Call Failed', data.reason || 'Call connection failed');
     }
   }, []);
 

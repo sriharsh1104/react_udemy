@@ -138,12 +138,12 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           } else {
             // For regular messages, check by content and timestamp
             messageExists = prev.some(
-              (msg) =>
-                msg.message === decryptedMessage &&
-                msg.senderEmail === data.senderEmail &&
-                Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) <
-                  1000 // Within 1 second
-            );
+            (msg) =>
+              msg.message === decryptedMessage &&
+              msg.senderEmail === data.senderEmail &&
+              Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) <
+                1000 // Within 1 second
+          );
           }
 
           if (messageExists) {
