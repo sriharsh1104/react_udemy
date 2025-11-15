@@ -110,27 +110,41 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     if (!socket || !contactEmail) return;
 
     const handlePrivateMessage = async (data) => {
-      // Only handle messages from the contact (not from ourselves)
-      // We already have our own messages via optimistic UI update
+      // Handle messages from the contact OR call messages (which can be from either user)
       const isFromContact =
         data.senderEmail === contactEmail && data.senderEmail !== userEmail;
+      const isCallMessage = data.isCallMessage === true;
+      const isRelevantMessage = isFromContact || (isCallMessage && data.receiverEmail === contactEmail);
 
-      if (isFromContact) {
-        // Decrypt the message
-        const decryptedMessage = await decryptMessageIfNeeded(
-          data.message,
-          data.senderEmail
-        );
+      if (isRelevantMessage) {
+        // For call messages, don't decrypt (they're plain text system messages)
+        // For regular messages, decrypt
+        const decryptedMessage = isCallMessage
+          ? data.message
+          : await decryptMessageIfNeeded(data.message, data.senderEmail);
 
         // Check if message already exists (prevent duplicates)
+        // For call messages, check by messageId or sessionId to be more reliable
         setMessages((prev) => {
-          const messageExists = prev.some(
-            (msg) =>
-              msg.message === decryptedMessage &&
-              msg.senderEmail === data.senderEmail &&
-              Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) <
-                1000 // Within 1 second
-          );
+          let messageExists = false;
+          
+          if (isCallMessage && data.callRecord?.sessionId) {
+            // For call messages, check by sessionId in callRecord
+            messageExists = prev.some(
+              (msg) =>
+                msg.isCallMessage &&
+                msg.callRecord?.sessionId === data.callRecord.sessionId
+            );
+          } else {
+            // For regular messages, check by content and timestamp
+            messageExists = prev.some(
+              (msg) =>
+                msg.message === decryptedMessage &&
+                msg.senderEmail === data.senderEmail &&
+                Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) <
+                  1000 // Within 1 second
+            );
+          }
 
           if (messageExists) {
             console.log("Duplicate message ignored:", decryptedMessage);
@@ -146,9 +160,9 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             senderEmail: data.senderEmail,
             message: decryptedMessage,
             timestamp: data.timestamp,
-            isSent: false, // Always false since this is from contact
-            messageId: data.messageId || null,
-            status: "delivered", // Messages received are already delivered
+            isSent: data.senderEmail === userEmail, // True if from current user, false if from contact
+            messageId: data.messageId || data._id || null,
+            status: data.senderEmail === userEmail ? "sent" : "delivered", // Sent if from us, delivered if from contact
             replyTo: data.replyTo || null,
             replyToMessage: data.replyToMessage || null,
             replyToSender: data.replyToSender || null,
@@ -158,8 +172,8 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             callRecord: data.callRecord || null,
           };
 
-          // Send read receipt immediately if we have messageId
-          if (data.messageId && !readMessageIds.current.has(data.messageId)) {
+          // Send read receipt immediately if we have messageId (only for messages from contact, not our own)
+          if (data.messageId && !readMessageIds.current.has(data.messageId) && data.senderEmail !== userEmail) {
             readMessageIds.current.add(data.messageId);
             socketService.emit(SOCKET_EVENTS.MESSAGE_READ, {
               messageId: data.messageId,

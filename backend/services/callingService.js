@@ -458,15 +458,253 @@ class CallingService {
       const callData = await redisService.get(`call:${sessionId}`);
       
       if (callData) {
+        // Notify caller
         io.to(callData.callerSocketId).emit('callFailed', {
           sessionId,
           status,
           reason,
           timestamp: new Date().toISOString(),
         });
+
+        // If status is 'missed' and there's a receiver, create incoming call record for receiver
+        if (status === 'missed' && callData.receiverEmail) {
+          // Create incoming call record for receiver
+          const receiverCall = new Call({
+            callerEmail: callData.callerEmail,
+            receiverEmail: callData.receiverEmail,
+            groupId: callData.groupId || null,
+            type: callData.type,
+            direction: 'incoming',
+            status: 'missed',
+            sessionId: `${sessionId}_incoming`, // Unique session ID for receiver's record
+            endedAt: new Date(),
+          });
+          await receiverCall.save();
+
+          // Try to notify receiver if they're online
+          const receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+          if (receiverSocketId) {
+            // Receiver is online - notify them immediately
+            io.to(receiverSocketId).emit('callMissed', {
+              sessionId: `${sessionId}_incoming`,
+              callerEmail: callData.callerEmail,
+              type: callData.type,
+              message: 'Missed call',
+              timestamp: new Date().toISOString(),
+            });
+            console.log('📞 Backend: Notified receiver about missed call (user was offline during call)');
+          } else {
+            // Receiver is offline - they'll see it in call history when they come back
+            console.log('📞 Backend: Receiver is offline, missed call saved for later notification');
+          }
+        }
+
+        // Update caller's call record status
+        await this.updateCallStatus(sessionId, status);
+
+        // Create call message in chat for "User offline" case
+        if (status === 'missed' && reason === 'User offline' && callData.receiverEmail) {
+          try {
+            const Message = require('../models/Message');
+            const chatService = require('./chatService');
+            const roomId = chatService.getRoomId(callData.callerEmail, callData.receiverEmail);
+            
+            // Check if call message already exists to prevent duplicates
+            const existingMessage = await Message.findOne({
+              roomId,
+              isCallMessage: true,
+              'callRecord.sessionId': sessionId,
+            });
+
+            if (!existingMessage) {
+              // Determine call message text
+              const callTypeIcon = callData.type === 'video' ? '📹' : '📞';
+              const callMessageText = `${callTypeIcon} User is offline`;
+              
+              // Create call record message
+              const callMessage = new Message({
+                roomId,
+                senderEmail: callData.callerEmail,
+                receiverEmail: callData.receiverEmail,
+                messageType: 'private',
+                message: callMessageText,
+                timestamp: new Date(),
+                readBy: [callData.callerEmail],
+                status: 'sent',
+                isCallMessage: true,
+                callRecord: {
+                  sessionId: callData.sessionId,
+                  callerEmail: callData.callerEmail,
+                  receiverEmail: callData.receiverEmail,
+                  type: callData.type,
+                  direction: 'outgoing',
+                  status: 'missed',
+                  duration: 0,
+                  startedAt: null,
+                  endedAt: new Date(),
+                },
+              });
+              
+              await callMessage.save();
+              console.log('📞 Backend: Created call message for User offline case');
+              
+              // Emit private message event to both users
+              const messageData = {
+                _id: callMessage._id.toString(),
+                messageId: callMessage._id.toString(),
+                senderEmail: callData.callerEmail,
+                receiverEmail: callData.receiverEmail,
+                message: callMessageText,
+                timestamp: callMessage.timestamp,
+                roomId: roomId,
+                isCallMessage: true,
+                callRecord: callMessage.callRecord,
+                readBy: [callData.callerEmail],
+                status: 'sent',
+              };
+              
+              // Emit to caller
+              if (callData.callerSocketId) {
+                io.to(callData.callerSocketId).emit('privateMessage', messageData);
+              }
+              
+              // Emit to receiver if online
+              const receiverSocketId = userService.getSocketByEmail(callData.receiverEmail);
+              if (receiverSocketId) {
+                io.to(receiverSocketId).emit('privateMessage', messageData);
+              }
+            } else {
+              console.log('📞 Backend: Call message already exists, skipping duplicate');
+            }
+          } catch (callMessageError) {
+            console.error('❌ Backend: Error creating call message for User offline:', callMessageError);
+          }
+        }
+      } else {
+        // If callData not in Redis, try to get from database
+        const dbCall = await Call.findOne({ sessionId });
+        if (dbCall) {
+          // Update caller's call record
+          await this.updateCallStatus(sessionId, status);
+
+          // If status is 'missed' and there's a receiver, create incoming call record for receiver
+          if (status === 'missed' && dbCall.receiverEmail) {
+            // Check if incoming call record already exists
+            const existingIncomingCall = await Call.findOne({ 
+              sessionId: `${sessionId}_incoming` 
+            });
+            
+            if (!existingIncomingCall) {
+              // Create incoming call record for receiver
+              const receiverCall = new Call({
+                callerEmail: dbCall.callerEmail,
+                receiverEmail: dbCall.receiverEmail,
+                groupId: dbCall.groupId || null,
+                type: dbCall.type,
+                direction: 'incoming',
+                status: 'missed',
+                sessionId: `${sessionId}_incoming`,
+                endedAt: new Date(),
+              });
+              await receiverCall.save();
+
+              // Try to notify receiver if they're online
+              const receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+              if (receiverSocketId) {
+                io.to(receiverSocketId).emit('callMissed', {
+                  sessionId: `${sessionId}_incoming`,
+                  callerEmail: dbCall.callerEmail,
+                  type: dbCall.type,
+                  message: 'Missed call',
+                  timestamp: new Date().toISOString(),
+                });
+                console.log('📞 Backend: Notified receiver about missed call (from database)');
+              }
+            }
+          }
+
+          // Create call message in chat for "User offline" case (database fallback)
+          if (status === 'missed' && reason === 'User offline' && dbCall.receiverEmail) {
+            try {
+              const Message = require('../models/Message');
+              const chatService = require('./chatService');
+              const roomId = chatService.getRoomId(dbCall.callerEmail, dbCall.receiverEmail);
+              
+              // Check if call message already exists to prevent duplicates
+              const existingMessage = await Message.findOne({
+                roomId,
+                isCallMessage: true,
+                'callRecord.sessionId': sessionId,
+              });
+
+              if (!existingMessage) {
+                // Determine call message text
+                const callTypeIcon = dbCall.type === 'video' ? '📹' : '📞';
+                const callMessageText = `${callTypeIcon} User is offline`;
+                
+                // Create call record message
+                const callMessage = new Message({
+                  roomId,
+                  senderEmail: dbCall.callerEmail,
+                  receiverEmail: dbCall.receiverEmail,
+                  messageType: 'private',
+                  message: callMessageText,
+                  timestamp: new Date(),
+                  readBy: [dbCall.callerEmail],
+                  status: 'sent',
+                  isCallMessage: true,
+                  callRecord: {
+                    sessionId: dbCall.sessionId,
+                    callerEmail: dbCall.callerEmail,
+                    receiverEmail: dbCall.receiverEmail,
+                    type: dbCall.type,
+                    direction: 'outgoing',
+                    status: 'missed',
+                    duration: 0,
+                    startedAt: null,
+                    endedAt: new Date(),
+                  },
+                });
+                
+                await callMessage.save();
+                console.log('📞 Backend: Created call message for User offline case (database fallback)');
+                
+                // Emit private message event to both users
+                const messageData = {
+                  _id: callMessage._id.toString(),
+                  messageId: callMessage._id.toString(),
+                  senderEmail: dbCall.callerEmail,
+                  receiverEmail: dbCall.receiverEmail,
+                  message: callMessageText,
+                  timestamp: callMessage.timestamp,
+                  roomId: roomId,
+                  isCallMessage: true,
+                  callRecord: callMessage.callRecord,
+                  readBy: [dbCall.callerEmail],
+                  status: 'sent',
+                };
+                
+                // Emit to caller
+                const callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+                if (callerSocketId) {
+                  io.to(callerSocketId).emit('privateMessage', messageData);
+                }
+                
+                // Emit to receiver if online
+                const receiverSocketId = userService.getSocketByEmail(dbCall.receiverEmail);
+                if (receiverSocketId) {
+                  io.to(receiverSocketId).emit('privateMessage', messageData);
+                }
+              } else {
+                console.log('📞 Backend: Call message already exists, skipping duplicate (database fallback)');
+              }
+            } catch (callMessageError) {
+              console.error('❌ Backend: Error creating call message for User offline (database fallback):', callMessageError);
+            }
+          }
+        }
       }
 
-      await this.updateCallStatus(sessionId, status);
       await redisService.delete(`call:${sessionId}`);
       this.activeCalls.delete(sessionId);
       
@@ -567,6 +805,26 @@ class CallingService {
           status = 'cancelled';
         }
 
+        // Check current call status in database before updating
+        const currentCall = await Call.findOne({ sessionId });
+        const currentStatus = currentCall?.status;
+        
+        // If call is already 'missed' (from handleCallFailed), don't update status or create message
+        // This prevents duplicate messages when "User offline" case happens
+        if (currentStatus === 'missed') {
+          console.log('📞 Backend: Call status is already "missed", skipping status update and message creation in endCall');
+          // Still emit callEnded event but don't create message
+          if (callData.callerSocketId) {
+            io.to(callData.callerSocketId).emit('callEnded', {
+              sessionId,
+              duration: 0,
+              endedBy,
+              timestamp: new Date().toISOString(),
+            });
+          }
+          return { success: true, duration: 0, status: 'missed' };
+        }
+
         // Update database
         await Call.updateOne(
           { sessionId },
@@ -623,18 +881,33 @@ class CallingService {
             const chatService = require('./chatService');
             const roomId = chatService.getRoomId(callData.callerEmail, callData.receiverEmail);
             
-            // Determine call message text based on status
-            const callTypeIcon = callData.type === 'video' ? '📹' : '📞';
-            const callStatusText = status === 'completed' ? 'Call ended' : 
-                                  status === 'missed' ? 'Missed call' :
-                                  status === 'declined' ? 'Call declined' : 'Call cancelled';
-            
-            // Format duration
-            const durationText = duration > 0 ? ` (${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')})` : '';
-            const callMessageText = `${callTypeIcon} ${callStatusText}${durationText}`;
-            
-            // Create call record message (sender is caller, but both users will see it)
-            const callMessage = new Message({
+            // Check if call message already exists to prevent duplicates
+            // Check by sessionId in callRecord (more reliable than just roomId)
+            const existingMessage = await Message.findOne({
+              roomId,
+              isCallMessage: true,
+              'callRecord.sessionId': sessionId,
+            });
+
+            // Also check if any call message exists for this sessionId (regardless of roomId, in case of edge cases)
+            const anyExistingMessage = existingMessage || await Message.findOne({
+              isCallMessage: true,
+              'callRecord.sessionId': sessionId,
+            });
+
+            if (!anyExistingMessage) {
+              // Determine call message text based on status
+              const callTypeIcon = callData.type === 'video' ? '📹' : '📞';
+              const callStatusText = status === 'completed' ? 'Call ended' : 
+                                    status === 'missed' ? 'Missed call' :
+                                    status === 'declined' ? 'Call declined' : 'Call cancelled';
+              
+              // Format duration
+              const durationText = duration > 0 ? ` (${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')})` : '';
+              const callMessageText = `${callTypeIcon} ${callStatusText}${durationText}`;
+              
+              // Create call record message (sender is caller, but both users will see it)
+              const callMessage = new Message({
               roomId,
               senderEmail: callData.callerEmail, // Caller is the sender
               receiverEmail: callData.receiverEmail,
@@ -657,35 +930,38 @@ class CallingService {
               },
             });
             
-            await callMessage.save();
-            console.log('📞 Backend: Created call record message in private chat');
-            
-            // Emit private message event to both users to sync chat history
-            const messageData = {
-              _id: callMessage._id.toString(),
-              messageId: callMessage._id.toString(),
-              senderEmail: callData.callerEmail,
-              receiverEmail: callData.receiverEmail,
-              message: callMessageText,
-              timestamp: callMessage.timestamp,
-              roomId: roomId,
-              isCallMessage: true,
-              callRecord: callMessage.callRecord,
-              readBy: [callData.callerEmail],
-              status: 'sent',
-            };
-            
-            // Emit to caller
-            if (callData.callerSocketId) {
-              io.to(callData.callerSocketId).emit('privateMessage', messageData);
+              await callMessage.save();
+              console.log('📞 Backend: Created call record message in private chat');
+              
+              // Emit private message event to both users to sync chat history
+              const messageData = {
+                _id: callMessage._id.toString(),
+                messageId: callMessage._id.toString(),
+                senderEmail: callData.callerEmail,
+                receiverEmail: callData.receiverEmail,
+                message: callMessageText,
+                timestamp: callMessage.timestamp,
+                roomId: roomId,
+                isCallMessage: true,
+                callRecord: callMessage.callRecord,
+                readBy: [callData.callerEmail],
+                status: 'sent',
+              };
+              
+              // Emit to caller
+              if (callData.callerSocketId) {
+                io.to(callData.callerSocketId).emit('privateMessage', messageData);
+              }
+              
+              // Emit to receiver
+              if (receiverSocketId) {
+                io.to(receiverSocketId).emit('privateMessage', messageData);
+              }
+              
+              console.log('📞 Backend: Emitted call record message to both users for sync');
+            } else {
+              console.log('📞 Backend: Call message already exists, skipping duplicate in endCall');
             }
-            
-            // Emit to receiver
-            if (receiverSocketId) {
-              io.to(receiverSocketId).emit('privateMessage', messageData);
-            }
-            
-            console.log('📞 Backend: Emitted call record message to both users for sync');
           } catch (callMessageError) {
             console.error('❌ Backend: Error creating call record message:', callMessageError);
             // Don't fail the call end process if message creation fails
@@ -727,6 +1003,23 @@ class CallingService {
         
         const dbCall = await Call.findOne({ sessionId });
         if (dbCall) {
+          // If call status is already 'missed' (from handleCallFailed), don't update or create message
+          if (dbCall.status === 'missed') {
+            console.log('📞 Backend: Call status is already "missed" in database fallback, skipping update and message creation');
+            // Still emit callEnded event
+            const callEndedData = {
+              sessionId,
+              duration: 0,
+              endedBy,
+              timestamp: new Date().toISOString(),
+            };
+            const callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+            if (callerSocketId) {
+              io.to(callerSocketId).emit('callEnded', callEndedData);
+            }
+            return { success: true, duration: 0, status: 'missed' };
+          }
+
           // Update database
         await Call.updateOne(
           { sessionId },

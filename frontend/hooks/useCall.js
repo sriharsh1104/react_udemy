@@ -172,7 +172,12 @@ export const useCall = (userEmail) => {
 
   const handleCallFailed = useCallback((data) => {
     resetCall();
-    Alert.alert('Call Failed', data.reason || 'Call connection failed');
+    // If status is 'missed' and reason is 'User offline', show as missed call
+    if (data.status === 'missed' && (data.reason === 'User offline' || data.reason?.includes('offline'))) {
+      Alert.alert('Missed Call', 'User is offline. Call marked as missed.');
+    } else {
+      Alert.alert('Call Failed', data.reason || 'Call connection failed');
+    }
   }, []);
 
   const handleRemoteStream = useCallback((data) => {
@@ -294,6 +299,19 @@ export const useCall = (userEmail) => {
       if (errorMessage.includes('permission denied') || errorMessage.includes('Permission denied')) {
         setPermissionDeviceType(type === 'video' ? 'camera and microphone' : 'microphone');
         setShowPermissionPrompt(true);
+      } else if (errorMessage.includes('offline') || errorMessage.includes('User offline')) {
+        // User offline - show as missed call
+        Alert.alert(
+          'Missed Call',
+          'User is offline. Call marked as missed.',
+          [
+            {
+              text: 'OK',
+              onPress: () => resetCall(),
+            },
+          ]
+        );
+        resetCall();
       } else {
         Alert.alert(
           'Error',
