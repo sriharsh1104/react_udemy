@@ -31,6 +31,12 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false, // false means public account (default)
   },
+  referralCode: {
+    type: String,
+    unique: true,
+    sparse: true, // Allow null values but ensure uniqueness when present
+    index: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

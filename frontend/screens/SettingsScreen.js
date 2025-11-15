@@ -392,16 +392,16 @@ const SettingsScreen = ({ navigation, onBack }) => {
           </View>
         </View>
 
-        {/* Invite Link Section */}
+        {/* Referral Link Section */}
         <View style={[styles.section, { backgroundColor: colors.receivedMessage }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>📤 Invite Friends</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>🎁 Referral Program</Text>
           <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            Share the app with your friends
+            Share your referral link and code with friends to invite them to the app
           </Text>
           
           <Button
-            title="Invite User"
-            icon="📤"
+            title="View Referral Link"
+            icon="🔗"
             onPress={() => setShowInviteModal(true)}
             variant="primary"
             fullWidth

@@ -1,13 +1,47 @@
 const User = require('../models/User');
 
 class UserProfileService {
+  // Generate unique referral code
+  async generateReferralCode() {
+    const crypto = require('crypto');
+    let referralCode;
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (!isUnique && attempts < maxAttempts) {
+      referralCode = crypto.randomBytes(6).toString('hex').toUpperCase();
+      const existingUser = await User.findOne({ referralCode });
+      if (!existingUser) {
+        isUnique = true;
+      }
+      attempts++;
+    }
+    
+    if (!isUnique) {
+      // Fallback: use timestamp + random
+      referralCode = `REF${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    }
+    
+    return referralCode;
+  }
+
   // Create or update user profile
   async createOrUpdateProfile(email, profileData) {
     try {
+      // Check if user exists
+      const existingUser = await User.findOne({ email });
+      const isNewUser = !existingUser;
+      
       const updateData = {
         email,
         updatedAt: new Date(),
       };
+      
+      // Generate referral code for new users or if existing user doesn't have one
+      if (isNewUser || !existingUser?.referralCode) {
+        updateData.referralCode = await this.generateReferralCode();
+      }
       
       // Only update fields that are provided
       if (profileData.name !== undefined) {

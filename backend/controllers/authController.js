@@ -287,10 +287,23 @@ class AuthController {
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
+      // Generate unique referral code
+      const crypto = require('crypto');
+      let referralCode;
+      let isUnique = false;
+      while (!isUnique) {
+        referralCode = crypto.randomBytes(6).toString('hex').toUpperCase();
+        const existingUser = await User.findOne({ referralCode });
+        if (!existingUser) {
+          isUnique = true;
+        }
+      }
+
       // Create new user
       const newUser = new User({
         email: email.toLowerCase(),
         password: hashedPassword,
+        referralCode,
         createdAt: new Date(),
         updatedAt: new Date(),
       });

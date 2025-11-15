@@ -12,6 +12,7 @@ import {
   Platform,
   Linking,
   Share,
+  ScrollView,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Contacts from 'expo-contacts';
@@ -22,6 +23,8 @@ import contactsService from '../../services/contactsService';
 
 export const InviteModal = ({ visible, onClose, email }) => {
   const [inviteLink, setInviteLink] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  const [referralLink, setReferralLink] = useState('');
   const [loading, setLoading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
@@ -35,22 +38,28 @@ export const InviteModal = ({ visible, onClose, email }) => {
     setLoading(true);
     const result = await contactsService.getInviteLink();
     if (result.success) {
-      setInviteLink(result.inviteLink);
+      // Use referralLink if available, otherwise fallback to inviteLink for backward compatibility
+      const link = result.referralLink || result.inviteLink || '';
+      const code = result.referralCode || result.inviteCode || '';
+      setReferralLink(link);
+      setReferralCode(code);
+      setInviteLink(link); // Keep for backward compatibility
     }
     setLoading(false);
   };
 
   const handleShare = () => {
-    if (!inviteLink) return;
+    if (!referralLink && !inviteLink) return;
     setShowShareModal(true);
   };
 
-  const shareMessage = `Join me on Chat App! ${inviteLink}`;
+  const shareMessage = `Join me on Chat App! Use my referral code: ${referralCode || 'N/A'}\n${referralLink || inviteLink}`;
 
   const handlePlatformShare = (platform) => {
-    if (!inviteLink) return;
+    if (!referralLink && !inviteLink) return;
     
     const message = shareMessage;
+    const linkToShare = referralLink || inviteLink;
     let url = '';
 
     switch (platform) {
@@ -67,7 +76,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
           // Try Facebook app, fallback to web
           url = `fb://share?text=${encodeURIComponent(message)}`;
         } else {
-          url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}&quote=${encodeURIComponent(message)}`;
+          url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(linkToShare)}&quote=${encodeURIComponent(message)}`;
         }
         break;
       case 'twitter':
@@ -75,7 +84,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
           // Try Twitter app
           url = `twitter://post?message=${encodeURIComponent(message)}`;
         } else {
-          url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(inviteLink)}`;
+          url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(linkToShare)}`;
         }
         break;
       case 'telegram':
@@ -83,7 +92,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
           // Try Telegram app
           url = `tg://msg?text=${encodeURIComponent(message)}`;
         } else {
-          url = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(message)}`;
+          url = `https://t.me/share/url?url=${encodeURIComponent(linkToShare)}&text=${encodeURIComponent(message)}`;
         }
         break;
       case 'sms':
@@ -108,13 +117,13 @@ export const InviteModal = ({ visible, onClose, email }) => {
         let webUrl = '';
         switch (platform) {
           case 'facebook':
-            webUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}`;
+            webUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(linkToShare)}`;
             break;
           case 'twitter':
-            webUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(inviteLink)}`;
+            webUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(linkToShare)}`;
             break;
           case 'telegram':
-            webUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(message)}`;
+            webUrl = `https://t.me/share/url?url=${encodeURIComponent(linkToShare)}&text=${encodeURIComponent(message)}`;
             break;
           default:
             Alert.alert('Error', `${platform.charAt(0).toUpperCase() + platform.slice(1)} app is not installed`);
@@ -132,7 +141,8 @@ export const InviteModal = ({ visible, onClose, email }) => {
   };
 
   const handleWhatsAppShare = () => {
-    const message = `Join me on Chat App! ${inviteLink}`;
+    const linkToShare = referralLink || inviteLink;
+    const message = `Join me on Chat App! Use my referral code: ${referralCode || 'N/A'}\n${linkToShare}`;
     const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'WhatsApp is not installed');
@@ -140,18 +150,35 @@ export const InviteModal = ({ visible, onClose, email }) => {
   };
 
   const handleCopyToClipboard = async () => {
-    if (!inviteLink) return;
+    const linkToShare = referralLink || inviteLink;
+    if (!linkToShare) return;
     
     try {
-      await Clipboard.setStringAsync(inviteLink);
+      await Clipboard.setStringAsync(linkToShare);
       Toast.show({
         type: 'success',
         text1: 'Copied!',
-        text2: 'Link copied to clipboard',
+        text2: 'Referral link copied to clipboard',
         position: 'top',
       });
     } catch (error) {
       Alert.alert('Error', 'Failed to copy link');
+    }
+  };
+
+  const handleCopyReferralCode = async () => {
+    if (!referralCode) return;
+    
+    try {
+      await Clipboard.setStringAsync(referralCode);
+      Toast.show({
+        type: 'success',
+        text1: 'Copied!',
+        text2: 'Referral code copied to clipboard',
+        position: 'top',
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to copy referral code');
     }
   };
 
@@ -165,7 +192,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.title}>Invite User</Text>
+            <Text style={styles.title}>Referral Link</Text>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={onClose}
@@ -174,21 +201,44 @@ export const InviteModal = ({ visible, onClose, email }) => {
             </TouchableOpacity>
           </View>
           
-          {loading ? (
-            <ActivityIndicator size="large" color={COLORS.primary} />
-          ) : (
-            <>
-              <Text style={styles.subtitle}>
-                {email ? `Invite ${email} to join` : 'Share invite link'}
-              </Text>
-              
-              <View style={styles.linkContainer}>
-                <Text style={styles.linkText} numberOfLines={2}>
-                  {inviteLink}
+          <ScrollView 
+            style={styles.modalScrollView}
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {loading ? (
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            ) : (
+              <>
+                <Text style={styles.subtitle}>
+                  {email ? `Invite ${email} to join` : 'Share your referral link and code with friends'}
                 </Text>
-              </View>
+                
+                {referralCode && (
+                  <View style={styles.referralCodeContainer}>
+                    <Text style={styles.referralCodeLabel}>Your Referral Code:</Text>
+                    <View style={styles.referralCodeBox}>
+                      <Text style={styles.referralCodeText} numberOfLines={1} ellipsizeMode="middle">
+                        {referralCode}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.copyCodeButton}
+                        onPress={handleCopyReferralCode}
+                      >
+                        <Text style={styles.copyCodeButtonText}>📋</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+                
+                <View style={styles.linkContainer}>
+                  <Text style={styles.linkLabel}>Referral Link:</Text>
+                  <Text style={styles.linkText} numberOfLines={3} ellipsizeMode="middle">
+                    {referralLink || inviteLink}
+                  </Text>
+                </View>
 
-              <View style={styles.buttonContainer}>
+                <View style={styles.buttonContainer}>
                 <TouchableOpacity
                   style={[styles.button, styles.whatsappButton]}
                   onPress={handleWhatsAppShare}
@@ -212,6 +262,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
               </View>
             </>
           )}
+          </ScrollView>
         </View>
       </View>
 
@@ -1073,6 +1124,7 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     width: '100%',
     maxWidth: 400,
+    maxHeight: '90%',
     ...Platform.select({
       ios: {
         shadowColor: COLORS.shadow,
@@ -1084,6 +1136,12 @@ const styles = StyleSheet.create({
         elevation: 8,
       },
     }),
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1121,15 +1179,58 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     textAlign: 'center',
   },
+  referralCodeContainer: {
+    marginBottom: SPACING.lg,
+  },
+  referralCodeLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  referralCodeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    minHeight: 48,
+  },
+  referralCodeText: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    letterSpacing: 1,
+    marginRight: SPACING.xs,
+  },
+  copyCodeButton: {
+    padding: SPACING.xs,
+    marginLeft: SPACING.sm,
+  },
+  copyCodeButtonText: {
+    fontSize: 20,
+  },
   linkContainer: {
     backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.lg,
+    maxWidth: '100%',
+  },
+  linkLabel: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
   linkText: {
     color: COLORS.text,
     fontSize: TYPOGRAPHY.fontSize.sm,
+    flexWrap: 'wrap',
+    wordBreak: 'break-word',
   },
   buttonContainer: {
     gap: SPACING.md,

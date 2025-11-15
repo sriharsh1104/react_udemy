@@ -1043,13 +1043,36 @@ class ContactsController {
         return sendError(res, HTTP_STATUS.UNAUTHORIZED, ERROR_MESSAGES.INVALID_TOKEN);
       }
 
-      // Generate invite link with user email encoded
-      const inviteCode = Buffer.from(userEmail).toString('base64');
-      const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:19006'}/invite/${inviteCode}`;
+      // Get user profile to get referral code
+      const User = require('../models/User');
+      const user = await User.findOne({ email: userEmail }).select('referralCode');
+      
+      if (!user) {
+        return sendError(res, HTTP_STATUS.NOT_FOUND, 'User not found');
+      }
+
+      // Generate referral code if user doesn't have one
+      let referralCode = user.referralCode;
+      if (!referralCode) {
+        const userProfileService = require('../services/userProfileService');
+        referralCode = await userProfileService.generateReferralCode();
+        // Update user with referral code
+        await User.findOneAndUpdate(
+          { email: userEmail },
+          { referralCode },
+          { new: true }
+        );
+      }
+
+      // Generate referral link
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:19006';
+      const referralLink = `${frontendUrl}/referral/${referralCode}`;
 
       return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.INVITE_LINK_GENERATED_SUCCESSFULLY, {
-        inviteLink,
-        inviteCode,
+        referralLink,
+        referralCode,
+        inviteLink: referralLink, // Keep for backward compatibility
+        inviteCode: referralCode, // Keep for backward compatibility
       });
     } catch (error) {
       console.error('Error in generateInviteLink:', error);
