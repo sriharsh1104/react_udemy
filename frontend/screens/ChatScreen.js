@@ -1591,6 +1591,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               // Load all contacts when Sidebar (Contacts section) is opened
               loadAllContacts();
             }}
+            onShowReferralLink={() => {
+              setInviteEmail(null);
+              setShowInviteModal(true);
+            }}
           />
           
           <Sidebar
@@ -1723,6 +1727,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onClearChat={handleClearChat}
         onAudioCall={handleAudioCall}
         onVideoCall={handleVideoCall}
+        onShowReferralLink={() => {
+          setInviteEmail(null);
+          setShowInviteModal(true);
+        }}
       />
       
       <Sidebar

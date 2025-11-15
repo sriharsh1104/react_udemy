@@ -16,14 +16,12 @@ import Button from '../components/common/Button';
 import PasswordInput from '../components/common/PasswordInput';
 import settingsService from '../services/settingsService';
 import { showToastFromResponse } from '../utils/toast';
-import { InviteModal } from '../components/chat/Sidebar';
 
 const SettingsScreen = ({ navigation, onBack }) => {
   const { colors, themeMode, setTheme, isDark } = useTheme();
   const [hasPassword, setHasPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
   const [offlineModeLoading, setOfflineModeLoading] = useState(false);
   
@@ -392,31 +390,8 @@ const SettingsScreen = ({ navigation, onBack }) => {
           </View>
         </View>
 
-        {/* Referral Link Section */}
-        <View style={[styles.section, { backgroundColor: colors.receivedMessage }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>🎁 Referral Program</Text>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-            Share your referral link and code with friends to invite them to the app
-          </Text>
-          
-          <Button
-            title="View Referral Link"
-            icon="🔗"
-            onPress={() => setShowInviteModal(true)}
-            variant="primary"
-            fullWidth
-            style={styles.inviteButton}
-          />
-        </View>
       </ScrollView>
       </View>
-
-      {/* Invite Modal */}
-      <InviteModal
-        visible={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-        email={null}
-      />
     </SafeAreaView>
   );
 };

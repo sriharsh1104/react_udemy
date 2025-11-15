@@ -33,8 +33,10 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
+    "scheme": "onlygossips247",
     "extra": {
       "eas": {
         "projectId": "6f94b55c-2d4e-4740-8dcd-4b879f94e118"

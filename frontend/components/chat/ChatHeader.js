@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, StatusBar, TouchableOpacity, Modal } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 
-const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClose, showChatOptions = false, onClearChat, onGroupInfoPress, onContactInfoPress, isGroup = false }) => {
+const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClose, showChatOptions = false, onClearChat, onGroupInfoPress, onContactInfoPress, isGroup = false, onShowReferralLink }) => {
   return (
     <Modal
       transparent={true}
@@ -81,6 +81,18 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
                 <Text style={styles.dropdownItemText}>⚙️ Settings</Text>
               </TouchableOpacity>
               
+              {onShowReferralLink && (
+                <TouchableOpacity 
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    onClose();
+                    onShowReferralLink();
+                  }}
+                >
+                  <Text style={styles.dropdownItemText}>🎁 Referral Link</Text>
+                </TouchableOpacity>
+              )}
+              
               <View style={styles.divider} />
               
               <TouchableOpacity 
@@ -100,7 +112,7 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat, hideUsername = false, onStatusToggle, onAudioCall, onVideoCall }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat, hideUsername = false, onStatusToggle, onAudioCall, onVideoCall, onShowReferralLink }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleStatusPress = () => {
@@ -210,6 +222,7 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
           onGroupInfoPress={onGroupInfoPress}
           onContactInfoPress={onContactInfoPress}
           isGroup={isGroup}
+          onShowReferralLink={onShowReferralLink}
         />
       )}
     </>

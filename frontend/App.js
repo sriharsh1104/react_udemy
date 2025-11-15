@@ -4,6 +4,7 @@ import { StyleSheet, View, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import * as Linking from 'expo-linking';
 import Toast from 'react-native-toast-message';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
@@ -11,6 +12,7 @@ import ChatScreen from './screens/ChatScreen';
 import LoginScreen from './screens/LoginScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import ReferralScreen from './screens/ReferralScreen';
 import LogoutModal from './components/common/LogoutModal';
 import GLoader from './components/common/GLoader';
 import NotificationContainer from './components/common/Notification';
@@ -92,7 +94,91 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
 
   useEffect(() => {
     checkAuthStatus();
+    handleInitialURL();
+    
+    // Listen for deep links
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    
+    return () => {
+      subscription?.remove();
+    };
   }, []);
+  
+  const handleInitialURL = async () => {
+    try {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        handleDeepLink({ url: initialUrl });
+      }
+    } catch (error) {
+      console.error('Error getting initial URL:', error);
+    }
+  };
+  
+  const handleDeepLink = ({ url }) => {
+    if (!url) return;
+    
+    try {
+      console.log('🔗 Deep link received:', url);
+      
+      // Parse URL - handle both expo-linking format and direct URLs
+      let parsed;
+      try {
+        parsed = Linking.parse(url);
+      } catch (e) {
+        // Fallback: manual parsing for web URLs
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname;
+        const codeMatch = pathname.match(/\/referral\/([^/?]+)/);
+        if (codeMatch && codeMatch[1]) {
+          const referralCode = codeMatch[1];
+          setTimeout(() => {
+            if (navigationRef.current) {
+              navigationRef.current.navigate('Referral', { referralCode });
+            }
+          }, 500);
+        }
+        return;
+      }
+      
+      const { path, queryParams, hostname } = parsed;
+      console.log('🔗 Parsed:', { path, queryParams, hostname });
+      
+      // Handle referral link: /referral/:code
+      if (path === 'referral' && queryParams?.code) {
+        const referralCode = queryParams.code;
+        setTimeout(() => {
+          if (navigationRef.current) {
+            navigationRef.current.navigate('Referral', { referralCode });
+          }
+        }, 500);
+      } else if (path?.includes('referral/')) {
+        // Handle format: /referral/CODE
+        const codeMatch = path.match(/referral\/([^/?]+)/);
+        if (codeMatch && codeMatch[1]) {
+          const referralCode = codeMatch[1];
+          setTimeout(() => {
+            if (navigationRef.current) {
+              navigationRef.current.navigate('Referral', { referralCode });
+            }
+          }, 500);
+        }
+      } else if (path && path.startsWith('/referral/')) {
+        // Handle format: /referral/CODE (when path starts with /)
+        const codeMatch = path.match(/\/referral\/([^/?]+)/);
+        if (codeMatch && codeMatch[1]) {
+          const referralCode = codeMatch[1];
+          setTimeout(() => {
+            if (navigationRef.current) {
+              navigationRef.current.navigate('Referral', { referralCode });
+            }
+          }, 500);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling deep link:', error);
+    }
+  };
 
   const checkAuthStatus = async () => {
     try {
@@ -267,6 +353,13 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
                 <SettingsScreen
                   {...props}
                   onBack={() => props.navigation.goBack()}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Referral">
+              {(props) => (
+                <ReferralScreen
+                  {...props}
                 />
               )}
             </Stack.Screen>
