@@ -1,6 +1,7 @@
 import { API_CONFIG } from '../constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastFromResponse } from '../utils/toast';
+import { handleInvalidToken } from '../utils/apiHelper';
 
 class ContactsService {
   async searchUsers(query) {
@@ -98,6 +99,16 @@ class ContactsService {
         },
       });
 
+      // Check for 401 Unauthorized (invalid token)
+      if (response.status === 401) {
+        await handleInvalidToken();
+        return {
+          success: false,
+          contacts: [],
+          message: 'Session expired. Please login again.',
+        };
+      }
+
       const data = await response.json();
       // Don't show toast for getContacts (silent operation)
       if (!data.success) {
@@ -135,6 +146,15 @@ class ContactsService {
           'Authorization': `Bearer ${token}`,
         },
       });
+
+      // Check for 401 Unauthorized (invalid token)
+      if (response.status === 401) {
+        await handleInvalidToken();
+        return {
+          success: false,
+          message: 'Session expired. Please login again.',
+        };
+      }
 
       const data = await response.json();
       // Don't show toast for getRecentChats (silent operation)

@@ -1,6 +1,7 @@
 import { API_CONFIG } from '../constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastFromResponse } from '../utils/toast';
+import { handleInvalidToken } from '../utils/apiHelper';
 
 class ProfileService {
   async getProfile() {
@@ -20,6 +21,15 @@ class ProfileService {
           'Authorization': `Bearer ${token}`,
         },
       });
+
+      // Check for 401 Unauthorized (invalid token)
+      if (response.status === 401) {
+        await handleInvalidToken();
+        return {
+          success: false,
+          message: 'Session expired. Please login again.',
+        };
+      }
 
       // Handle 204 No Content response
       if (response.status === 204) {
@@ -85,6 +95,16 @@ class ProfileService {
         },
         body: JSON.stringify(profileData),
       });
+      
+      // Check for 401 Unauthorized (invalid token)
+      if (response.status === 401) {
+        await handleInvalidToken();
+        return {
+          success: false,
+          message: 'Session expired. Please login again.',
+        };
+      }
+      
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Response error:', errorText);
@@ -141,6 +161,15 @@ class ProfileService {
         },
         body: JSON.stringify({ email: contactEmail }),
       });
+
+      // Check for 401 Unauthorized (invalid token)
+      if (response.status === 401) {
+        await handleInvalidToken();
+        return {
+          success: false,
+          message: 'Session expired. Please login again.',
+        };
+      }
 
       const data = await response.json();
       // Don't show toast for getContactProfile (silent operation)

@@ -18,6 +18,7 @@ import GLoader from './components/common/GLoader';
 import NotificationContainer from './components/common/Notification';
 import profileService from './services/profileService';
 import authService from './services/authService';
+import { setGlobalLogoutHandler } from './utils/apiHelper';
 
 const Stack = createNativeStackNavigator();
 
@@ -92,7 +93,49 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const navigationRef = externalNavRef || useRef(null);
 
+  // Handle automatic logout on invalid token
+  const handleInvalidTokenLogout = async () => {
+    console.log('🔒 Invalid token detected - logging out automatically');
+    try {
+      // Clear encryption keys
+      const encryptionService = (await import('./services/encryptionService')).default;
+      await encryptionService.clearAllKeys();
+    } catch (error) {
+      console.error('Error clearing encryption keys:', error);
+    }
+    
+    // Clear local storage
+    await AsyncStorage.removeItem('authToken');
+    await AsyncStorage.removeItem('userEmail');
+    
+    // Update state
+    setIsLoggedIn(false);
+    setUserEmail(null);
+    setProfile(null);
+    setShowLogoutModal(false);
+    
+    // Navigate to login
+    if (navigationRef.current) {
+      navigationRef.current.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    }
+    
+    // Show toast notification
+    Toast.show({
+      type: 'error',
+      text1: 'Session Expired',
+      text2: 'Your session has expired. Please login again.',
+      position: 'top',
+      topOffset: 60,
+    });
+  };
+
   useEffect(() => {
+    // Set global logout handler for invalid token
+    setGlobalLogoutHandler(handleInvalidTokenLogout);
+    
     checkAuthStatus();
     handleInitialURL();
     
@@ -101,6 +144,8 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     
     return () => {
       subscription?.remove();
+      // Clear global logout handler on unmount
+      setGlobalLogoutHandler(null);
     };
   }, []);
   
