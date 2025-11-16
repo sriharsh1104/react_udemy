@@ -55,16 +55,17 @@ const BillSummaryModal = ({
   };
 
   const calculateSummary = (billsList) => {
-    let youOwe = 0;
-    let youAreOwed = 0;
-    const breakdown = [];
-    const peopleWhoOwe = []; // Track people who owe money
-
     // Get all participants
     const participants = groupId
       ? [...new Set(groupMembers)]
       : [userEmail, contactEmail].filter(Boolean);
 
+    // Track net amounts for each participant
+    // Positive = they owe you, Negative = you owe them
+    const netAmounts = new Map();
+    participants.forEach(p => netAmounts.set(p, 0));
+
+    // Calculate raw amounts from all bills
     billsList.forEach((bill) => {
       if (bill.status === 'pending' || bill.status === 'partially_paid') {
         const billCreator = bill.createdBy;
@@ -75,40 +76,33 @@ const BillSummaryModal = ({
             return;
           }
 
-          if (split.userEmail === userEmail) {
-            if (!split.paid) {
-              youOwe += split.amount;
-            }
-          } else {
-            // Check if others owe you
-            const yourSplit = bill.splits?.find(s => s.userEmail === userEmail);
-            if (yourSplit && !split.paid) {
-              // This person owes you (if you paid your share or you're the creator)
-              if (yourSplit.paid || userEmail === billCreator) {
-                youAreOwed += split.amount;
-                // Track this person as someone who owes
-                if (!peopleWhoOwe.find(p => p.userEmail === split.userEmail)) {
-                  peopleWhoOwe.push({
-                    userEmail: split.userEmail,
-                    amount: split.amount,
-                  });
-                } else {
-                  const existing = peopleWhoOwe.find(p => p.userEmail === split.userEmail);
-                  existing.amount += split.amount;
-                }
-              }
-            }
+          if (!split.paid) {
+            // This person owes the bill creator
+            const currentOwed = netAmounts.get(split.userEmail) || 0;
+            netAmounts.set(split.userEmail, currentOwed + split.amount);
+            
+            // Bill creator is owed this amount
+            const creatorOwed = netAmounts.get(billCreator) || 0;
+            netAmounts.set(billCreator, creatorOwed - split.amount);
           }
         });
       }
     });
 
-    // Calculate breakdown - who owes what
+    // Calculate net amounts after offsetting between you and each participant
+    // First, calculate total you owe and total you are owed
+    let totalYouOwe = 0;
+    let totalYouAreOwed = 0;
+    const breakdown = [];
+    const peopleWhoOwe = [];
+
     participants.forEach((participant) => {
       if (participant === userEmail) return;
 
-      let owes = 0;
-      let isOwed = 0;
+      // Calculate what this participant owes you (bills you created where they haven't paid)
+      let participantOwesYou = 0;
+      // Calculate what you owe this participant (bills they created where you haven't paid)
+      let youOweParticipant = 0;
 
       billsList.forEach((bill) => {
         if (bill.status === 'pending' || bill.status === 'partially_paid') {
@@ -116,42 +110,51 @@ const BillSummaryModal = ({
           const participantSplit = bill.splits?.find(s => s.userEmail === participant);
           const yourSplit = bill.splits?.find(s => s.userEmail === userEmail);
 
-          // Skip if participant is the bill creator (they already paid)
-          if (participant === billCreator) {
-            return;
+          // If you're the creator and participant hasn't paid their share
+          if (userEmail === billCreator && participantSplit && !participantSplit.paid) {
+            participantOwesYou += participantSplit.amount;
           }
-
-          if (participantSplit && !participantSplit.paid) {
-            // They owe
-            if (yourSplit && (yourSplit.paid || userEmail === billCreator)) {
-              // You paid or you're the creator, they owe you
-              isOwed += participantSplit.amount;
-            } else if (yourSplit && !yourSplit.paid && userEmail !== billCreator) {
-              // Both haven't paid and you're not the creator - they owe their share
-              owes += participantSplit.amount;
-            }
-          }
-
-          if (yourSplit && !yourSplit.paid && participantSplit && participantSplit.paid && userEmail !== billCreator) {
-            // You owe them (only if you're not the creator)
-            owes += yourSplit.amount;
+          
+          // If participant is the creator and you haven't paid your share
+          if (participant === billCreator && yourSplit && !yourSplit.paid) {
+            youOweParticipant += yourSplit.amount;
           }
         }
       });
 
-      if (owes > 0 || isOwed > 0) {
+      // Net amount: offset what they owe you vs what you owe them
+      const netOwed = participantOwesYou - youOweParticipant;
+
+      if (netOwed > 0) {
+        // They owe you net amount (after offsetting)
+        totalYouAreOwed += netOwed;
         breakdown.push({
           userEmail: participant,
-          owes: owes,
-          isOwed: isOwed,
+          owes: 0,
+          isOwed: netOwed,
+        });
+        peopleWhoOwe.push({
+          userEmail: participant,
+          amount: netOwed,
+        });
+      } else if (netOwed < 0) {
+        // You owe them net amount (after offsetting)
+        totalYouOwe += Math.abs(netOwed);
+        breakdown.push({
+          userEmail: participant,
+          owes: Math.abs(netOwed),
+          isOwed: 0,
         });
       }
     });
 
+    // Final net calculation: offset total you owe vs total you are owed
+    const netOwed = totalYouAreOwed - totalYouOwe;
+
     setSummary({
-      totalPending: youOwe + youAreOwed,
-      youOwe,
-      youAreOwed,
+      totalPending: Math.abs(netOwed), // Net pending amount (absolute value)
+      youOwe: netOwed < 0 ? Math.abs(netOwed) : 0, // Only show if net is negative (you owe more)
+      youAreOwed: netOwed > 0 ? netOwed : 0, // Only show if net is positive (you're owed more)
       breakdown,
       peopleWhoOwe, // Store for reminder functionality
     });
