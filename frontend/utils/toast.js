@@ -20,17 +20,27 @@ export const showToastFromResponse = (response, options = {}) => {
   if (!response) return;
 
   if (response.success && showSuccess) {
+    // CRITICAL: Ensure text2 is always a string, not an object
+    const messageText = typeof response.message === 'string' 
+      ? response.message 
+      : (response.message?.message || response.message?.text || String(response.message || 'Operation completed successfully'));
+    
     Toast.show({
       type: 'success',
       text1: successTitle,
-      text2: response.message || 'Operation completed successfully',
+      text2: messageText,
       position: 'top',
     });
   } else if (!response.success && showError) {
+    // CRITICAL: Ensure text2 is always a string, not an object
+    const messageText = typeof response.message === 'string' 
+      ? response.message 
+      : (response.message?.message || response.message?.text || String(response.message || 'An error occurred'));
+    
     Toast.show({
       type: 'error',
       text1: errorTitle,
-      text2: response.message || 'An error occurred',
+      text2: messageText,
       position: 'top',
     });
   }

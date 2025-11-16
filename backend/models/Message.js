@@ -117,6 +117,21 @@ const MessageSchema = new mongoose.Schema({
     },
     // Optional field - no default or required needed
   },
+  isBillSplit: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  billSplitId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BillSplit',
+    default: null,
+  },
+  isReminder: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
 });
 
 // Compound indexes for efficient querying

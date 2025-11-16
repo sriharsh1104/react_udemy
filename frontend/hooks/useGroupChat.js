@@ -88,8 +88,13 @@ export const useGroupChat = (userEmail, groupId) => {
       const isFromSelf = data.senderEmail === userEmail;
       
       if (isFromGroup && !isFromSelf) {
+        // Ensure data.message is a string before decrypting
+        const messageToDecrypt = typeof data.message === 'string' 
+          ? data.message 
+          : (data.message?.message || data.message?.text || String(data.message || ''));
+        
         // Decrypt the message
-        const decryptedMessage = await decryptMessageIfNeeded(data.message);
+        const decryptedMessage = await decryptMessageIfNeeded(messageToDecrypt);
         
         // Check if message already exists (prevent duplicates)
         setMessages((prev) => {
@@ -117,6 +122,8 @@ export const useGroupChat = (userEmail, groupId) => {
             replyToSender: data.replyToSender || null,
             readBy: data.readBy || [],
             status: data.status || 'sent',
+            isBillSplit: data.isBillSplit || false,
+            billSplitData: data.billSplitData || null,
           }];
         });
       }
@@ -128,7 +135,12 @@ export const useGroupChat = (userEmail, groupId) => {
         // Decrypt all messages in history
         const formattedMessages = await Promise.all(
           data.messages.map(async (msg) => {
-            const decryptedMessage = await decryptMessageIfNeeded(msg.message);
+            // Ensure msg.message is a string before decrypting
+            const messageToDecrypt = typeof msg.message === 'string' 
+              ? msg.message 
+              : (msg.message?.message || msg.message?.text || String(msg.message || ''));
+            
+            const decryptedMessage = await decryptMessageIfNeeded(messageToDecrypt);
             return {
           senderEmail: msg.senderEmail,
               message: decryptedMessage,
@@ -144,6 +156,8 @@ export const useGroupChat = (userEmail, groupId) => {
               replyToMessage: msg.replyToMessage || null,
               replyToSender: msg.replyToSender || null,
               status: msg.status || 'sent',
+              isBillSplit: msg.isBillSplit || false,
+              billSplitData: msg.billSplitData || null,
             };
           })
         );
@@ -285,6 +299,23 @@ export const useGroupChat = (userEmail, groupId) => {
     socket.on('messageEdited', handleMessageEdited);
     socket.on('chatCleared', handleChatCleared);
     socket.on('groupMessageReadUpdate', handleGroupMessageReadUpdate);
+    
+    // Handle bill split updates
+    const handleBillSplitUpdated = (data) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.isBillSplit && msg.billSplitData?._id === data.billSplitId) {
+            return {
+              ...msg,
+              billSplitData: data.billSplit || msg.billSplitData,
+            };
+          }
+          return msg;
+        })
+      );
+    };
+    
+    socket.on('billSplitUpdated', handleBillSplitUpdated);
 
     return () => {
       socket.off(SOCKET_EVENTS.GROUP_MESSAGE, handleGroupMessage);
@@ -296,6 +327,7 @@ export const useGroupChat = (userEmail, groupId) => {
       socket.off('messageEdited', handleMessageEdited);
       socket.off('chatCleared', handleChatCleared);
       socket.off('groupMessageReadUpdate', handleGroupMessageReadUpdate);
+      socket.off('billSplitUpdated', handleBillSplitUpdated);
     };
   }, [socket, userEmail, groupId]);
 

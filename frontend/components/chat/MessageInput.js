@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Modal, A
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
 
-const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, replyingTo, onCancelReply, editingMessage, onCancelEdit }) => {
+const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, replyingTo, onCancelReply, editingMessage, onCancelEdit, onBillSplitPress }) => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
 
   const handleSend = () => {
@@ -60,34 +60,60 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
 
   // Extract message text from replyingTo (handle JSON file messages)
   const getReplyMessageText = () => {
-    if (!replyingTo || !replyingTo.message) return '';
+    if (!replyingTo) return '';
+    
+    // Handle different message formats
+    let messageText = '';
+    if (typeof replyingTo.message === 'string') {
+      messageText = replyingTo.message;
+    } else if (replyingTo.message && typeof replyingTo.message === 'object') {
+      messageText = replyingTo.message.message || replyingTo.message.text || JSON.stringify(replyingTo.message);
+    } else {
+      messageText = String(replyingTo.message || '');
+    }
+    
+    if (!messageText) return '';
+    
     try {
-      const parsed = JSON.parse(replyingTo.message);
+      const parsed = JSON.parse(messageText);
       if (parsed && parsed.type === 'file') {
         return `📎 ${parsed.fileName || 'File'}`;
       }
     } catch {
       // Not JSON, return as-is
     }
-    return replyingTo.message.length > 50 
-      ? replyingTo.message.substring(0, 50) + '...' 
-      : replyingTo.message;
+    return messageText.length > 50 
+      ? messageText.substring(0, 50) + '...' 
+      : messageText;
   };
 
   // Extract message text for editing display
   const getEditMessageText = () => {
-    if (!editingMessage || !editingMessage.message) return '';
+    if (!editingMessage) return '';
+    
+    // Handle different message formats
+    let messageText = '';
+    if (typeof editingMessage.message === 'string') {
+      messageText = editingMessage.message;
+    } else if (editingMessage.message && typeof editingMessage.message === 'object') {
+      messageText = editingMessage.message.message || editingMessage.message.text || JSON.stringify(editingMessage.message);
+    } else {
+      messageText = String(editingMessage.message || '');
+    }
+    
+    if (!messageText) return '';
+    
     try {
-      const parsed = JSON.parse(editingMessage.message);
+      const parsed = JSON.parse(messageText);
       if (parsed && parsed.type === 'file') {
         return `📎 ${parsed.fileName || 'File'}`;
       }
     } catch {
       // Not JSON, return as-is
     }
-    return editingMessage.message.length > 50 
-      ? editingMessage.message.substring(0, 50) + '...' 
-      : editingMessage.message;
+    return messageText.length > 50 
+      ? messageText.substring(0, 50) + '...' 
+      : messageText;
   };
 
   return (
@@ -154,6 +180,16 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
         >
           <Text style={styles.attachmentIcon}>📎</Text>
         </TouchableOpacity>
+        
+        {onBillSplitPress && (
+          <TouchableOpacity 
+            style={styles.billSplitButton}
+            onPress={onBillSplitPress}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.billSplitIcon}>💰</Text>
+          </TouchableOpacity>
+        )}
         
         <TextInput
           style={styles.input}
@@ -278,6 +314,18 @@ const styles = StyleSheet.create({
     marginRight: SPACING.xs,
   },
   attachmentIcon: {
+    fontSize: 20,
+    color: COLORS.text,
+  },
+  billSplitButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.xs,
+  },
+  billSplitIcon: {
     fontSize: 20,
     color: COLORS.text,
   },

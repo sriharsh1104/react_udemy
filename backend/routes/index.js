@@ -8,6 +8,7 @@ const fileController = require('../controllers/fileController');
 const statusController = require('../controllers/statusController');
 const feedController = require('../controllers/feedController');
 const { controller: callController, verifyToken: verifyCallToken } = require('../controllers/callController');
+const billSplitController = require('../controllers/billSplitController');
 const { authLimiter, writeLimiter, uploadLimiter } = require('../middleware/rateLimiter');
 
 const router = require('express').Router();
@@ -131,6 +132,12 @@ router.get('/calls/history', verifyCallToken, asyncHandler(callController.getCal
 router.post('/calls', verifyCallToken, writeLimiter, asyncHandler(callController.createCall.bind(callController)));
 router.put('/calls/:callId/status', verifyCallToken, writeLimiter, asyncHandler(callController.updateCallStatus.bind(callController)));
 router.get('/calls/stats', verifyCallToken, asyncHandler(callController.getCallStats.bind(callController)));
+
+// Bill Split routes
+router.post('/bills/create', writeLimiter, asyncHandler(billSplitController.createBillSplit.bind(billSplitController)));
+router.get('/bills', asyncHandler(billSplitController.getBillSplits.bind(billSplitController)));
+router.post('/bills/mark-paid', writeLimiter, asyncHandler(billSplitController.markAsPaid.bind(billSplitController)));
+router.post('/bills/send-reminder', writeLimiter, asyncHandler(billSplitController.sendReminder.bind(billSplitController)));
 
 module.exports = router;
 

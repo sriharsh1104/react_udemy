@@ -396,7 +396,9 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
                   </Text>
                   {props.text2 && (
                     <Text style={{ color: '#fff', fontSize: 12, marginTop: 4 }}>
-                      {props.text2}
+                      {typeof props.text2 === 'string' 
+                        ? props.text2 
+                        : (props.text2?.message || props.text2?.text || String(props.text2 || ''))}
                     </Text>
                   )}
                 </View>
@@ -421,7 +423,9 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
                   </Text>
                   {props.text2 && (
                     <Text style={{ color: '#fff', fontSize: 12, marginTop: 4 }}>
-                      {props.text2}
+                      {typeof props.text2 === 'string' 
+                        ? props.text2 
+                        : (props.text2?.message || props.text2?.text || String(props.text2 || ''))}
                     </Text>
                   )}
                 </View>

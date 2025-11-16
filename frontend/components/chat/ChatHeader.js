@@ -112,7 +112,7 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat, hideUsername = false, onStatusToggle, onAudioCall, onVideoCall, onShowReferralLink }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat, hideUsername = false, onStatusToggle, onAudioCall, onVideoCall, onShowReferralLink, onBillSummaryPress }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleStatusPress = () => {
@@ -196,6 +196,14 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
                   style={styles.callButton}
                 >
                   <Text style={styles.callButtonText}>📹</Text>
+                </TouchableOpacity>
+              )}
+              {onBillSummaryPress && (
+                <TouchableOpacity 
+                  onPress={onBillSummaryPress}
+                  style={styles.callButton}
+                >
+                  <Text style={styles.callButtonText}>💰</Text>
                 </TouchableOpacity>
               )}
             </View>

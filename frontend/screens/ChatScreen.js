@@ -35,7 +35,10 @@ import CallHistoryTab from '../components/call/CallHistoryTab';
 import IncomingCallScreen from '../components/call/IncomingCallScreen';
 import ActiveCallScreen from '../components/call/ActiveCallScreen';
 import PermissionPrompt from '../components/call/PermissionPrompt';
+import BillSplitModal from '../components/chat/BillSplitModal';
+import BillSummaryModal from '../components/chat/BillSummaryModal';
 import contactsService from '../services/contactsService';
+import billSplitService from '../services/billSplitService';
 import webrtcService from '../services/webrtcService';
 import { useCall } from '../hooks/useCall';
 import groupService from '../services/groupService';
@@ -92,6 +95,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [offlineMode, setOfflineMode] = useState(false);
   const [showCallHistory, setShowCallHistory] = useState(false);
+  const [showBillSplitModal, setShowBillSplitModal] = useState(false);
+  const [showBillSummaryModal, setShowBillSummaryModal] = useState(false);
   const flatListRef = useRef(null);
   
   const { socket, isConnected } = useSocket(userEmail);
@@ -1223,10 +1228,22 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       }
     }
     
+    // Ensure message is a string - CRITICAL: Prevent React error "Objects are not valid as a React child"
+    let messageText;
+    if (typeof item.message === 'string') {
+      messageText = item.message;
+    } else if (item.message && typeof item.message === 'object') {
+      // If message is an object, extract the message text
+      messageText = item.message.message || item.message.text || JSON.stringify(item.message);
+      console.warn('Message is an object, extracting text:', messageText);
+    } else {
+      messageText = String(item.message || '');
+    }
+    
     return (
       <MessageItem
         key={index}
-        message={item.message}
+        message={messageText}
         username={showSenderName ? senderName : undefined}
         timestamp={item.timestamp}
         isSystemMessage={false}
@@ -1250,6 +1267,18 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         editedAt={item.editedAt || null}
         isCallMessage={item.isCallMessage || false}
         callRecord={item.callRecord || null}
+        isBillSplit={item.isBillSplit || false}
+        billSplitData={item.billSplitData || null}
+        onMarkAsPaid={async (billSplitId) => {
+          try {
+            const result = await billSplitService.markAsPaid(billSplitId);
+            if (result.success) {
+              // Socket will handle the update
+            }
+          } catch (error) {
+            console.error('Error marking as paid:', error);
+          }
+        }}
       />
     );
   }, [userEmail, chatType, currentGroup, groupId, selectedMessages, handleMessageSelect, handleMenuPress, handlePinMessage, handleUnpinMessage]);
@@ -1276,14 +1305,12 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         // Small delay to ensure messages are loaded
         const timer = setTimeout(() => {
           if (!hasMarkedAsRead.current) {
-            // Check again if there are unread messages in the loaded messages
-            const unreadMessages = messages.filter(msg => !msg.isSent && msg.senderEmail === contactEmail);
-            if (unreadMessages.length > 0) {
-              // Call API to mark messages as read
-              contactsService.markMessagesAsRead(contactEmail);
-              // Also send socket read receipts
-              markPrivateMessagesAsRead();
-            }
+            // Call API to mark ALL unread messages as read (including reminder messages)
+            // The backend will handle marking all messages where receiverEmail === userEmail
+            // This includes both regular messages from contact AND reminder messages from user
+            contactsService.markMessagesAsRead(contactEmail);
+            // Also send socket read receipts for individual messages
+            markPrivateMessagesAsRead();
             hasMarkedAsRead.current = true;
           }
         }, 1000); // Increased delay to ensure messages are fully loaded
@@ -1437,7 +1464,12 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               ref={flatListRef}
               data={messages}
               renderItem={renderMessage}
-              keyExtractor={(item, index) => `message-${index}-${item.timestamp}-${item.senderEmail}-${item.message?.substring(0, 10)}`}
+              keyExtractor={(item, index) => {
+                const messageStr = typeof item.message === 'string' 
+                  ? item.message 
+                  : (item.message?.message || item.message?.text || String(item.message || ''));
+                return `message-${index}-${item.timestamp}-${item.senderEmail}-${messageStr.substring(0, 10)}-${item.messageId || item._id || ''}`;
+              }}
               style={styles.messagesList}
               contentContainerStyle={styles.messagesContent}
               onContentSizeChange={() => {
@@ -1469,6 +1501,13 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             onCancelEdit={() => {
               setEditingMessage(null);
               setInputMessage('');
+            }}
+            onBillSplitPress={() => {
+              if (chatType === 'private' && contactEmail) {
+                setShowBillSplitModal(true);
+              } else if (chatType === 'group' && groupId) {
+                setShowBillSplitModal(true);
+              }
             }}
           />
 
@@ -1727,6 +1766,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onClearChat={handleClearChat}
         onAudioCall={handleAudioCall}
         onVideoCall={handleVideoCall}
+        onBillSummaryPress={() => setShowBillSummaryModal(true)}
         onShowReferralLink={() => {
           setInviteEmail(null);
           setShowInviteModal(true);
@@ -1831,6 +1871,54 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onRetry={handlePermissionRetry}
         onCancel={handlePermissionCancel}
       />
+
+      {/* Bill Split Modal */}
+      {chatType && (
+        <BillSplitModal
+          visible={showBillSplitModal}
+          onClose={() => setShowBillSplitModal(false)}
+          onCreateBill={async (billData) => {
+            try {
+              const result = await billSplitService.createBillSplit({
+                ...billData,
+                contactEmail: chatType === 'private' ? contactEmail : null,
+                groupId: chatType === 'group' ? groupId : null,
+              });
+              
+              if (result.success) {
+                // Message will be sent via socket automatically
+                // Just close the modal
+                setShowBillSplitModal(false);
+              }
+            } catch (error) {
+              console.error('Error creating bill split:', error);
+              Alert.alert('Error', 'Failed to create bill split');
+            }
+          }}
+          userEmail={userEmail}
+          contactEmail={contactEmail}
+          groupId={groupId}
+          groupMembers={currentGroup?.members || []}
+        />
+      )}
+
+      {/* Bill Summary Modal */}
+      {chatType && (
+        <BillSummaryModal
+          visible={showBillSummaryModal}
+          onClose={() => setShowBillSummaryModal(false)}
+          userEmail={userEmail}
+          contactEmail={contactEmail}
+          groupId={groupId}
+          roomId={chatType === 'group' 
+            ? `group_${groupId}` 
+            : (() => {
+                const sorted = [userEmail, contactEmail].sort();
+                return `chat_${sorted[0]}_${sorted[1]}`;
+              })()}
+          groupMembers={currentGroup?.members || []}
+        />
+      )}
     </KeyboardAvoidingView>
     
     {/* Incoming/Outgoing Call Screen - Rendered outside KeyboardAvoidingView to ensure it's always on top */}

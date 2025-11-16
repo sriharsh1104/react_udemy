@@ -119,9 +119,22 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       if (isRelevantMessage) {
         // For call messages, don't decrypt (they're plain text system messages)
         // For regular messages, decrypt
+        // Ensure data.message is a string before decrypting
+        // CRITICAL: Handle case where data.message might be an object (e.g., from reminder)
+        let messageToDecrypt;
+        if (typeof data.message === 'string') {
+          messageToDecrypt = data.message;
+        } else if (data.message && typeof data.message === 'object') {
+          // If message is an object, extract the message text
+          messageToDecrypt = data.message.message || data.message.text || JSON.stringify(data.message);
+          console.warn('Received message object instead of string, extracted:', messageToDecrypt);
+        } else {
+          messageToDecrypt = String(data.message || '');
+        }
+        
         const decryptedMessage = isCallMessage
-          ? data.message
-          : await decryptMessageIfNeeded(data.message, data.senderEmail);
+          ? messageToDecrypt
+          : await decryptMessageIfNeeded(messageToDecrypt, data.senderEmail);
 
         // Check if message already exists (prevent duplicates)
         // For call messages, check by messageId or sessionId to be more reliable
@@ -170,6 +183,8 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             editedAt: data.editedAt || null,
             isCallMessage: data.isCallMessage || false,
             callRecord: data.callRecord || null,
+            isBillSplit: data.isBillSplit || false,
+            billSplitData: data.billSplitData || null,
           };
 
           // Send read receipt immediately if we have messageId (only for messages from contact, not our own)
@@ -192,8 +207,13 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         // Decrypt all messages in history
         const formattedMessages = await Promise.all(
           data.messages.map(async (msg) => {
+            // Ensure msg.message is a string before decrypting
+            const messageToDecrypt = typeof msg.message === 'string' 
+              ? msg.message 
+              : (msg.message?.message || msg.message?.text || String(msg.message || ''));
+            
             const decryptedMessage = await decryptMessageIfNeeded(
-              msg.message,
+              messageToDecrypt,
               msg.senderEmail
             );
             return {
@@ -211,6 +231,8 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
               editedAt: msg.editedAt || null,
               isCallMessage: msg.isCallMessage || false,
               callRecord: msg.callRecord || null,
+              isBillSplit: msg.isBillSplit || false,
+              billSplitData: msg.billSplitData || null,
             };
           })
         );
@@ -415,6 +437,23 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     socket.on("messageDeleted", handleMessageDeleted);
     socket.on("messageEdited", handleMessageEdited);
     socket.on("chatCleared", handleChatCleared);
+    
+    // Handle bill split updates
+    const handleBillSplitUpdated = (data) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.isBillSplit && msg.billSplitData?._id === data.billSplitId) {
+            return {
+              ...msg,
+              billSplitData: data.billSplit || msg.billSplitData,
+            };
+          }
+          return msg;
+        })
+      );
+    };
+    
+    socket.on("billSplitUpdated", handleBillSplitUpdated);
 
     return () => {
       socket.off(SOCKET_EVENTS.PRIVATE_MESSAGE, handlePrivateMessage);
@@ -427,6 +466,7 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       socket.off("messageDeleted", handleMessageDeleted);
       socket.off("messageEdited", handleMessageEdited);
       socket.off("chatCleared", handleChatCleared);
+      socket.off("billSplitUpdated", handleBillSplitUpdated);
     };
   }, [socket, userEmail, contactEmail]);
 

@@ -196,7 +196,26 @@ class SocketService {
     
     // Send existing messages (PENDING MESSAGES) from MongoDB to the user when they come online
     // Filter out messages before clearedAt timestamp, limit to 100 most recent messages
-    const messages = await chatService.getMessages(userEmail, contactEmail, clearedAt, 100, 0);
+    // Also filter out reminder messages sent by the user (they should only see reminders sent to them)
+    let messages = await chatService.getMessages(userEmail, contactEmail, clearedAt, 100, 0, userEmail);
+    
+    // Populate bill split data for bill split messages
+    const BillSplit = require('../models/BillSplit');
+    const billSplitMessages = messages.filter(msg => msg.isBillSplit && msg.billSplitId);
+    if (billSplitMessages.length > 0) {
+      const billSplitIds = billSplitMessages.map(msg => msg.billSplitId);
+      const billSplits = await BillSplit.find({ _id: { $in: billSplitIds } }).lean();
+      const billSplitMap = new Map(billSplits.map(bs => [bs._id.toString(), bs]));
+      
+      messages = messages.map(msg => {
+        if (msg.isBillSplit && msg.billSplitId) {
+          const billSplit = billSplitMap.get(msg.billSplitId.toString());
+          return { ...msg, billSplitData: billSplit || null };
+        }
+        return msg;
+      });
+    }
+    
     socket.emit('chatHistory', {
       roomId,
       messages,
@@ -529,7 +548,25 @@ class SocketService {
     const clearedAt = await groupService.getClearedAt(groupId, userEmail);
     
     // Filter out messages before clearedAt timestamp, limit to 100 most recent messages
-    const messages = await chatService.getGroupMessages(groupId, clearedAt, 100, 0);
+    let messages = await chatService.getGroupMessages(groupId, clearedAt, 100, 0);
+    
+    // Populate bill split data for bill split messages
+    const BillSplit = require('../models/BillSplit');
+    const billSplitMessages = messages.filter(msg => msg.isBillSplit && msg.billSplitId);
+    if (billSplitMessages.length > 0) {
+      const billSplitIds = billSplitMessages.map(msg => msg.billSplitId);
+      const billSplits = await BillSplit.find({ _id: { $in: billSplitIds } }).lean();
+      const billSplitMap = new Map(billSplits.map(bs => [bs._id.toString(), bs]));
+      
+      messages = messages.map(msg => {
+        if (msg.isBillSplit && msg.billSplitId) {
+          const billSplit = billSplitMap.get(msg.billSplitId.toString());
+          return { ...msg, billSplitData: billSplit || null };
+        }
+        return msg;
+      });
+    }
+    
     socket.emit('groupChatHistory', {
       groupId,
       roomId,

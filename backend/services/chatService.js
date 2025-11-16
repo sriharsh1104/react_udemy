@@ -34,6 +34,7 @@ class ChatService {
         replyTo: messageData.replyTo || null,
         replyToMessage: messageData.replyToMessage || null,
         replyToSender: messageData.replyToSender || null,
+        isReminder: messageData.isReminder || false,
       });
 
       await message.save();
@@ -64,6 +65,7 @@ class ChatService {
         replyTo: messageData.replyTo || null,
         replyToMessage: messageData.replyToMessage || null,
         replyToSender: messageData.replyToSender || null,
+        isReminder: messageData.isReminder || false,
       });
 
       await message.save();
@@ -102,7 +104,7 @@ class ChatService {
   }
 
   // Get messages from MongoDB (filtered by clearedAt if provided, with pagination)
-  async getMessages(email1, email2, clearedAt = null, limit = 100, skip = 0) {
+  async getMessages(email1, email2, clearedAt = null, limit = 100, skip = 0, requestingUserEmail = null) {
     try {
       const roomId = this.getRoomId(email1, email2);
       
@@ -111,6 +113,15 @@ class ChatService {
       // If clearedAt is provided, only get messages after that timestamp
       if (clearedAt) {
         query.timestamp = { $gt: clearedAt };
+      }
+      
+      // Filter out reminder messages where sender is the requesting user
+      // Reminder messages should only be visible to the receiver, not the sender
+      if (requestingUserEmail) {
+        query.$or = [
+          { isReminder: { $ne: true } }, // Not a reminder message
+          { isReminder: true, senderEmail: { $ne: requestingUserEmail } } // Reminder but not sent by requesting user
+        ];
       }
       
       // Get messages with pagination - get most recent messages first, then reverse
@@ -163,8 +174,8 @@ class ChatService {
       const count = await Message.countDocuments({
         roomId,
         receiverEmail: userEmail,
-        senderEmail: contactEmail,
         read: false,
+        messageType: 'private',
       });
       return count;
     } catch (error) {
@@ -235,8 +246,8 @@ class ChatService {
         {
           roomId,
           receiverEmail: userEmail,
-          senderEmail: contactEmail,
           read: false,
+          messageType: 'private',
         },
         {
           $set: { read: true, status: 'read' },

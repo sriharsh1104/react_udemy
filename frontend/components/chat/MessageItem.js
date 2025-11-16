@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
 
-const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt, onMenuPress, isCallMessage, callRecord }) => {
+const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt, onMenuPress, isCallMessage, callRecord, isBillSplit, billSplitData, onMarkAsPaid }) => {
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
@@ -21,8 +21,13 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
   
   // Check if message is a file message
   useEffect(() => {
+    // Ensure message is a string before parsing
+    const messageStr = typeof message === 'string' 
+      ? message 
+      : (message?.message || message?.text || String(message || ''));
+    
     try {
-      const parsed = JSON.parse(message);
+      const parsed = JSON.parse(messageStr);
       if (parsed && parsed.type === 'file') {
         setFileData(parsed);
         // Check if file is already downloaded locally
@@ -75,9 +80,12 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
   };
   
   if (isSystemMessage) {
+    const systemMessageText = typeof message === 'string' 
+      ? message 
+      : (message?.message || message?.text || String(message || ''));
     return (
       <View style={styles.systemContainer}>
-        <Text style={styles.systemText}>{message}</Text>
+        <Text style={styles.systemText}>{systemMessageText}</Text>
       </View>
     );
   }
@@ -138,7 +146,12 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
                 {replyToSender === userEmail ? 'You' : (replyToSender ? replyToSender.split('@')[0] : 'Unknown')}
               </Text>
               <Text style={[styles.replyMessageText, { color: isMyMessage ? COLORS.white : COLORS.textSecondary }]} numberOfLines={1}>
-                {replyToMessage.length > 50 ? replyToMessage.substring(0, 50) + '...' : replyToMessage}
+                {(() => {
+                  const replyText = typeof replyToMessage === 'string' 
+                    ? replyToMessage 
+                    : (replyToMessage?.message || replyToMessage?.text || String(replyToMessage || ''));
+                  return replyText.length > 50 ? replyText.substring(0, 50) + '...' : replyText;
+                })()}
               </Text>
             </View>
           )}
@@ -280,6 +293,87 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
     );
   }
   
+  // Render bill split message
+  if (isBillSplit) {
+    // Ensure billSplitData is valid
+    if (!billSplitData || typeof billSplitData !== 'object' || !billSplitData.billName) {
+      // Fallback: render as regular message if bill split data is invalid
+      console.warn('Bill split message but invalid billSplitData:', billSplitData);
+      // Ensure message is a string for fallback rendering - convert to string and continue
+      const fallbackMessage = typeof message === 'string' 
+        ? message 
+        : (message?.message || message?.text || JSON.stringify(message));
+      // Continue to regular message rendering below - message will be handled there
+    } else {
+      const userSplit = billSplitData.splits?.find(s => s.userEmail === userEmail);
+      const isPaid = userSplit?.paid || false;
+      const userAmount = userSplit?.amount || 0;
+      const totalAmount = billSplitData.totalAmount || 0;
+      const status = billSplitData.status || 'pending';
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.container,
+          isMyMessage ? styles.sentContainer : styles.receivedContainer,
+          isMessageSelected && styles.selectedContainer,
+        ]}
+        onLongPress={handleLongPress}
+        onPress={() => isMessageSelected && onSelect && onSelect(null)}
+        activeOpacity={0.7}
+      >
+        {!isMyMessage && (
+          <Text style={styles.username} numberOfLines={1}>{username}</Text>
+        )}
+        <View style={[styles.bubble, styles.billSplitBubble, isMyMessage ? styles.sentBubble : styles.receivedBubble]}>
+          <View style={styles.billSplitHeader}>
+            <Text style={styles.billSplitIcon}>💰</Text>
+            <View style={styles.billSplitTitleContainer}>
+              <Text style={[styles.billSplitTitle, isMyMessage ? styles.sentText : styles.receivedText]}>
+                {billSplitData.billName || 'Bill Split'}
+              </Text>
+              <Text style={[styles.billSplitTotal, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
+                Total: ₹{totalAmount.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.billSplitDetails}>
+            <Text style={[styles.billSplitYourAmount, isMyMessage ? styles.sentText : styles.receivedText]}>
+              Your share: ₹{userAmount.toFixed(2)}
+            </Text>
+            
+            {!isMyMessage && !isPaid && onMarkAsPaid && (
+              <TouchableOpacity
+                style={styles.markPaidButton}
+                onPress={() => onMarkAsPaid(billSplitData._id)}
+              >
+                <Text style={styles.markPaidButtonText}>Mark as Paid</Text>
+              </TouchableOpacity>
+            )}
+            
+            {isPaid && (
+              <View style={styles.paidBadge}>
+                <Text style={styles.paidText}>✓ Paid</Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={styles.timestampContainer}>
+            <Text style={[styles.timestamp, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
+              {new Date(timestamp).toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+              })}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+    }
+  }
+  
   // Render regular text message
   return (
     <TouchableOpacity
@@ -303,7 +397,12 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
               {replyToSender === userEmail ? 'You' : (replyToSender ? replyToSender.split('@')[0] : 'Unknown')}
             </Text>
             <Text style={[styles.replyMessageText, { color: isMyMessage ? COLORS.white : COLORS.textSecondary }]} numberOfLines={1}>
-              {replyToMessage.length > 50 ? replyToMessage.substring(0, 50) + '...' : replyToMessage}
+              {(() => {
+                const replyText = typeof replyToMessage === 'string' 
+                  ? replyToMessage 
+                  : (replyToMessage?.message || replyToMessage?.text || String(replyToMessage || ''));
+                return replyText.length > 50 ? replyText.substring(0, 50) + '...' : replyText;
+              })()}
             </Text>
           </View>
         )}
@@ -314,7 +413,16 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
         ) : (
           <>
         <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText]}>
-          {message}
+          {(() => {
+            // Handle different message formats
+            if (typeof message === 'string') {
+              return message;
+            } else if (message && typeof message === 'object') {
+              // If message is an object, try to get the message property
+              return message.message || message.text || JSON.stringify(message);
+            }
+            return String(message || '');
+          })()}
         </Text>
             {editedAt && (
               <Text style={[styles.editedLabel, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
