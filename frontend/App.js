@@ -189,11 +189,12 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
         setUserEmail(email);
         setIsLoggedIn(true);
         // Navigate to Chat - profile will be loaded when needed
-          setTimeout(() => {
-            if (navigationRef.current) {
-                navigationRef.current.navigate('Chat');
-            }
-          }, 100);
+        // Use requestAnimationFrame for smoother transition (prevents flicker)
+        requestAnimationFrame(() => {
+          if (navigationRef.current) {
+            navigationRef.current.navigate('Chat');
+          }
+        });
       }
     } catch (error) {
       console.error('Error checking auth status:', error);

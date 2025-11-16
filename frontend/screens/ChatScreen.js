@@ -126,13 +126,14 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   
   // Calculate actual online status (online only if connected AND not in offline mode)
   const actualOnlineStatus = isConnected && !offlineMode;
-  const { messages: privateMessages, typingUser, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage } = useChat(userEmail, contactEmail, () => {
+  const { messages: privateMessages, typingUser, loadingMessages: loadingPrivateMessages, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage } = useChat(userEmail, contactEmail, () => {
     // Backend will send contactsUpdated event, no need to call API
   });
-  const { messages: groupMessages, typingUsers, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping, removePendingMessage: removeGroupPendingMessage } = useGroupChat(userEmail, groupId);
+  const { messages: groupMessages, typingUsers, loadingMessages: loadingGroupMessages, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping, removePendingMessage: removeGroupPendingMessage } = useGroupChat(userEmail, groupId);
   
   // Use appropriate messages and functions based on chat type
   const messages = chatType === 'group' ? groupMessages : privateMessages;
+  const loadingMessages = chatType === 'group' ? loadingGroupMessages : loadingPrivateMessages;
   const sendMessage = chatType === 'group' ? sendGroupMessage : sendPrivateMessage;
   const sendTyping = chatType === 'group' ? sendGroupTyping : sendPrivateTyping;
   const currentTypingUser = chatType === 'group' ? (typingUsers.length > 0 ? typingUsers[0] : null) : typingUser;
@@ -1460,15 +1461,27 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           )}
           
           <View style={styles.chatBackground}>
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              renderItem={renderMessage}
+            {loadingMessages && messages.length === 0 ? (
+              <View style={styles.messagesLoadingContainer}>
+                <Text style={[styles.messagesLoadingText, { color: colors.textSecondary }]}>
+                  Loading messages...
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                ref={flatListRef}
+                data={messages}
+                renderItem={renderMessage}
               keyExtractor={(item, index) => {
+                // Use messageId for stable keys - better for React reconciliation
+                if (item.messageId || item._id) {
+                  return `message-${item.messageId || item._id}`;
+                }
+                // Fallback for messages without ID
                 const messageStr = typeof item.message === 'string' 
                   ? item.message 
                   : (item.message?.message || item.message?.text || String(item.message || ''));
-                return `message-${index}-${item.timestamp}-${item.senderEmail}-${messageStr.substring(0, 10)}-${item.messageId || item._id || ''}`;
+                return `message-${index}-${item.timestamp}-${item.senderEmail}-${messageStr.substring(0, 10)}`;
               }}
               style={styles.messagesList}
               contentContainerStyle={styles.messagesContent}
@@ -1480,11 +1493,21 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               showsVerticalScrollIndicator={false}
               inverted={false}
               removeClippedSubviews={true}
-              maxToRenderPerBatch={15}
-              updateCellsBatchingPeriod={50}
-              initialNumToRender={15}
-              windowSize={10}
+              maxToRenderPerBatch={10}
+              updateCellsBatchingPeriod={100}
+              initialNumToRender={10}
+              windowSize={5}
+              getItemLayout={(data, index) => {
+                // Approximate item height for better performance (adjust based on your message height)
+                const ITEM_HEIGHT = 80; // Average message height
+                return {
+                  length: ITEM_HEIGHT,
+                  offset: ITEM_HEIGHT * index,
+                  index,
+                };
+              }}
             />
+            )}
           </View>
 
           <TypingIndicator typingUsers={currentTypingUser ? [currentTypingUser] : []} />
@@ -1613,6 +1636,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   if (!contactEmail && !groupId) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <GLoader visible={loadingContacts} message="Loading contacts..." />
         <KeyboardAvoidingView
           style={styles.container}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1736,7 +1760,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <GLoader visible={loadingContacts} message="Loading contacts..." />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -2092,6 +2115,16 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     fontWeight: '500',
+    color: COLORS.textSecondary,
+  },
+  messagesLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  messagesLoadingText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
     color: COLORS.textSecondary,
   },
 });

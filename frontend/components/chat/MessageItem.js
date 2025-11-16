@@ -709,4 +709,21 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MessageItem;
+// Memoize MessageItem to prevent unnecessary re-renders
+export default React.memo(MessageItem, (prevProps, nextProps) => {
+  // Custom comparison function for better performance
+  // Only re-render if these props change
+  return (
+    prevProps.message === nextProps.message &&
+    prevProps.timestamp === nextProps.timestamp &&
+    prevProps.isSent === nextProps.isSent &&
+    prevProps.status === nextProps.status &&
+    prevProps.messageId === nextProps.messageId &&
+    prevProps.isPinned === nextProps.isPinned &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isDeleted === nextProps.isDeleted &&
+    prevProps.editedAt === nextProps.editedAt &&
+    prevProps.isCallMessage === nextProps.isCallMessage &&
+    prevProps.isBillSplit === nextProps.isBillSplit
+  );
+});

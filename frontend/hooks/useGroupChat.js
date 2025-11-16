@@ -1,12 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import socketService from '../services/socketService';
 import { SOCKET_EVENTS } from '../constants';
 import encryptionService from '../services/encryptionService';
 
+// Constants for memory management
+const MAX_MESSAGES_IN_MEMORY = 500; // Limit messages to prevent memory leaks
+const MESSAGE_CLEANUP_THRESHOLD = 600; // Cleanup when exceeding this
+
 export const useGroupChat = (userEmail, groupId) => {
   const [messages, setMessages] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const socket = socketService.getSocket();
+  
+  // Decryption cache to avoid re-decrypting same messages
+  const decryptionCache = useRef(new Map());
+  
+  // Track previous groupId to cleanup on group switch
+  const previousGroupId = useRef(groupId);
   
   /**
    * Check if a message is encrypted (contains encrypted and iv fields)
@@ -22,11 +33,18 @@ export const useGroupChat = (userEmail, groupId) => {
   
   /**
    * Decrypt a message if it's encrypted, otherwise return as-is
+   * Uses caching to avoid re-decrypting same messages
    */
-  const decryptMessageIfNeeded = async (encryptedMessage) => {
+  const decryptMessageIfNeeded = useCallback(async (encryptedMessage) => {
     if (!isEncrypted(encryptedMessage)) {
       // Legacy unencrypted message
       return encryptedMessage;
+    }
+    
+    // Check cache first
+    const cacheKey = `${encryptedMessage}_${groupId}`;
+    if (decryptionCache.current.has(cacheKey)) {
+      return decryptionCache.current.get(cacheKey);
     }
     
     try {
@@ -35,12 +53,52 @@ export const useGroupChat = (userEmail, groupId) => {
         encryptedData,
         groupId
       );
+      
+      // Cache the decrypted message (limit cache size to prevent memory issues)
+      if (decryptionCache.current.size > 1000) {
+        // Remove oldest entries (simple FIFO)
+        const firstKey = decryptionCache.current.keys().next().value;
+        decryptionCache.current.delete(firstKey);
+      }
+      decryptionCache.current.set(cacheKey, decrypted);
+      
       return decrypted;
     } catch (error) {
       console.error('Error decrypting group message:', error);
       return '[Encrypted message - decryption failed]';
     }
-  };
+  }, [groupId]);
+  
+  /**
+   * Cleanup old messages to prevent memory leaks
+   * Keeps only the most recent MAX_MESSAGES_IN_MEMORY messages
+   */
+  const cleanupOldMessages = useCallback((messageArray) => {
+    if (messageArray.length <= MAX_MESSAGES_IN_MEMORY) {
+      return messageArray;
+    }
+    
+    // Keep only the most recent messages
+    const sorted = [...messageArray].sort(
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    );
+    return sorted.slice(-MAX_MESSAGES_IN_MEMORY);
+  }, []);
+
+  // Cleanup messages when groupId changes (group switch)
+  useEffect(() => {
+    if (previousGroupId.current !== groupId && previousGroupId.current !== null) {
+      // Group switched - clear messages to prevent memory leak
+      console.log('🧹 Cleaning up messages for group switch:', {
+        from: previousGroupId.current,
+        to: groupId
+      });
+      setMessages([]);
+      // Clear decryption cache for old group (optional - can keep for better performance)
+      // decryptionCache.current.clear();
+    }
+    previousGroupId.current = groupId;
+  }, [groupId]);
 
   useEffect(() => {
     if (!socket || !userEmail) return;
@@ -109,7 +167,7 @@ export const useGroupChat = (userEmail, groupId) => {
             return prev;
           }
           
-          return [...prev, {
+          const updatedMessages = [...prev, {
             senderEmail: data.senderEmail,
             message: decryptedMessage,
             timestamp: data.timestamp,
@@ -125,6 +183,13 @@ export const useGroupChat = (userEmail, groupId) => {
             isBillSplit: data.isBillSplit || false,
             billSplitData: data.billSplitData || null,
           }];
+          
+          // Cleanup old messages if threshold exceeded
+          if (updatedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
+            return cleanupOldMessages(updatedMessages);
+          }
+          
+          return updatedMessages;
         });
       }
     };
@@ -132,6 +197,7 @@ export const useGroupChat = (userEmail, groupId) => {
     const handleGroupChatHistory = async (data) => {
       // Only load history if it's for the current group
       if (data.groupId === groupId) {
+        setLoadingMessages(true);
         // Decrypt all messages in history
         const formattedMessages = await Promise.all(
           data.messages.map(async (msg) => {
@@ -163,7 +229,14 @@ export const useGroupChat = (userEmail, groupId) => {
         );
         
         console.log(`📬 Received ${formattedMessages.length} message(s) from group chat history for ${groupId}`);
-        setMessages(formattedMessages);
+        
+        // Cleanup old messages if threshold exceeded
+        if (formattedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
+          setMessages(cleanupOldMessages(formattedMessages));
+        } else {
+          setMessages(formattedMessages);
+        }
+        setLoadingMessages(false);
       }
     };
 
@@ -328,8 +401,13 @@ export const useGroupChat = (userEmail, groupId) => {
       socket.off('chatCleared', handleChatCleared);
       socket.off('groupMessageReadUpdate', handleGroupMessageReadUpdate);
       socket.off('billSplitUpdated', handleBillSplitUpdated);
+      
+      // Cleanup on unmount - clear messages and cache
+      setMessages([]);
+      // Optionally clear decryption cache on unmount
+      // decryptionCache.current.clear();
     };
-  }, [socket, userEmail, groupId]);
+  }, [socket, userEmail, groupId, cleanupOldMessages, decryptMessageIfNeeded]);
 
   const sendMessage = async (message, replyInfo = null) => {
     if (message.trim() && socket && groupId && userEmail) {
@@ -359,7 +437,14 @@ export const useGroupChat = (userEmail, groupId) => {
         replyToSender: replyInfo?.replyToSender || null,
       };
       
-      setMessages((prev) => [...prev, tempMessage]);
+      setMessages((prev) => {
+        const updated = [...prev, tempMessage];
+        // Cleanup old messages if threshold exceeded
+        if (updated.length > MESSAGE_CLEANUP_THRESHOLD) {
+          return cleanupOldMessages(updated);
+        }
+        return updated;
+      });
       
       try {
         // Encrypt the message before sending (file messages are encrypted as JSON strings)
@@ -420,9 +505,15 @@ export const useGroupChat = (userEmail, groupId) => {
     });
   };
 
+  // Memoize messages to prevent unnecessary re-renders
+  const memoizedMessages = useMemo(() => {
+    return messages;
+  }, [messages]);
+
   return {
-    messages,
+    messages: memoizedMessages,
     typingUsers,
+    loadingMessages,
     sendMessage,
     sendTyping,
     removePendingMessage,

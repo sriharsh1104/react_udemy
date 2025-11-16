@@ -1,15 +1,26 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import socketService from "../services/socketService";
 import { SOCKET_EVENTS } from "../constants";
 import encryptionService from "../services/encryptionService";
 
+// Constants for memory management
+const MAX_MESSAGES_IN_MEMORY = 500; // Limit messages to prevent memory leaks
+const MESSAGE_CLEANUP_THRESHOLD = 600; // Cleanup when exceeding this
+
 export const useChat = (userEmail, contactEmail, onMessageReceived) => {
   const [messages, setMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(null);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const socket = socketService.getSocket();
 
   // Track message IDs that have been read (to avoid duplicate read receipts)
   const readMessageIds = useRef(new Set());
+  
+  // Decryption cache to avoid re-decrypting same messages
+  const decryptionCache = useRef(new Map());
+  
+  // Track previous contactEmail to cleanup on chat switch
+  const previousContactEmail = useRef(contactEmail);
 
   /**
    * Check if a message is encrypted (contains encrypted and iv fields)
@@ -25,11 +36,18 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
 
   /**
    * Decrypt a message if it's encrypted, otherwise return as-is
+   * Uses caching to avoid re-decrypting same messages
    */
-  const decryptMessageIfNeeded = async (encryptedMessage, senderEmail) => {
+  const decryptMessageIfNeeded = useCallback(async (encryptedMessage, senderEmail) => {
     if (!isEncrypted(encryptedMessage)) {
       // Legacy unencrypted message
       return encryptedMessage;
+    }
+
+    // Check cache first
+    const cacheKey = `${encryptedMessage}_${senderEmail}`;
+    if (decryptionCache.current.has(cacheKey)) {
+      return decryptionCache.current.get(cacheKey);
     }
 
     try {
@@ -51,6 +69,15 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         userEmail,
         otherPartyEmail
       );
+      
+      // Cache the decrypted message (limit cache size to prevent memory issues)
+      if (decryptionCache.current.size > 1000) {
+        // Remove oldest entries (simple FIFO)
+        const firstKey = decryptionCache.current.keys().next().value;
+        decryptionCache.current.delete(firstKey);
+      }
+      decryptionCache.current.set(cacheKey, decrypted);
+      
       return decrypted;
     } catch (error) {
       console.error("Error decrypting message:", error);
@@ -65,7 +92,39 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       );
       return "[Encrypted message - decryption failed]";
     }
-  };
+  }, [userEmail, contactEmail]);
+  
+  /**
+   * Cleanup old messages to prevent memory leaks
+   * Keeps only the most recent MAX_MESSAGES_IN_MEMORY messages
+   */
+  const cleanupOldMessages = useCallback((messageArray) => {
+    if (messageArray.length <= MAX_MESSAGES_IN_MEMORY) {
+      return messageArray;
+    }
+    
+    // Keep only the most recent messages
+    const sorted = [...messageArray].sort(
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    );
+    return sorted.slice(-MAX_MESSAGES_IN_MEMORY);
+  }, []);
+
+  // Cleanup messages when contactEmail changes (chat switch)
+  useEffect(() => {
+    if (previousContactEmail.current !== contactEmail && previousContactEmail.current !== null) {
+      // Chat switched - clear messages to prevent memory leak
+      console.log('🧹 Cleaning up messages for chat switch:', {
+        from: previousContactEmail.current,
+        to: contactEmail
+      });
+      setMessages([]);
+      readMessageIds.current.clear();
+      // Clear decryption cache for old chat (optional - can keep for better performance)
+      // decryptionCache.current.clear();
+    }
+    previousContactEmail.current = contactEmail;
+  }, [contactEmail]);
 
   useEffect(() => {
     if (!socket || !userEmail) return;
@@ -196,7 +255,14 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             });
           }
 
-          return [...prev, newMessage];
+          const updatedMessages = [...prev, newMessage];
+          
+          // Cleanup old messages if threshold exceeded
+          if (updatedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
+            return cleanupOldMessages(updatedMessages);
+          }
+          
+          return updatedMessages;
         });
       }
     };
@@ -204,8 +270,9 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     const handleChatHistory = async (data) => {
       // Only load history if it's for the current contact
       if (data.contactEmail === contactEmail) {
+        setLoadingMessages(true);
         // Decrypt all messages in history
-        const formattedMessages = await Promise.all(
+        let formattedMessages = await Promise.all(
           data.messages.map(async (msg) => {
             // Ensure msg.message is a string before decrypting
             const messageToDecrypt = typeof msg.message === 'string' 
@@ -236,6 +303,11 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             };
           })
         );
+
+        // Cleanup old messages if threshold exceeded before merging
+        if (formattedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
+          formattedMessages = cleanupOldMessages(formattedMessages);
+        }
 
         // Only replace messages if we don't have any messages yet, or if this is the initial load
         // Otherwise, merge with existing messages to avoid clearing optimistic updates
@@ -296,10 +368,15 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
               (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
             );
 
+            // Cleanup old messages if threshold exceeded
+            if (mergedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
+              return cleanupOldMessages(mergedMessages);
+            }
+            
             return mergedMessages;
           }
 
-          // First load - just set the messages
+          // First load - return formatted messages (already cleaned up if needed)
           return formattedMessages;
         });
 
@@ -318,6 +395,7 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             });
           }
         });
+        setLoadingMessages(false);
       }
     };
 
@@ -467,8 +545,14 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       socket.off("messageEdited", handleMessageEdited);
       socket.off("chatCleared", handleChatCleared);
       socket.off("billSplitUpdated", handleBillSplitUpdated);
+      
+      // Cleanup on unmount - clear messages and cache
+      setMessages([]);
+      readMessageIds.current.clear();
+      // Optionally clear decryption cache on unmount
+      // decryptionCache.current.clear();
     };
-  }, [socket, userEmail, contactEmail]);
+  }, [socket, userEmail, contactEmail, cleanupOldMessages, decryptMessageIfNeeded]);
 
   const sendMessage = async (message, replyInfo = null) => {
     if (message.trim() && socket && contactEmail && userEmail) {
@@ -499,7 +583,14 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         replyToSender: replyInfo?.replyToSender || null,
       };
 
-      setMessages((prev) => [...prev, tempMessage]);
+      setMessages((prev) => {
+        const updated = [...prev, tempMessage];
+        // Cleanup old messages if threshold exceeded
+        if (updated.length > MESSAGE_CLEANUP_THRESHOLD) {
+          return cleanupOldMessages(updated);
+        }
+        return updated;
+      });
 
       try {
         // Encrypt the message before sending (file messages are encrypted as JSON strings)
@@ -654,9 +745,15 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     });
   };
 
+  // Memoize messages to prevent unnecessary re-renders
+  const memoizedMessages = useMemo(() => {
+    return messages;
+  }, [messages]);
+
   return {
-    messages,
+    messages: memoizedMessages,
     typingUser,
+    loadingMessages,
     sendMessage,
     sendTyping,
     markMessagesAsRead,
