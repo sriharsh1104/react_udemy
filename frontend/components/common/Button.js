@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
@@ -97,6 +98,30 @@ const Button = ({
       )}
     </TouchableOpacity>
   );
+};
+
+Button.propTypes = {
+  title: PropTypes.string.isRequired,
+  onPress: PropTypes.func.isRequired,
+  variant: PropTypes.oneOf(['primary', 'secondary', 'outline', 'text']),
+  size: PropTypes.oneOf(['small', 'medium', 'large']),
+  disabled: PropTypes.bool,
+  loading: PropTypes.bool,
+  fullWidth: PropTypes.bool,
+  icon: PropTypes.string,
+  style: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
+  textStyle: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
+};
+
+Button.defaultProps = {
+  variant: 'primary',
+  size: 'medium',
+  disabled: false,
+  loading: false,
+  fullWidth: false,
+  icon: null,
+  style: null,
+  textStyle: null,
 };
 
 const styles = StyleSheet.create({

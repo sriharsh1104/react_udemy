@@ -177,8 +177,9 @@ class SocketService {
     }
     
     try {
-      // Log detailed emit information
-      console.log('📤 SOCKET EMIT:', {
+      // Log detailed emit information (only in dev)
+      const logger = require('../utils/logger').default;
+      logger.log('📤 SOCKET EMIT:', {
         event,
         socketId: this.socket.id,
         connected: this.socket.connected,
@@ -194,16 +195,17 @@ class SocketService {
       // Use callback to verify message was sent
       this.socket.emit(event, data, (response) => {
         if (response && response.error) {
-          console.error('❌ Server responded with error:', response.error);
+          logger.error('❌ Server responded with error:', response.error);
         } else {
-          console.log('✅ Server acknowledged message:', event);
+          logger.log('✅ Server acknowledged message:', event);
         }
       });
       
-      console.log('✅ Socket emit successful:', event);
+      logger.log('✅ Socket emit successful:', event);
       return true;
     } catch (error) {
-      console.error('❌ Error emitting socket event:', {
+      const logger = require('../utils/logger').default;
+      logger.error('❌ Error emitting socket event:', {
         event,
         error: error.message,
         stack: error.stack,
@@ -214,7 +216,7 @@ class SocketService {
       
       // Try to reconnect on error
       if (this.userEmail && !this.socket.connecting) {
-        console.log('🔄 Attempting reconnect after emit error...');
+        logger.log('🔄 Attempting reconnect after emit error...');
         this.socket.connect();
       }
       

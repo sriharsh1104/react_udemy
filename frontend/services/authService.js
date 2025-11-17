@@ -1,5 +1,7 @@
 import { API_CONFIG } from '../constants';
 import { showToastFromResponse } from '../utils/toast';
+import logger from '../utils/logger';
+import { handleApiError } from '../utils/errorHandler';
 
 class AuthService {
   async sendOTP(email, phone) {
@@ -19,11 +21,8 @@ class AuthService {
       });
       return data;
     } catch (error) {
-      console.error('Error sending OTP:', error);
-      const errorResponse = {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      logger.error('Error sending OTP:', error);
+      const errorResponse = handleApiError(error, 'Failed to send OTP');
       showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
       return errorResponse;
     }
@@ -50,11 +49,8 @@ class AuthService {
       }
       return data;
     } catch (error) {
-      console.error('Error verifying OTP:', error);
-      const errorResponse = {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      logger.error('Error verifying OTP:', error);
+      const errorResponse = handleApiError(error, 'Failed to verify OTP');
       showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
       return errorResponse;
     }
@@ -80,11 +76,8 @@ class AuthService {
       }
       return data;
     } catch (error) {
-      console.error('Error logging in with password:', error);
-      const errorResponse = {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      logger.error('Error logging in with password:', error);
+      const errorResponse = handleApiError(error, 'Failed to login');
       showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
       return errorResponse;
     }
@@ -107,11 +100,8 @@ class AuthService {
       });
       return data;
     } catch (error) {
-      console.error('Error sending forget password OTP:', error);
-      const errorResponse = {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      logger.error('Error sending forget password OTP:', error);
+      const errorResponse = handleApiError(error, 'Failed to send password reset OTP');
       showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
       return errorResponse;
     }
@@ -134,11 +124,8 @@ class AuthService {
       });
       return data;
     } catch (error) {
-      console.error('Error resetting password:', error);
-      const errorResponse = {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      logger.error('Error resetting password:', error);
+      const errorResponse = handleApiError(error, 'Failed to reset password');
       showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
       return errorResponse;
     }
@@ -165,11 +152,8 @@ class AuthService {
       }
       return data;
     } catch (error) {
-      console.error('Error registering:', error);
-      const errorResponse = {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      logger.error('Error registering:', error);
+      const errorResponse = handleApiError(error, 'Failed to register');
       showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
       return errorResponse;
     }
@@ -193,11 +177,8 @@ class AuthService {
       });
       return data;
     } catch (error) {
-      console.error('Error logging out:', error);
-      const errorResponse = {
-        success: false,
-        message: 'Network error. Please check your connection.',
-      };
+      logger.error('Error logging out:', error);
+      const errorResponse = handleApiError(error, 'Failed to logout');
       showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
       return errorResponse;
     }

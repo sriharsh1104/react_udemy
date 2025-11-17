@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CryptoJS from 'crypto-js';
+import logger from '../utils/logger';
 
 /**
  * End-to-End Encryption Service
@@ -10,6 +11,30 @@ import CryptoJS from 'crypto-js';
 class EncryptionService {
   // Key storage prefix
   KEY_STORAGE_PREFIX = 'e2ee_key_';
+  SALT_STORAGE_PREFIX = 'e2ee_salt_';
+  
+  /**
+   * Generate a deterministic salt for a chat pair
+   * Salt must be the same for both users in the chat pair
+   * Uses a hash of the keyId to ensure both users get the same salt
+   */
+  async getOrCreateSalt(keyId) {
+    const saltKey = `${this.SALT_STORAGE_PREFIX}${keyId}`;
+    let salt = await AsyncStorage.getItem(saltKey);
+    
+    if (!salt) {
+      // Generate a DETERMINISTIC salt from keyId (same for both users)
+      // This ensures both users in a chat pair get the same salt
+      salt = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        `salt_${keyId}`
+      );
+      // Store salt for future use
+      await AsyncStorage.setItem(saltKey, salt);
+    }
+    
+    return salt;
+  }
   
   /**
    * Derive a shared encryption key from two user emails
@@ -26,9 +51,8 @@ class EncryptionService {
       return storedKey;
     }
     
-    // Generate key using PBKDF2 (Password-Based Key Derivation Function)
-    // Using sorted emails as the "password" and a fixed salt
-    const salt = 'e2ee_salt_v1'; // In production, use a unique salt per chat
+    // Get or create unique salt for this chat pair
+    const salt = await this.getOrCreateSalt(keyId);
     const keyMaterial = `${sortedEmails[0]}_${sortedEmails[1]}_${salt}`;
     
     // Use expo-crypto to create a deterministic hash
@@ -55,8 +79,8 @@ class EncryptionService {
       return storedKey;
     }
     
-    // Generate key for group
-    const salt = 'e2ee_group_salt_v1';
+    // Get or create unique salt for this group
+    const salt = await this.getOrCreateSalt(keyId);
     const keyMaterial = `group_${groupId}_${salt}`;
     
     const hash = await Crypto.digestStringAsync(
@@ -94,7 +118,7 @@ class EncryptionService {
         iv: iv.toString(CryptoJS.enc.Base64),
       };
     } catch (error) {
-      console.error('Encryption error:', error);
+      logger.error('Encryption error:', error);
       throw new Error('Failed to encrypt message');
     }
   }
@@ -122,9 +146,17 @@ class EncryptionService {
         padding: CryptoJS.pad.Pkcs7
       });
       
-      return decrypted.toString(CryptoJS.enc.Utf8);
+      const decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
+      
+      // Validate decryption result
+      if (!decryptedText || decryptedText.length === 0) {
+        throw new Error('Decryption resulted in empty string - likely wrong key');
+      }
+      
+      return decryptedText;
     } catch (error) {
-      console.error('Decryption error:', error);
+      logger.error('Decryption error:', error);
+      logger.error('Encrypted data:', encryptedData);
       throw new Error('Failed to decrypt message');
     }
   }
@@ -139,10 +171,30 @@ class EncryptionService {
   
   /**
    * Decrypt message for private chat
+   * If decryption fails, clears old salts/keys and retries with new deterministic salt
    */
-  async decryptPrivateMessage(encryptedData, userEmail, contactEmail) {
-    const key = await this.deriveSharedKey(userEmail, contactEmail);
-    return await this.decryptMessage(encryptedData, key);
+  async decryptPrivateMessage(encryptedData, userEmail, contactEmail, retryCount = 0) {
+    try {
+      const key = await this.deriveSharedKey(userEmail, contactEmail);
+      return await this.decryptMessage(encryptedData, key);
+    } catch (error) {
+      // If decryption fails and we haven't retried yet, clear salts/keys and retry
+      if (retryCount === 0 && (error.message.includes('empty string') || error.message.includes('Failed to decrypt'))) {
+        logger.log('Decryption failed, clearing old salts/keys and retrying...');
+        const sortedEmails = [userEmail, contactEmail].sort();
+        const keyId = `${sortedEmails[0]}_${sortedEmails[1]}`;
+        
+        // Clear salt and key for this chat pair
+        await AsyncStorage.multiRemove([
+          `${this.SALT_STORAGE_PREFIX}${keyId}`,
+          `${this.KEY_STORAGE_PREFIX}${keyId}`
+        ]);
+        
+        // Retry with new deterministic salt
+        return await this.decryptPrivateMessage(encryptedData, userEmail, contactEmail, 1);
+      }
+      throw error;
+    }
   }
   
   /**
@@ -155,22 +207,58 @@ class EncryptionService {
   
   /**
    * Decrypt message for group chat
+   * If decryption fails, clears old salts/keys and retries with new deterministic salt
    */
-  async decryptGroupMessage(encryptedData, groupId) {
-    const key = await this.deriveGroupKey(groupId);
-    return await this.decryptMessage(encryptedData, key);
+  async decryptGroupMessage(encryptedData, groupId, retryCount = 0) {
+    try {
+      const key = await this.deriveGroupKey(groupId);
+      return await this.decryptMessage(encryptedData, key);
+    } catch (error) {
+      // If decryption fails and we haven't retried yet, clear salts/keys and retry
+      if (retryCount === 0 && (error.message.includes('empty string') || error.message.includes('Failed to decrypt'))) {
+        logger.log('Decryption failed, clearing old salts/keys and retrying...');
+        const keyId = `group_${groupId}`;
+        
+        // Clear salt and key for this group
+        await AsyncStorage.multiRemove([
+          `${this.SALT_STORAGE_PREFIX}${keyId}`,
+          `${this.KEY_STORAGE_PREFIX}${keyId}`
+        ]);
+        
+        // Retry with new deterministic salt
+        return await this.decryptGroupMessage(encryptedData, groupId, 1);
+      }
+      throw error;
+    }
   }
   
   /**
-   * Clear all stored encryption keys (for logout)
+   * Clear all stored encryption keys and salts (for logout)
    */
   async clearAllKeys() {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      const encryptionKeys = keys.filter(key => key.startsWith(this.KEY_STORAGE_PREFIX));
+      const encryptionKeys = keys.filter(key => 
+        key.startsWith(this.KEY_STORAGE_PREFIX) || key.startsWith(this.SALT_STORAGE_PREFIX)
+      );
       await AsyncStorage.multiRemove(encryptionKeys);
     } catch (error) {
-      console.error('Error clearing encryption keys:', error);
+      logger.error('Error clearing encryption keys:', error);
+    }
+  }
+
+  /**
+   * Clear only salts (to regenerate with deterministic values)
+   * This fixes the issue where different users had different random salts
+   */
+  async clearAllSalts() {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const saltKeys = keys.filter(key => key.startsWith(this.SALT_STORAGE_PREFIX));
+      await AsyncStorage.multiRemove(saltKeys);
+      logger.log('Cleared all salts - will regenerate with deterministic values');
+    } catch (error) {
+      logger.error('Error clearing salts:', error);
     }
   }
 }

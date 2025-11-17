@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   View,
   Text,
@@ -18,6 +19,7 @@ import PasswordInput from '../../components/common/PasswordInput';
 import AnimatedBackground from '../../components/common/AnimatedBackground';
 import GLoader from '../../components/common/GLoader';
 import authService from '../../services/authService';
+import { validateIdentifier, isValidPassword, sanitizeString } from '../../utils/validation';
 import styles from './styles';
 
 const LoginScreen = ({ onLogin }) => {
@@ -179,14 +181,21 @@ const LoginScreen = ({ onLogin }) => {
   };
 
   const handleForgetPassword = async () => {
-    const trimmedId = identifier.trim();
+    const trimmedId = sanitizeString(identifier);
     
     if (!trimmedId) {
       Alert.alert('Required', 'Please enter your email or phone number');
       return;
     }
 
-    const isEmailInput = isEmail(trimmedId);
+    // Validate identifier
+    const identifierValidation = validateIdentifier(trimmedId);
+    if (!identifierValidation.valid) {
+      Alert.alert('Invalid Input', 'Please enter a valid email or phone number');
+      return;
+    }
+
+    const isEmailInput = identifierValidation.type === 'email';
     setLoginType(isEmailInput ? 'email' : 'phone');
     setLoading(true);
     
@@ -237,19 +246,22 @@ const LoginScreen = ({ onLogin }) => {
   };
 
   const handleSignup = async () => {
-    const trimmedEmail = signupEmail.trim();
+    const trimmedEmail = sanitizeString(signupEmail);
     
     if (!trimmedEmail) {
       Alert.alert('Required', 'Please enter your email address');
       return;
     }
 
-    if (!trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
+    // Validate email
+    const identifierValidation = validateIdentifier(trimmedEmail);
+    if (!identifierValidation.valid || identifierValidation.type !== 'email') {
       Alert.alert('Invalid Email', 'Please enter a valid email address');
       return;
     }
 
-    if (!signupPassword.trim() || signupPassword.length < 6) {
+    // Validate password
+    if (!isValidPassword(signupPassword)) {
       Alert.alert('Invalid Password', 'Password must be at least 6 characters');
       return;
     }
@@ -634,6 +646,10 @@ const LoginScreen = ({ onLogin }) => {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+};
+
+LoginScreen.propTypes = {
+  onLogin: PropTypes.func.isRequired,
 };
 
 export default LoginScreen;

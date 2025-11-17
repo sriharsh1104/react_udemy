@@ -84,23 +84,28 @@ const BillSplitModal = ({
   };
 
   const handleCustomAmountChange = (userEmail, amount) => {
-    const cleaned = amount.replace(/[^0-9.]/g, '');
+    const { sanitizeAmount } = require('../../utils/validation');
+    const cleaned = sanitizeAmount(amount);
     setSplits(prev =>
       prev.map(split =>
         split.userEmail === userEmail
-          ? { ...split, amount: parseFloat(cleaned) || 0 }
+          ? { ...split, amount: cleaned }
           : split
       )
     );
   };
 
   const handleCreate = () => {
-    if (!billName.trim()) {
+    const { sanitizeString, isValidAmount, sanitizeAmount } = require('../../utils/validation');
+    
+    const sanitizedBillName = sanitizeString(billName);
+    if (!sanitizedBillName.trim()) {
       Alert.alert('Error', 'Please enter a bill name');
       return;
     }
 
-    if (!totalAmount || parseFloat(totalAmount) <= 0) {
+    const sanitizedAmount = sanitizeAmount(totalAmount);
+    if (!isValidAmount(sanitizedAmount)) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }

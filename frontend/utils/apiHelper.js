@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../constants';
+import logger from './logger';
+import { handleApiError } from './errorHandler';
 
 // Global logout handler - will be set by App.js
 let globalLogoutHandler = null;
@@ -12,7 +14,7 @@ export const setGlobalLogoutHandler = (handler) => {
  * Handle invalid token - clear storage and trigger logout
  */
 export const handleInvalidToken = async () => {
-  console.log('🔒 Invalid token detected - handling logout');
+  logger.log('🔒 Invalid token detected - handling logout');
   
   // Clear local storage
   await AsyncStorage.removeItem('authToken');
@@ -23,7 +25,7 @@ export const handleInvalidToken = async () => {
     const encryptionService = (await import('../services/encryptionService')).default;
     await encryptionService.clearAllKeys();
   } catch (error) {
-    console.error('Error clearing encryption keys:', error);
+    logger.error('Error clearing encryption keys:', error);
   }
   
   // Call global logout handler if available
@@ -35,8 +37,21 @@ export const handleInvalidToken = async () => {
 /**
  * Enhanced fetch wrapper that handles 401 (Unauthorized) responses
  * Automatically logs out user if token is invalid
+ * Includes timeout and retry logic
  */
-export const apiFetch = async (url, options = {}) => {
+const DEFAULT_TIMEOUT = 30000; // 30 seconds
+const MAX_RETRIES = 2;
+
+const fetchWithTimeout = (url, options, timeout = DEFAULT_TIMEOUT) => {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Request timeout')), timeout)
+    ),
+  ]);
+};
+
+export const apiFetch = async (url, options = {}, retryCount = 0) => {
   try {
     // Get token from AsyncStorage
     const token = await AsyncStorage.getItem('authToken');
@@ -51,15 +66,18 @@ export const apiFetch = async (url, options = {}) => {
       headers.Authorization = `Bearer ${token}`;
     }
     
-    // Make the request
-    const response = await fetch(url, {
+    // Get timeout from options or use default
+    const timeout = options.timeout || DEFAULT_TIMEOUT;
+    
+    // Make the request with timeout
+    const response = await fetchWithTimeout(url, {
       ...options,
       headers,
-    });
+    }, timeout);
     
     // Check for 401 Unauthorized
     if (response.status === 401) {
-      console.log('🔒 401 Unauthorized - Token invalid or expired');
+      logger.log('🔒 401 Unauthorized - Token invalid or expired');
       
       // Clear local storage
       await AsyncStorage.removeItem('authToken');
@@ -70,7 +88,7 @@ export const apiFetch = async (url, options = {}) => {
         const encryptionService = (await import('../services/encryptionService')).default;
         await encryptionService.clearAllKeys();
       } catch (error) {
-        console.error('Error clearing encryption keys:', error);
+        logger.error('Error clearing encryption keys:', error);
       }
       
       // Call global logout handler if available
@@ -91,8 +109,16 @@ export const apiFetch = async (url, options = {}) => {
     
     return response;
   } catch (error) {
-    console.error('API fetch error:', error);
-    throw error;
+    // Retry logic for network errors (not 401)
+    if (retryCount < MAX_RETRIES && (error.message.includes('timeout') || error.message.includes('Network'))) {
+      logger.log(`Retrying request (${retryCount + 1}/${MAX_RETRIES}):`, url);
+      // Exponential backoff: wait 1s, 2s, 4s...
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+      return apiFetch(url, options, retryCount + 1);
+    }
+    
+    logger.error('API fetch error:', error);
+    throw handleApiError(error);
   }
 };
 

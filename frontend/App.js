@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,20 +8,23 @@ import * as Linking from 'expo-linking';
 import Toast from 'react-native-toast-message';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
-import ChatScreen from './screens/ChatScreen/ChatScreen';
-import LoginScreen from './screens/LoginScreen/LoginScreen';
-import ProfileScreen from './screens/ProfileScreen/ProfileScreen';
-import SettingsScreen from './screens/SettingsScreen/SettingsScreen';
-import ReferralScreen from './screens/ReferralScreen/ReferralScreen';
-import FeedScreen from './screens/FeedScreen/FeedScreen';
-import StatusScreen from './screens/StatusScreen/StatusScreen';
-import CallScreen from './screens/CallScreen/CallScreen';
-import LogoutModal from './components/common/LogoutModal';
+import logger from './utils/logger';
 import GLoader from './components/common/GLoader';
-import NotificationContainer from './components/common/Notification';
 import profileService from './services/profileService';
 import authService from './services/authService';
 import { setGlobalLogoutHandler } from './utils/apiHelper';
+
+// Lazy load screens for code splitting
+const ChatScreen = lazy(() => import('./screens/ChatScreen/ChatScreen'));
+const LoginScreen = lazy(() => import('./screens/LoginScreen/LoginScreen'));
+const ProfileScreen = lazy(() => import('./screens/ProfileScreen/ProfileScreen'));
+const SettingsScreen = lazy(() => import('./screens/SettingsScreen/SettingsScreen'));
+const ReferralScreen = lazy(() => import('./screens/ReferralScreen/ReferralScreen'));
+const FeedScreen = lazy(() => import('./screens/FeedScreen/FeedScreen'));
+const StatusScreen = lazy(() => import('./screens/StatusScreen/StatusScreen'));
+const CallScreen = lazy(() => import('./screens/CallScreen/CallScreen'));
+const LogoutModal = lazy(() => import('./components/common/LogoutModal'));
+const NotificationContainer = lazy(() => import('./components/common/Notification'));
 
 const Stack = createNativeStackNavigator();
 
@@ -49,7 +52,7 @@ const AppContentWithNotifications = () => {
   };
 
   const handleSendReply = (notification, message) => {
-    console.log('📨 App: handleSendReply called', {
+    logger.log('📨 App: handleSendReply called', {
       hasNotification: !!notification,
       hasOnReply: !!(notification && notification.onReply),
       senderEmail: notification?.senderEmail,
@@ -58,14 +61,14 @@ const AppContentWithNotifications = () => {
     
     if (notification && notification.onReply) {
       try {
-        console.log('✅ App: Calling notification.onReply...');
+        logger.log('✅ App: Calling notification.onReply...');
         notification.onReply(message);
-        console.log('✅ App: notification.onReply called successfully');
+        logger.log('✅ App: notification.onReply called successfully');
       } catch (error) {
-        console.error('❌ App: Error calling notification.onReply:', error);
+        logger.error('❌ App: Error calling notification.onReply:', error);
       }
     } else {
-      console.error('❌ App: Missing notification or onReply callback', {
+      logger.error('❌ App: Missing notification or onReply callback', {
         hasNotification: !!notification,
         hasOnReply: !!(notification && notification.onReply)
       });
@@ -74,14 +77,16 @@ const AppContentWithNotifications = () => {
 
   return (
     <>
-      <NotificationContainer
-        notifications={notifications}
-        onDismiss={removeNotification}
-        onPress={handleNotificationPress}
-        onMarkAsRead={handleNotificationMarkAsRead}
-        onReply={handleNotificationReply}
-        onSendReply={handleSendReply}
-      />
+      <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+        <NotificationContainer
+          notifications={notifications}
+          onDismiss={removeNotification}
+          onPress={handleNotificationPress}
+          onMarkAsRead={handleNotificationMarkAsRead}
+          onReply={handleNotificationReply}
+          onSendReply={handleSendReply}
+        />
+      </Suspense>
       <AppContent navigationRef={navigationRef} />
     </>
   );
@@ -98,13 +103,13 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
 
   // Handle automatic logout on invalid token
   const handleInvalidTokenLogout = async () => {
-    console.log('🔒 Invalid token detected - logging out automatically');
+    logger.log('🔒 Invalid token detected - logging out automatically');
     try {
       // Clear encryption keys
       const encryptionService = (await import('./services/encryptionService')).default;
       await encryptionService.clearAllKeys();
     } catch (error) {
-      console.error('Error clearing encryption keys:', error);
+      logger.error('Error clearing encryption keys:', error);
     }
     
     // Clear local storage
@@ -139,6 +144,25 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     // Set global logout handler for invalid token
     setGlobalLogoutHandler(handleInvalidTokenLogout);
     
+    // One-time migration: Clear old random salts to use new deterministic salts
+    const migrateEncryptionSalts = async () => {
+      try {
+        const encryptionService = (await import('./services/encryptionService')).default;
+        const migrationKey = 'encryption_salt_migration_v2';
+        const hasMigrated = await AsyncStorage.getItem(migrationKey);
+        
+        if (!hasMigrated) {
+          logger.log('🔄 Migrating encryption salts to deterministic version...');
+          await encryptionService.clearAllSalts();
+          await AsyncStorage.setItem(migrationKey, 'true');
+          logger.log('✅ Encryption salt migration completed');
+        }
+      } catch (error) {
+        logger.error('Error migrating encryption salts:', error);
+      }
+    };
+    
+    migrateEncryptionSalts();
     checkAuthStatus();
     handleInitialURL();
     
@@ -159,7 +183,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
         handleDeepLink({ url: initialUrl });
       }
     } catch (error) {
-      console.error('Error getting initial URL:', error);
+      logger.error('Error getting initial URL:', error);
     }
   };
   
@@ -167,7 +191,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     if (!url) return;
     
     try {
-      console.log('🔗 Deep link received:', url);
+      logger.log('🔗 Deep link received:', url);
       
       // Parse URL - handle both expo-linking format and direct URLs
       let parsed;
@@ -190,7 +214,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       }
       
       const { path, queryParams, hostname } = parsed;
-      console.log('🔗 Parsed:', { path, queryParams, hostname });
+      logger.log('🔗 Parsed:', { path, queryParams, hostname });
       
       // Handle referral link: /referral/:code
       if (path === 'referral' && queryParams?.code) {
@@ -224,7 +248,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
         }
       }
     } catch (error) {
-      console.error('Error handling deep link:', error);
+      logger.error('Error handling deep link:', error);
     }
   };
 
@@ -245,7 +269,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
         });
       }
     } catch (error) {
-      console.error('Error checking auth status:', error);
+      logger.error('Error checking auth status:', error);
     } finally {
       setIsLoading(false);
     }
@@ -305,13 +329,13 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
         });
       }
     } catch (error) {
-      console.error('Error logging out:', error);
+      logger.error('Error logging out:', error);
       // Even if API fails, clear local storage and logout
       try {
         const encryptionService = (await import('./services/encryptionService')).default;
         await encryptionService.clearAllKeys();
       } catch (e) {
-        console.error('Error clearing encryption keys:', e);
+        logger.error('Error clearing encryption keys:', e);
       }
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userEmail');
@@ -376,90 +400,110 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             }}
           >
             <Stack.Screen name="Login">
-              {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
+              {(props) => (
+                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                  <LoginScreen {...props} onLogin={handleLogin} />
+                </Suspense>
+              )}
             </Stack.Screen>
             <Stack.Screen name="Chat">
               {(props) => (
-                <ChatScreen
-                  {...props}
-                  userEmail={userEmail}
-                  onLogout={handleLogout}
-                  onProfilePress={() => props.navigation.navigate('Profile')}
-                  onSettingsPress={() => props.navigation.navigate('Settings')}
-                  onLogoutPress={handleLogoutPress}
-                />
+                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                  <ChatScreen
+                    {...props}
+                    userEmail={userEmail}
+                    onLogout={handleLogout}
+                    onProfilePress={() => props.navigation.navigate('Profile')}
+                    onSettingsPress={() => props.navigation.navigate('Settings')}
+                    onLogoutPress={handleLogoutPress}
+                  />
+                </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Profile">
               {(props) => (
-                <ProfileScreen
-                  {...props}
-                  userEmail={userEmail}
-                  initialProfile={profile}
-                  isProfileComplete={profile?.isProfileComplete || false}
-                  onBack={async () => {
-                    // Reload profile to get updated isProfileComplete status
-                    const profileResult = await profileService.getProfile();
-                    if (profileResult.success && profileResult.profile) {
-                      const updatedProfile = profileResult.profile;
-                      setProfile(updatedProfile);
-                      // Navigate to chat if profile is complete
-                      if (updatedProfile?.isProfileComplete) {
-                        props.navigation.navigate('Chat');
+                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                  <ProfileScreen
+                    {...props}
+                    userEmail={userEmail}
+                    initialProfile={profile}
+                    isProfileComplete={profile?.isProfileComplete || false}
+                    onBack={async () => {
+                      // Reload profile to get updated isProfileComplete status
+                      const profileResult = await profileService.getProfile();
+                      if (profileResult.success && profileResult.profile) {
+                        const updatedProfile = profileResult.profile;
+                        setProfile(updatedProfile);
+                        // Navigate to chat if profile is complete
+                        if (updatedProfile?.isProfileComplete) {
+                          props.navigation.navigate('Chat');
+                        } else {
+                          props.navigation.goBack();
+                        }
                       } else {
                         props.navigation.goBack();
                       }
-                    } else {
-                      props.navigation.goBack();
-                    }
-                  }}
-                  isMandatory={!profile || !profile.isProfileComplete}
-                />
+                    }}
+                    isMandatory={!profile || !profile.isProfileComplete}
+                  />
+                </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Settings">
               {(props) => (
-                <SettingsScreen
-                  {...props}
-                  onBack={() => props.navigation.goBack()}
-                />
+                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                  <SettingsScreen
+                    {...props}
+                    onBack={() => props.navigation.goBack()}
+                  />
+                </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Referral">
               {(props) => (
-                <ReferralScreen
-                  {...props}
-                />
+                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                  <ReferralScreen
+                    {...props}
+                  />
+                </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Feed">
               {(props) => (
-                <FeedScreen
-                  {...props}
-                />
+                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                  <FeedScreen
+                    {...props}
+                  />
+                </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Status">
               {(props) => (
-                <StatusScreen
-                  {...props}
-                />
+                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                  <StatusScreen
+                    {...props}
+                  />
+                </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Call">
               {(props) => (
-                <CallScreen
-                  {...props}
-                />
+                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                  <CallScreen
+                    {...props}
+                  />
+                </Suspense>
               )}
             </Stack.Screen>
           </Stack.Navigator>
           
-          <LogoutModal
-            visible={showLogoutModal}
-            onConfirm={handleLogout}
-            onCancel={() => setShowLogoutModal(false)}
-          />
+          <Suspense fallback={null}>
+            <LogoutModal
+              visible={showLogoutModal}
+              onConfirm={handleLogout}
+              onCancel={() => setShowLogoutModal(false)}
+            />
+          </Suspense>
           
           <StatusBar style={isDark ? "light" : "dark"} />
           <Toast 

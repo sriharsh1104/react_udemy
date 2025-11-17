@@ -30,7 +30,6 @@ import socketService from '../../services/socketService';
 import { SOCKET_EVENTS } from '../../constants';
 import styles from './styles';
 import ChatHeader from '../../components/chat/ChatHeader';
-import MessageItem from '../../components/chat/MessageItem';
 import Sidebar, { InviteModal } from '../../components/chat/Sidebar';
 import RecentChats from '../../components/chat/RecentChats';
 import CreateGroupModal from '../../components/chat/CreateGroupModal';
@@ -70,10 +69,35 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     return email.split('@')[0];
   }, []);
 
-  // Socket hook
+  // Socket and chat hooks
   const { socket, isConnected } = useSocket(userEmail);
+  const { messages: privateMessages, typingUser, loadingMessages: loadingPrivateMessages, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage } = useChat(userEmail, null, () => {});
+  const { messages: groupMessages, typingUsers, loadingMessages: loadingGroupMessages, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping, removePendingMessage: removeGroupPendingMessage } = useGroupChat(userEmail, null);
+  
+  // Call management
+  const {
+    callState,
+    callData,
+    localStream,
+    remoteStream,
+    isMuted,
+    isSpeakerOn,
+    isVideoOn,
+    callDuration,
+    initiateCall: initiateCallHook,
+    acceptCall,
+    declineCall,
+    endCall,
+    toggleMute,
+    toggleSpeaker,
+    toggleVideo,
+    showPermissionPrompt,
+    permissionDeviceType,
+    handlePermissionRetry,
+    handlePermissionCancel,
+  } = useCall(userEmail);
 
-  // State management hook - MUST be before useChat/useGroupChat
+  // State management hook
   const state = useChatScreenLogic(userEmail, socket, isConnected);
   const {
     chatType, setChatType,
@@ -112,33 +136,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     showBillSummaryModal, setShowBillSummaryModal,
     flatListRef,
   } = state;
-
-  // Chat hooks - Now contactEmail and groupId are available
-  const { messages: privateMessages, typingUser, loadingMessages: loadingPrivateMessages, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage } = useChat(userEmail, contactEmail, () => {});
-  const { messages: groupMessages, typingUsers, loadingMessages: loadingGroupMessages, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping, removePendingMessage: removeGroupPendingMessage } = useGroupChat(userEmail, groupId);
-  
-  // Call management
-  const {
-    callState,
-    callData,
-    localStream,
-    remoteStream,
-    isMuted,
-    isSpeakerOn,
-    isVideoOn,
-    callDuration,
-    initiateCall: initiateCallHook,
-    acceptCall,
-    declineCall,
-    endCall,
-    toggleMute,
-    toggleSpeaker,
-    toggleVideo,
-    showPermissionPrompt,
-    permissionDeviceType,
-    handlePermissionRetry,
-    handlePermissionCancel,
-  } = useCall(userEmail);
 
   // Use appropriate messages based on chat type
   const messages = chatType === 'group' ? groupMessages : privateMessages;

@@ -43,14 +43,17 @@ const getApiUrl = () => {
 
 const API_URL = getApiUrl();
 
-// Log API URL for debugging (always log to help debug production issues)
-console.log('🔗 API Configuration:', {
-  API_URL,
-  SOCKET_URL: API_URL,
-  API_BASE: `${API_URL}/api`,
-  __DEV__: typeof __DEV__ !== 'undefined' ? __DEV__ : 'undefined',
-  isWeb: typeof window !== 'undefined',
-});
+// Only log in development mode
+if (typeof __DEV__ !== 'undefined' && __DEV__ === true) {
+  const logger = require('../utils/logger').default;
+  logger.log('🔗 API Configuration:', {
+    API_URL,
+    SOCKET_URL: API_URL,
+    API_BASE: `${API_URL}/api`,
+    __DEV__: typeof __DEV__ !== 'undefined' ? __DEV__ : 'undefined',
+    isWeb: typeof window !== 'undefined',
+  });
+}
 
 export const API_CONFIG = {
   BASE_URL: API_URL,

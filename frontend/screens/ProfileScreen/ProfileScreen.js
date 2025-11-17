@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import {
   View,
   Text,
@@ -174,14 +175,23 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   };
 
   const handleSave = async () => {
+    const { isValidName, isValidAge, isValidPhone, sanitizeName, sanitizePhone } = require('../../utils/validation');
+    
     // Validate required fields for mandatory profile
     if (isMandatory && (!name.trim() || !phone1.trim())) {
       Alert.alert('Required Fields', 'Please fill Name and at least one Phone Number to continue');
       return;
     }
 
+    // Sanitize and validate name
+    const sanitizedName = sanitizeName(name);
+    if (!isValidName(sanitizedName)) {
+      Alert.alert('Invalid Name', 'Please enter a valid name');
+      return;
+    }
+
     // Validate age
-    if (age && (isNaN(age) || parseInt(age) < 1 || parseInt(age) > 150)) {
+    if (age && !isValidAge(age)) {
       Alert.alert('Invalid Age', 'Please enter a valid age (1-150)');
       return;
     }
@@ -195,7 +205,7 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     }
     
     for (const phone of phoneNumbers) {
-      if (!/^\+?[1-9]\d{1,14}$/.test(phone.replace(/\s/g, ''))) {
+      if (!isValidPhone(phone)) {
         Alert.alert('Invalid Phone', 'Please enter valid phone numbers');
         return;
       }
@@ -501,6 +511,20 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     </KeyboardAvoidingView>
     </SafeAreaView>
   );
+};
+
+ProfileScreen.propTypes = {
+  userEmail: PropTypes.string.isRequired,
+  onBack: PropTypes.func.isRequired,
+  isMandatory: PropTypes.bool,
+  initialProfile: PropTypes.object,
+  isProfileComplete: PropTypes.bool,
+};
+
+ProfileScreen.defaultProps = {
+  isMandatory: false,
+  initialProfile: null,
+  isProfileComplete: false,
 };
 
 export default ProfileScreen;
