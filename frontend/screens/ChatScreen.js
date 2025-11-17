@@ -488,10 +488,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       requestAnimationFrame(() => {
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: false });
-        }, 50);
+        }, 100);
       });
     }
-  }, [messages.length]); // Only depend on length to prevent unnecessary scrolls
+  }, [messages.length, messages[messages.length - 1]?.messageId]); // Scroll when new message added or messageId updated
 
   const handleSendMessage = async () => {
     if (inputMessage.trim()) {
@@ -1477,7 +1477,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                 if (item.messageId || item._id) {
                   return `message-${item.messageId || item._id}`;
                 }
-                // Fallback for messages without ID
+                // Fallback for messages without ID - use timestamp and index for uniqueness
                 const messageStr = typeof item.message === 'string' 
                   ? item.message 
                   : (item.message?.message || item.message?.text || String(item.message || ''));
@@ -1486,26 +1486,20 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               style={styles.messagesList}
               contentContainerStyle={styles.messagesContent}
               onContentSizeChange={() => {
-                setTimeout(() => {
-                  flatListRef.current?.scrollToEnd({ animated: false });
-                }, 50);
+                // Use requestAnimationFrame for better timing
+                requestAnimationFrame(() => {
+                  setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: false });
+                  }, 100);
+                });
               }}
               showsVerticalScrollIndicator={false}
               inverted={false}
-              removeClippedSubviews={true}
-              maxToRenderPerBatch={10}
-              updateCellsBatchingPeriod={100}
-              initialNumToRender={10}
-              windowSize={5}
-              getItemLayout={(data, index) => {
-                // Approximate item height for better performance (adjust based on your message height)
-                const ITEM_HEIGHT = 80; // Average message height
-                return {
-                  length: ITEM_HEIGHT,
-                  offset: ITEM_HEIGHT * index,
-                  index,
-                };
-              }}
+              removeClippedSubviews={false}
+              maxToRenderPerBatch={15}
+              updateCellsBatchingPeriod={50}
+              initialNumToRender={15}
+              windowSize={10}
             />
             )}
           </View>

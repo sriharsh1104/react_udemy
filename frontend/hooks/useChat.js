@@ -432,6 +432,7 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
 
         // If no match by messageId, try to match the most recent 'sent' message without messageId
         // This handles optimistic updates where we don't have messageId yet
+        // Match by timestamp proximity (within 2 seconds) to ensure we update the correct message
         const sentMessagesWithoutId = prev
           .filter(
             (msg) =>
@@ -443,7 +444,28 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Most recent first
 
         if (sentMessagesWithoutId.length > 0) {
-          // Update the most recent one
+          // Try to match by timestamp if available in data
+          if (data.timestamp) {
+            const matchedByTimestamp = sentMessagesWithoutId.find(
+              (msg) =>
+                Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 2000
+            );
+            if (matchedByTimestamp) {
+              return prev.map((msg) => {
+                if (msg === matchedByTimestamp) {
+                  return {
+                    ...msg,
+                    status: data.status,
+                    deliveredAt: data.deliveredAt || msg.deliveredAt,
+                    messageId: data.messageId || msg.messageId,
+                  };
+                }
+                return msg;
+              });
+            }
+          }
+          
+          // Fallback: Update the most recent one
           const mostRecent = sentMessagesWithoutId[0];
           return prev.map((msg) => {
             if (msg === mostRecent) {
