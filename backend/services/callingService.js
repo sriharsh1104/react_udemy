@@ -287,7 +287,7 @@ class CallingService {
         if (!isReceiverOnline) {
           // User is offline - try calling for 20 seconds then auto cut
           const offlineTimeout = setTimeout(async () => {
-            await this.handleCallFailed(sessionId, 'missed', 'User offline');
+          await this.handleCallFailed(sessionId, 'missed', 'User offline');
           }, 20000); // 20 seconds for offline users
           await this.setRingTimeout(sessionId, offlineTimeout);
           
@@ -503,7 +503,7 @@ class CallingService {
           startedAt: callStartTime,
         }
       );
-      
+
       // Update receiver's call record (incoming)
       if (callData.receiverEmail) {
         await Call.updateOne(
@@ -716,17 +716,17 @@ class CallingService {
             );
           } else if (status === 'missed') {
             // Create incoming call record for receiver if it doesn't exist (fallback)
-            const receiverCall = new Call({
-              callerEmail: callData.callerEmail,
-              receiverEmail: callData.receiverEmail,
-              groupId: callData.groupId || null,
-              type: callData.type,
-              direction: 'incoming',
-              status: 'missed',
+          const receiverCall = new Call({
+            callerEmail: callData.callerEmail,
+            receiverEmail: callData.receiverEmail,
+            groupId: callData.groupId || null,
+            type: callData.type,
+            direction: 'incoming',
+            status: 'missed',
               sessionId: receiverSessionId,
-              endedAt: new Date(),
-            });
-            await receiverCall.save();
+            endedAt: new Date(),
+          });
+          await receiverCall.save();
           }
 
           // Try to notify receiver if they're online
@@ -1036,16 +1036,39 @@ class CallingService {
       let startedAt = null;
 
       if (callData) {
-        // Calculate duration if call was started
+        // Get startedAt from callData (Redis) first, then check database if not found
         startedAt = callData.startedAt;
+        
+        // If not in callData, check database
+        if (!startedAt) {
+          const dbCall = await Call.findOne({ sessionId });
+          if (dbCall && dbCall.startedAt) {
+            startedAt = dbCall.startedAt;
+            console.log('📞 Backend: Found startedAt in database:', startedAt);
+          }
+        }
+        
         if (startedAt) {
           // Handle both Date objects and ISO strings
           const startTime = startedAt instanceof Date ? startedAt : new Date(startedAt);
-          duration = Math.floor((new Date() - startTime) / 1000);
-          status = duration > 0 ? 'completed' : 'busy';
+          const endTime = new Date();
+          duration = Math.floor((endTime - startTime) / 1000);
+          
+          console.log('📞 Backend: Call duration calculation:', {
+            startedAt: startTime.toISOString(),
+            endedAt: endTime.toISOString(),
+            duration: duration,
+            durationInSeconds: duration
+          });
+          
+          // If call was accepted (startedAt exists), mark as completed regardless of duration
+          // Even if duration is 0, the call was accepted, so it's completed, not busy
+          status = 'completed';
+          console.log('📞 Backend: Call marked as completed with duration:', duration, 'seconds');
         } else {
           // Call was ended before being accepted - mark as busy (cut before pickup)
           status = 'busy';
+          console.log('📞 Backend: Call ended before being accepted (no startedAt), marking as busy');
         }
 
         // Check current call status in database before updating
@@ -1091,8 +1114,8 @@ class CallingService {
               duration,
               endedAt: endTime,
               updatedAt: endTime,
-            }
-          );
+          }
+        );
         }
 
         // Prepare callEnded data
