@@ -13,6 +13,9 @@ import LoginScreen from './screens/LoginScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ReferralScreen from './screens/ReferralScreen';
+import FeedScreen from './screens/FeedScreen';
+import StatusScreen from './screens/StatusScreen';
+import CallScreen from './screens/CallScreen';
 import LogoutModal from './components/common/LogoutModal';
 import GLoader from './components/common/GLoader';
 import NotificationContainer from './components/common/Notification';
@@ -341,9 +344,29 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     }
   };
 
+  // Configure linking for URL-based routing on web
+  const linking = {
+    prefixes: ['/'],
+    config: {
+      screens: {
+        Login: '',
+        Chat: 'chat',
+        Profile: 'profile',
+        Settings: 'settings',
+        Feed: 'feed',
+        Status: 'status',
+        Call: 'call',
+        Referral: 'referral/:referralCode',
+      },
+    },
+  };
+
   return (
     <>
-      <NavigationContainer ref={navigationRef}>
+      <NavigationContainer 
+        ref={navigationRef}
+        linking={linking}
+      >
         <View style={styles.container}>
           <Stack.Navigator
             initialRouteName="Login"
@@ -406,6 +429,30 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
               {(props) => (
                 <ReferralScreen
                   {...props}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Feed">
+              {(props) => (
+                <FeedScreen
+                  {...props}
+                  userEmail={userEmail}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Status">
+              {(props) => (
+                <StatusScreen
+                  {...props}
+                  userEmail={userEmail}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Call">
+              {(props) => (
+                <CallScreen
+                  {...props}
+                  userEmail={userEmail}
                 />
               )}
             </Stack.Screen>

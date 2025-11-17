@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
+import { useRoute } from '@react-navigation/native';
 import { useSocket } from '../hooks/useSocket';
 import { useChat } from '../hooks/useChat';
 import { useGroupChat } from '../hooks/useGroupChat';
@@ -88,7 +89,9 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const [loadingPinnedMessage, setLoadingPinnedMessage] = useState(false);
   const [showMessageInfoModal, setShowMessageInfoModal] = useState(false);
   const [messageInfoMessageId, setMessageInfoMessageId] = useState(null);
-  const [activeBottomTab, setActiveBottomTab] = useState('chat'); // 'chat', 'feed', 'status', 'call'
+  // Get current route name to highlight active tab
+  const route = useRoute();
+  const currentRouteName = route?.name || 'Chat';
   const [editingMessage, setEditingMessage] = useState(null); // Track message being edited
   const [showClearChatModal, setShowClearChatModal] = useState(false);
   const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
@@ -1368,110 +1371,109 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
   };
 
-  // Render content based on active bottom tab
-  const renderTabContent = () => {
-    if (activeBottomTab === 'chat') {
-      // Show recent chats if no contact or group selected
-      if (!contactEmail && !groupId) {
-        return (
-          <>
-            <RecentChats
-              contacts={contacts} // Use contacts from getRecentChats (not archived, with messages)
-              groups={groups} // Use groups from getRecentChats (not archived, with messages)
-              onSelectContact={handleSelectContact}
-              onSelectGroup={handleSelectGroup}
-              onNewChat={handleNewChat}
-              onCreateGroup={handleCreateGroup}
-              onSaveContact={handleSaveContact}
-              onInvite={handleInvite}
-              onContactsUpdate={loadContacts}
-              onGroupsUpdate={loadContacts}
-              userEmail={userEmail}
-            />
-
-            {showInviteModal && (
-              <InviteModal
-                visible={showInviteModal}
-                onClose={() => {
-                  setShowInviteModal(false);
-                  setInviteEmail(null);
-                }}
-                email={inviteEmail}
-              />
-            )}
-
-            <CreateGroupModal
-              visible={showCreateGroupModal}
-              onClose={() => setShowCreateGroupModal(false)}
-              onGroupCreated={handleGroupCreated}
-              contacts={contacts}
-            />
-          </>
-        );
-      }
-
-      // Show chat interface when contact or group is selected
+  // Render chat content (only chat tab content, other tabs are separate routes)
+  const renderChatContent = () => {
+    // Show recent chats if no contact or group selected
+    if (!contactEmail && !groupId) {
       return (
         <>
-          {/* Message Action Bar - WhatsApp style */}
-          <MessageActionBar
-            visible={selectedMessages.length > 0}
-            selectedCount={selectedMessages.length}
-            isCreator={chatType === 'group' && currentGroup && currentGroup.createdBy === userEmail}
-            isGroup={chatType === 'group'}
-            isPinned={selectedMessages.length > 0 && selectedMessages[0].isPinned}
-            onCopy={handleActionBarCopy}
-            onReply={handleActionBarReply}
-            onForward={handleActionBarForward}
-            onPin={handleActionBarPin}
-            onUnpin={handleActionBarUnpin}
-            onDelete={handleActionBarDelete}
-            onInfo={handleActionBarInfo}
-            onClose={handleActionBarClose}
-            onEdit={handleActionBarEdit}
-            canEdit={selectedMessages.length > 0 && (() => {
-              const msg = selectedMessages[0];
-              // Can edit if: message is sent by user, not deleted, and not read
-              if (!msg.isSent) return false;
-              if (msg.isDeleted) return false;
-              // For private messages: check if status is not 'read'
-              if (chatType === 'private') {
-                return msg.status !== 'read';
-              }
-              // For group messages: check if status is not 'read' AND no one else has read it
-              if (chatType === 'group' && currentGroup) {
-                // If status is 'read', cannot edit
-                if (msg.status === 'read') return false;
-                // Check if anyone else has read it
-                const readByOthers = (msg.readBy || []).filter(email => email !== userEmail);
-                return readByOthers.length === 0;
-              }
-              return false;
-            })()}
+          <RecentChats
+            contacts={contacts} // Use contacts from getRecentChats (not archived, with messages)
+            groups={groups} // Use groups from getRecentChats (not archived, with messages)
+            onSelectContact={handleSelectContact}
+            onSelectGroup={handleSelectGroup}
+            onNewChat={handleNewChat}
+            onCreateGroup={handleCreateGroup}
+            onSaveContact={handleSaveContact}
+            onInvite={handleInvite}
+            onContactsUpdate={loadContacts}
+            onGroupsUpdate={loadContacts}
+            userEmail={userEmail}
           />
 
-          {/* Pinned Message Banner - Only for groups */}
-          {chatType === 'group' && pinnedMessage && (
-            <PinnedMessageBanner
-              pinnedMessage={pinnedMessage}
-              onPress={handlePinnedMessagePress}
-              onClose={handleUnpinFromBanner}
-              isCreator={currentGroup && currentGroup.createdBy === userEmail}
+          {showInviteModal && (
+            <InviteModal
+              visible={showInviteModal}
+              onClose={() => {
+                setShowInviteModal(false);
+                setInviteEmail(null);
+              }}
+              email={inviteEmail}
             />
           )}
-          
-          <View style={styles.chatBackground}>
-            {loadingMessages && messages.length === 0 ? (
-              <View style={styles.messagesLoadingContainer}>
-                <Text style={[styles.messagesLoadingText, { color: colors.textSecondary }]}>
-                  Loading messages...
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                ref={flatListRef}
-                data={messages}
-                renderItem={renderMessage}
+
+          <CreateGroupModal
+            visible={showCreateGroupModal}
+            onClose={() => setShowCreateGroupModal(false)}
+            onGroupCreated={handleGroupCreated}
+            contacts={contacts}
+          />
+        </>
+      );
+    }
+
+    // Show chat interface when contact or group is selected
+    return (
+      <>
+        {/* Message Action Bar - WhatsApp style */}
+        <MessageActionBar
+          visible={selectedMessages.length > 0}
+          selectedCount={selectedMessages.length}
+          isCreator={chatType === 'group' && currentGroup && currentGroup.createdBy === userEmail}
+          isGroup={chatType === 'group'}
+          isPinned={selectedMessages.length > 0 && selectedMessages[0].isPinned}
+          onCopy={handleActionBarCopy}
+          onReply={handleActionBarReply}
+          onForward={handleActionBarForward}
+          onPin={handleActionBarPin}
+          onUnpin={handleActionBarUnpin}
+          onDelete={handleActionBarDelete}
+          onInfo={handleActionBarInfo}
+          onClose={handleActionBarClose}
+          onEdit={handleActionBarEdit}
+          canEdit={selectedMessages.length > 0 && (() => {
+            const msg = selectedMessages[0];
+            // Can edit if: message is sent by user, not deleted, and not read
+            if (!msg.isSent) return false;
+            if (msg.isDeleted) return false;
+            // For private messages: check if status is not 'read'
+            if (chatType === 'private') {
+              return msg.status !== 'read';
+            }
+            // For group messages: check if status is not 'read' AND no one else has read it
+            if (chatType === 'group' && currentGroup) {
+              // If status is 'read', cannot edit
+              if (msg.status === 'read') return false;
+              // Check if anyone else has read it
+              const readByOthers = (msg.readBy || []).filter(email => email !== userEmail);
+              return readByOthers.length === 0;
+            }
+            return false;
+          })()}
+        />
+
+        {/* Pinned Message Banner - Only for groups */}
+        {chatType === 'group' && pinnedMessage && (
+          <PinnedMessageBanner
+            pinnedMessage={pinnedMessage}
+            onPress={handlePinnedMessagePress}
+            onClose={handleUnpinFromBanner}
+            isCreator={currentGroup && currentGroup.createdBy === userEmail}
+          />
+        )}
+        
+        <View style={styles.chatBackground}>
+          {loadingMessages && messages.length === 0 ? (
+            <View style={styles.messagesLoadingContainer}>
+              <Text style={[styles.messagesLoadingText, { color: colors.textSecondary }]}>
+                Loading messages...
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
               keyExtractor={(item, index) => {
                 // Use messageId for stable keys - better for React reconciliation
                 if (item.messageId || item._id) {
@@ -1501,129 +1503,112 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               initialNumToRender={15}
               windowSize={10}
             />
-            )}
-          </View>
-
-          <TypingIndicator typingUsers={currentTypingUser ? [currentTypingUser] : []} />
-
-          <MessageInput
-            value={inputMessage}
-            onChangeText={handleTyping}
-            onSend={handleSendMessage}
-            onFileSelect={handleFileSelect}
-            userEmail={userEmail}
-            replyingTo={replyingTo}
-            onCancelReply={() => setReplyingTo(null)}
-            editingMessage={editingMessage}
-            onCancelEdit={() => {
-              setEditingMessage(null);
-              setInputMessage('');
-            }}
-            onBillSplitPress={() => {
-              if (chatType === 'private' && contactEmail) {
-                setShowBillSplitModal(true);
-              } else if (chatType === 'group' && groupId) {
-                setShowBillSplitModal(true);
-              }
-            }}
-          />
-
-          <MessageActionMenu
-            visible={showMessageMenu}
-            onClose={() => {
-              setShowMessageMenu(false);
-              setSelectedMessage(null);
-            }}
-            message={selectedMessage?.message || ''}
-            messageId={selectedMessage?.messageId || null}
-            isSent={selectedMessage?.isSent || false}
-            isPinned={selectedMessage?.isPinned || false}
-            isCreator={selectedMessage?.isCreator || false}
-            isGroup={selectedMessage?.isGroup || false}
-            onDelete={handleDeleteMessage}
-            onForward={handleForwardMessage}
-            onReply={handleReplyMessage}
-            onPin={() => selectedMessage?.messageId && handlePinMessage(selectedMessage.messageId)}
-            onUnpin={() => selectedMessage?.messageId && handleUnpinMessage(selectedMessage.messageId)}
-            onCopy={handleCopyMessage}
-            onInfo={handleInfoMessage}
-            onEdit={handleEditMessage}
-            canEdit={selectedMessage && (() => {
-              const msg = selectedMessage;
-              // Can edit if: message is sent by user, not deleted, and not read
-              if (!msg.isSent) return false;
-              if (msg.isDeleted) return false;
-              // For private messages: check if status is not 'read'
-              if (chatType === 'private') {
-                return msg.status !== 'read';
-              }
-              // For group messages: check if status is not 'read' AND no one else has read it
-              if (chatType === 'group' && currentGroup) {
-                // If status is 'read', cannot edit
-                if (msg.status === 'read') return false;
-                // Check if anyone else has read it
-                const readByOthers = (msg.readBy || []).filter(email => email !== userEmail);
-                return readByOthers.length === 0;
-              }
-              return false;
-            })()}
-          />
-
-          {currentGroup && (
-            <GroupInfoModal
-              visible={showGroupInfoModal}
-              onClose={() => setShowGroupInfoModal(false)}
-              group={currentGroup}
-              userEmail={userEmail}
-              onGroupUpdated={handleGroupUpdated}
-              onExitGroup={handleExitGroup}
-              onClearChat={handleClearChat}
-            />
           )}
+        </View>
 
-          {chatType === 'private' && contactEmail && (
-            <ContactInfoModal
-              visible={showContactInfoModal}
-              onClose={() => setShowContactInfoModal(false)}
-              contactEmail={contactEmail}
-              userEmail={userEmail}
-              contactName={contactName}
-              onSelectGroup={handleSelectGroup}
-              messages={privateMessages}
-              onClearChat={handleClearChat}
-            />
-          )}
+        <TypingIndicator typingUsers={currentTypingUser ? [currentTypingUser] : []} />
 
-          <MessageInfoModal
-            visible={showMessageInfoModal}
-            onClose={() => {
-              setShowMessageInfoModal(false);
-              setMessageInfoMessageId(null);
-            }}
-            messageId={messageInfoMessageId}
-            chatType={chatType}
-            userEmail={userEmail}
-            onLoadMessageInfo={loadMessageInfo}
-          />
-        </>
-      );
-    } else if (activeBottomTab === 'feed') {
-      return (
-        <StatusFeed userEmail={userEmail} contacts={contacts} />
-      );
-    } else if (activeBottomTab === 'status') {
-      return (
-        <Status userEmail={userEmail} contacts={contacts} />
-      );
-    } else if (activeBottomTab === 'call') {
-      return (
-        <CallHistoryTab
+        <MessageInput
+          value={inputMessage}
+          onChangeText={handleTyping}
+          onSend={handleSendMessage}
+          onFileSelect={handleFileSelect}
           userEmail={userEmail}
-          onCallPress={handleCallFromHistory}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+          editingMessage={editingMessage}
+          onCancelEdit={() => {
+            setEditingMessage(null);
+            setInputMessage('');
+          }}
+          onBillSplitPress={() => {
+            if (chatType === 'private' && contactEmail) {
+              setShowBillSplitModal(true);
+            } else if (chatType === 'group' && groupId) {
+              setShowBillSplitModal(true);
+            }
+          }}
         />
-      );
-    }
-    return null;
+
+        <MessageActionMenu
+          visible={showMessageMenu}
+          onClose={() => {
+            setShowMessageMenu(false);
+            setSelectedMessage(null);
+          }}
+          message={selectedMessage?.message || ''}
+          messageId={selectedMessage?.messageId || null}
+          isSent={selectedMessage?.isSent || false}
+          isPinned={selectedMessage?.isPinned || false}
+          isCreator={selectedMessage?.isCreator || false}
+          isGroup={selectedMessage?.isGroup || false}
+          onDelete={handleDeleteMessage}
+          onForward={handleForwardMessage}
+          onReply={handleReplyMessage}
+          onPin={() => selectedMessage?.messageId && handlePinMessage(selectedMessage.messageId)}
+          onUnpin={() => selectedMessage?.messageId && handleUnpinMessage(selectedMessage.messageId)}
+          onCopy={handleCopyMessage}
+          onInfo={handleInfoMessage}
+          onEdit={handleEditMessage}
+          canEdit={selectedMessage && (() => {
+            const msg = selectedMessage;
+            // Can edit if: message is sent by user, not deleted, and not read
+            if (!msg.isSent) return false;
+            if (msg.isDeleted) return false;
+            // For private messages: check if status is not 'read'
+            if (chatType === 'private') {
+              return msg.status !== 'read';
+            }
+            // For group messages: check if status is not 'read' AND no one else has read it
+            if (chatType === 'group' && currentGroup) {
+              // If status is 'read', cannot edit
+              if (msg.status === 'read') return false;
+              // Check if anyone else has read it
+              const readByOthers = (msg.readBy || []).filter(email => email !== userEmail);
+              return readByOthers.length === 0;
+            }
+            return false;
+          })()}
+        />
+
+        {currentGroup && (
+          <GroupInfoModal
+            visible={showGroupInfoModal}
+            onClose={() => setShowGroupInfoModal(false)}
+            group={currentGroup}
+            userEmail={userEmail}
+            onGroupUpdated={handleGroupUpdated}
+            onExitGroup={handleExitGroup}
+            onClearChat={handleClearChat}
+          />
+        )}
+
+        {chatType === 'private' && contactEmail && (
+          <ContactInfoModal
+            visible={showContactInfoModal}
+            onClose={() => setShowContactInfoModal(false)}
+            contactEmail={contactEmail}
+            userEmail={userEmail}
+            contactName={contactName}
+            onSelectGroup={handleSelectGroup}
+            messages={privateMessages}
+            onClearChat={handleClearChat}
+          />
+        )}
+
+        <MessageInfoModal
+          visible={showMessageInfoModal}
+          onClose={() => {
+            setShowMessageInfoModal(false);
+            setMessageInfoMessageId(null);
+          }}
+          messageId={messageInfoMessageId}
+          chatType={chatType}
+          userEmail={userEmail}
+          onLoadMessageInfo={loadMessageInfo}
+        />
+      </>
+    );
   };
 
   // Show recent chats if no contact or group selected
@@ -1662,38 +1647,38 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           />
           
           <View style={styles.contentContainer}>
-            {renderTabContent()}
+            {renderChatContent()}
           </View>
 
           {/* Bottom Tab Bar */}
           <View style={[styles.bottomTabBar, { borderTopColor: colors.divider, backgroundColor: colors.background }]}>
             <TouchableOpacity
-              style={[styles.tabButton, activeBottomTab === 'chat' && styles.activeTabButton]}
-              onPress={() => setActiveBottomTab('chat')}
+              style={[styles.tabButton, currentRouteName === 'Chat' && styles.activeTabButton]}
+              onPress={() => navigation.navigate('Chat')}
             >
-              <Text style={[styles.tabIcon, activeBottomTab === 'chat' && styles.activeTabIcon]}>💬</Text>
-              <Text style={[styles.tabLabel, activeBottomTab === 'chat' && styles.activeTabLabel]}>Chat</Text>
+              <Text style={[styles.tabIcon, currentRouteName === 'Chat' && styles.activeTabIcon]}>💬</Text>
+              <Text style={[styles.tabLabel, currentRouteName === 'Chat' && styles.activeTabLabel]}>Chat</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tabButton, activeBottomTab === 'feed' && styles.activeTabButton]}
-              onPress={() => setActiveBottomTab('feed')}
+              style={[styles.tabButton, currentRouteName === 'Feed' && styles.activeTabButton]}
+              onPress={() => navigation.navigate('Feed', { userEmail })}
             >
-              <Text style={[styles.tabIcon, activeBottomTab === 'feed' && styles.activeTabIcon]}>📰</Text>
-              <Text style={[styles.tabLabel, activeBottomTab === 'feed' && styles.activeTabLabel]}>Feed</Text>
+              <Text style={[styles.tabIcon, currentRouteName === 'Feed' && styles.activeTabIcon]}>📰</Text>
+              <Text style={[styles.tabLabel, currentRouteName === 'Feed' && styles.activeTabLabel]}>Feed</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tabButton, activeBottomTab === 'status' && styles.activeTabButton]}
-              onPress={() => setActiveBottomTab('status')}
+              style={[styles.tabButton, currentRouteName === 'Status' && styles.activeTabButton]}
+              onPress={() => navigation.navigate('Status', { userEmail })}
             >
-              <Text style={[styles.tabIcon, activeBottomTab === 'status' && styles.activeTabIcon]}>📱</Text>
-              <Text style={[styles.tabLabel, activeBottomTab === 'status' && styles.activeTabLabel]}>Status</Text>
+              <Text style={[styles.tabIcon, currentRouteName === 'Status' && styles.activeTabIcon]}>📱</Text>
+              <Text style={[styles.tabLabel, currentRouteName === 'Status' && styles.activeTabLabel]}>Status</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tabButton, activeBottomTab === 'call' && styles.activeTabButton]}
-              onPress={() => setActiveBottomTab('call')}
+              style={[styles.tabButton, currentRouteName === 'Call' && styles.activeTabButton]}
+              onPress={() => navigation.navigate('Call', { userEmail })}
             >
-              <Text style={[styles.tabIcon, activeBottomTab === 'call' && styles.activeTabIcon]}>📞</Text>
-              <Text style={[styles.tabLabel, activeBottomTab === 'call' && styles.activeTabLabel]}>Call</Text>
+              <Text style={[styles.tabIcon, currentRouteName === 'Call' && styles.activeTabIcon]}>📞</Text>
+              <Text style={[styles.tabLabel, currentRouteName === 'Call' && styles.activeTabLabel]}>Call</Text>
             </TouchableOpacity>
           </View>
 
@@ -1797,38 +1782,38 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       />
       
       <View style={styles.contentContainer}>
-        {renderTabContent()}
+        {renderChatContent()}
       </View>
 
       {/* Bottom Tab Bar */}
       <View style={[styles.bottomTabBar, { borderTopColor: colors.divider, backgroundColor: colors.background }]}>
         <TouchableOpacity
-          style={[styles.tabButton, activeBottomTab === 'chat' && styles.activeTabButton]}
-          onPress={() => setActiveBottomTab('chat')}
+          style={[styles.tabButton, currentRouteName === 'Chat' && styles.activeTabButton]}
+          onPress={() => navigation.navigate('Chat')}
         >
-          <Text style={[styles.tabIcon, activeBottomTab === 'chat' && styles.activeTabIcon]}>💬</Text>
-          <Text style={[styles.tabLabel, activeBottomTab === 'chat' && styles.activeTabLabel]}>Chat</Text>
+          <Text style={[styles.tabIcon, currentRouteName === 'Chat' && styles.activeTabIcon]}>💬</Text>
+          <Text style={[styles.tabLabel, currentRouteName === 'Chat' && styles.activeTabLabel]}>Chat</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabButton, activeBottomTab === 'feed' && styles.activeTabButton]}
-          onPress={() => setActiveBottomTab('feed')}
+          style={[styles.tabButton, currentRouteName === 'Feed' && styles.activeTabButton]}
+          onPress={() => navigation.navigate('Feed', { userEmail })}
         >
-          <Text style={[styles.tabIcon, activeBottomTab === 'feed' && styles.activeTabIcon]}>📰</Text>
-          <Text style={[styles.tabLabel, activeBottomTab === 'feed' && styles.activeTabLabel]}>Feed</Text>
+          <Text style={[styles.tabIcon, currentRouteName === 'Feed' && styles.activeTabIcon]}>📰</Text>
+          <Text style={[styles.tabLabel, currentRouteName === 'Feed' && styles.activeTabLabel]}>Feed</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabButton, activeBottomTab === 'status' && styles.activeTabButton]}
-          onPress={() => setActiveBottomTab('status')}
+          style={[styles.tabButton, currentRouteName === 'Status' && styles.activeTabButton]}
+          onPress={() => navigation.navigate('Status', { userEmail })}
         >
-          <Text style={[styles.tabIcon, activeBottomTab === 'status' && styles.activeTabIcon]}>📱</Text>
-          <Text style={[styles.tabLabel, activeBottomTab === 'status' && styles.activeTabLabel]}>Status</Text>
+          <Text style={[styles.tabIcon, currentRouteName === 'Status' && styles.activeTabIcon]}>📱</Text>
+          <Text style={[styles.tabLabel, currentRouteName === 'Status' && styles.activeTabLabel]}>Status</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabButton, activeBottomTab === 'call' && styles.activeTabButton]}
-          onPress={() => setActiveBottomTab('call')}
+          style={[styles.tabButton, currentRouteName === 'Call' && styles.activeTabButton]}
+          onPress={() => navigation.navigate('Call', { userEmail })}
         >
-          <Text style={[styles.tabIcon, activeBottomTab === 'call' && styles.activeTabIcon]}>📞</Text>
-          <Text style={[styles.tabLabel, activeBottomTab === 'call' && styles.activeTabLabel]}>Call</Text>
+          <Text style={[styles.tabIcon, currentRouteName === 'Call' && styles.activeTabIcon]}>📞</Text>
+          <Text style={[styles.tabLabel, currentRouteName === 'Call' && styles.activeTabLabel]}>Call</Text>
         </TouchableOpacity>
       </View>
 
