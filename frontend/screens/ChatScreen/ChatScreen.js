@@ -139,7 +139,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     handlePermissionRetry,
     handlePermissionCancel,
   } = useCall(userEmail);
-
+  
   // Use appropriate messages based on chat type
   const messages = chatType === 'group' ? groupMessages : privateMessages;
   const loadingMessages = chatType === 'group' ? loadingGroupMessages : loadingPrivateMessages;
@@ -176,22 +176,26 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       logger.error('Error loading all contacts:', error);
     }
   }, [setAllContacts]);
-
-  // Load offline mode
+  
+  // Load offline mode - use ref to prevent double calls in React 18 dev mode
+  const hasLoadedOfflineMode = useRef(false);
   useEffect(() => {
-    const loadOfflineMode = async () => {
-      try {
-        const result = await settingsService.getOfflineMode();
-        if (result.success) {
-          setOfflineMode(result.offlineMode || false);
+    if (!hasLoadedOfflineMode.current) {
+      hasLoadedOfflineMode.current = true;
+      const loadOfflineMode = async () => {
+        try {
+          const result = await settingsService.getOfflineMode();
+          if (result.success) {
+            setOfflineMode(result.offlineMode || false);
+          }
+        } catch (error) {
+          logger.error('Error loading offline mode:', error);
         }
-      } catch (error) {
-        logger.error('Error loading offline mode:', error);
-      }
-    };
-    loadOfflineMode();
+      };
+      loadOfflineMode();
+    }
   }, [setOfflineMode]);
-
+  
   const handleStatusToggle = useCallback(async () => {
     try {
       const newOfflineMode = !offlineMode;
@@ -204,10 +208,14 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
   }, [offlineMode, setOfflineMode]);
 
-  // Initialize on mount
+  // Initialize on mount - use ref to prevent double calls in React 18 dev mode
+  const hasInitialized = useRef(false);
   useEffect(() => {
-    loadContacts(true);
-  }, []);
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      loadContacts(true);
+    }
+  }, [loadContacts]);
 
   // Chat handlers
   const chatHandlers = useChatHandlers({
@@ -531,7 +539,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       socket.off('messageUnpinned', handleMessageUnpinned);
     };
   }, [socket, chatType, groupId, loadPinnedMessage, setPinnedMessage]);
-
+    
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > 0 && flatListRef.current) {
@@ -568,7 +576,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         return () => clearTimeout(timer);
       } else {
         hasMarkedAsRead.current = true;
-      }
+        }
     }
   }, [contactEmail, chatType, markPrivateMessagesAsRead, messages.length, contacts]);
 
@@ -655,7 +663,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const loadMessageInfo = useCallback(async (messageId) => {
     if (chatType === 'group') {
       return await groupService.getMessageInfo(messageId);
-    } else {
+      } else {
       return await contactsService.getMessageInfo(messageId);
     }
   }, [chatType]);
@@ -717,10 +725,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         handleTyping={handleTyping}
         handleSendMessage={chatHandlers.handleSendMessage}
         handleFileSelect={handleFileSelect}
-        userEmail={userEmail}
-        replyingTo={replyingTo}
+          userEmail={userEmail}
+          replyingTo={replyingTo}
         setReplyingTo={setReplyingTo}
-        editingMessage={editingMessage}
+          editingMessage={editingMessage}
         setEditingMessage={setEditingMessage}
         setInputMessage={setInputMessage}
         chatType={chatType}
@@ -866,44 +874,44 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ChatHeader 
-          username={chatType === 'group' ? groupName : (contactName || contactEmail)} 
-          isOnline={chatType === 'group' ? false : contactOnlineStatus} 
-          onProfilePress={onProfilePress}
-          onSettingsPress={onSettingsPress}
-          onLogoutPress={onLogoutPress}
-          onSidebarPress={() => {
-            setShowSidebar(true);
-            loadAllContacts();
-          }}
-          onBackPress={() => {
-            setContactEmail(null);
-            setGroupId(null);
-            setChatType(null);
-            setCurrentGroup(null);
-          }}
-          showBackButton={true}
-          isGroup={chatType === 'group'}
-          onGroupInfoPress={() => setShowGroupInfoModal(true)}
-          onContactInfoPress={() => setShowContactInfoModal(true)}
-          onClearChat={handleClearChat}
+        username={chatType === 'group' ? groupName : (contactName || contactEmail)} 
+        isOnline={chatType === 'group' ? false : contactOnlineStatus} 
+        onProfilePress={onProfilePress}
+        onSettingsPress={onSettingsPress}
+        onLogoutPress={onLogoutPress}
+        onSidebarPress={() => {
+          setShowSidebar(true);
+          loadAllContacts();
+        }}
+        onBackPress={() => {
+          setContactEmail(null);
+          setGroupId(null);
+          setChatType(null);
+          setCurrentGroup(null);
+        }}
+        showBackButton={true}
+        isGroup={chatType === 'group'}
+        onGroupInfoPress={() => setShowGroupInfoModal(true)}
+        onContactInfoPress={() => setShowContactInfoModal(true)}
+        onClearChat={handleClearChat}
           onAudioCall={callHandlers.handleAudioCall}
           onVideoCall={callHandlers.handleVideoCall}
-          onBillSummaryPress={() => setShowBillSummaryModal(true)}
-          onShowReferralLink={() => {
-            setInviteEmail(null);
-            setShowInviteModal(true);
-          }}
-        />
+        onBillSummaryPress={() => setShowBillSummaryModal(true)}
+        onShowReferralLink={() => {
+          setInviteEmail(null);
+          setShowInviteModal(true);
+        }}
+      />
       
-        <Sidebar
-          visible={showSidebar}
-          onClose={() => setShowSidebar(false)}
+      <Sidebar
+        visible={showSidebar}
+        onClose={() => setShowSidebar(false)}
           onSelectContact={contactHandlers.handleSelectContact}
-        />
-        
-        <View style={styles.contentContainer}>
-          {renderChatContent()}
-        </View>
+      />
+      
+      <View style={styles.contentContainer}>
+        {renderChatContent()}
+      </View>
 
         <BottomTabBar
           currentRouteName={currentRouteName}
@@ -911,100 +919,100 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           colors={colors}
         />
 
-        <View style={[styles.footer, { borderTopColor: colors.divider }]}>
-          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-            Powered by onlygossips247
-          </Text>
-        </View>
+      <View style={[styles.footer, { borderTopColor: colors.divider }]}>
+        <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+          Powered by onlygossips247
+        </Text>
+      </View>
 
-        <ConfirmationModal
-          visible={showClearChatModal}
-          title="Clear Chat"
-          message="Are you sure you want to clear all messages in this chat? This action cannot be undone."
-          confirmText="Clear"
-          cancelText="Cancel"
-          onConfirm={handleClearChatConfirm}
+      <ConfirmationModal
+        visible={showClearChatModal}
+        title="Clear Chat"
+        message="Are you sure you want to clear all messages in this chat? This action cannot be undone."
+        confirmText="Clear"
+        cancelText="Cancel"
+        onConfirm={handleClearChatConfirm}
           onCancel={() => setShowClearChatModal(false)}
-          confirmButtonStyle="destructive"
-        />
+        confirmButtonStyle="destructive"
+      />
 
-        <ConfirmationModal
-          visible={showDeleteMessageModal}
-          title={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
-            ? "Undo Message" 
-            : "Delete Message"}
-          message={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
-            ? "This message hasn't been sent to the server yet. Remove it?"
-            : "Are you sure you want to delete this message? This will show 'This message is deleted' to all users."}
-          confirmText={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
-            ? "Undo"
-            : "Delete"}
-          cancelText="Cancel"
+      <ConfirmationModal
+        visible={showDeleteMessageModal}
+        title={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
+          ? "Undo Message" 
+          : "Delete Message"}
+        message={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
+          ? "This message hasn't been sent to the server yet. Remove it?"
+          : "Are you sure you want to delete this message? This will show 'This message is deleted' to all users."}
+        confirmText={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
+          ? "Undo"
+          : "Delete"}
+        cancelText="Cancel"
           onConfirm={chatHandlers.handleDeleteMessageConfirm}
           onCancel={chatHandlers.handleDeleteMessageCancel}
-          confirmButtonStyle="destructive"
-        />
+        confirmButtonStyle="destructive"
+      />
 
-        <CallHistory
-          visible={showCallHistory}
-          onClose={() => setShowCallHistory(false)}
+      <CallHistory
+        visible={showCallHistory}
+        onClose={() => setShowCallHistory(false)}
+        userEmail={userEmail}
+        contactEmail={contactEmail}
+        groupId={groupId}
+        isGroup={chatType === 'group'}
+          onCallPress={callHandlers.handleCallFromHistory}
+      />
+
+      <PermissionPrompt
+        visible={showPermissionPrompt}
+        deviceType={permissionDeviceType}
+        onRetry={handlePermissionRetry}
+        onCancel={handlePermissionCancel}
+      />
+
+      {chatType && (
+        <BillSplitModal
+          visible={showBillSplitModal}
+          onClose={() => setShowBillSplitModal(false)}
+          onCreateBill={async (billData) => {
+            try {
+              const result = await billSplitService.createBillSplit({
+                ...billData,
+                contactEmail: chatType === 'private' ? contactEmail : null,
+                groupId: chatType === 'group' ? groupId : null,
+              });
+              
+              if (result.success) {
+                setShowBillSplitModal(false);
+              }
+            } catch (error) {
+                logger.error('Error creating bill split:', error);
+              Alert.alert('Error', 'Failed to create bill split');
+            }
+          }}
           userEmail={userEmail}
           contactEmail={contactEmail}
           groupId={groupId}
-          isGroup={chatType === 'group'}
-          onCallPress={callHandlers.handleCallFromHistory}
+          groupMembers={currentGroup?.members || []}
         />
+      )}
 
-        <PermissionPrompt
-          visible={showPermissionPrompt}
-          deviceType={permissionDeviceType}
-          onRetry={handlePermissionRetry}
-          onCancel={handlePermissionCancel}
+      {chatType && (
+        <BillSummaryModal
+          visible={showBillSummaryModal}
+          onClose={() => setShowBillSummaryModal(false)}
+          userEmail={userEmail}
+          contactEmail={contactEmail}
+          groupId={groupId}
+          roomId={chatType === 'group' 
+            ? `group_${groupId}` 
+            : (() => {
+                const sorted = [userEmail, contactEmail].sort();
+                return `chat_${sorted[0]}_${sorted[1]}`;
+              })()}
+          groupMembers={currentGroup?.members || []}
         />
-
-        {chatType && (
-          <BillSplitModal
-            visible={showBillSplitModal}
-            onClose={() => setShowBillSplitModal(false)}
-            onCreateBill={async (billData) => {
-              try {
-                const result = await billSplitService.createBillSplit({
-                  ...billData,
-                  contactEmail: chatType === 'private' ? contactEmail : null,
-                  groupId: chatType === 'group' ? groupId : null,
-                });
-                
-                if (result.success) {
-                  setShowBillSplitModal(false);
-                }
-              } catch (error) {
-                logger.error('Error creating bill split:', error);
-                Alert.alert('Error', 'Failed to create bill split');
-              }
-            }}
-            userEmail={userEmail}
-            contactEmail={contactEmail}
-            groupId={groupId}
-            groupMembers={currentGroup?.members || []}
-          />
-        )}
-
-        {chatType && (
-          <BillSummaryModal
-            visible={showBillSummaryModal}
-            onClose={() => setShowBillSummaryModal(false)}
-            userEmail={userEmail}
-            contactEmail={contactEmail}
-            groupId={groupId}
-            roomId={chatType === 'group' 
-              ? `group_${groupId}` 
-              : (() => {
-                  const sorted = [userEmail, contactEmail].sort();
-                  return `chat_${sorted[0]}_${sorted[1]}`;
-                })()}
-            groupMembers={currentGroup?.members || []}
-          />
-        )}
+      )}
 
         {currentGroup && (
           <GroupInfoModal
@@ -1064,7 +1072,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               return readByOthers.length === 0;
             }
             return false;
-          })()}
+      })()}
         />
 
         <MessageInfoModal
@@ -1081,7 +1089,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       </KeyboardAvoidingView>
       
       {renderCallScreens()}
-    </SafeAreaView>
+      </SafeAreaView>
   );
 };
 

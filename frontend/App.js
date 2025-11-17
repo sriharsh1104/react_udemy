@@ -78,14 +78,14 @@ const AppContentWithNotifications = () => {
   return (
     <>
       <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
-        <NotificationContainer
-          notifications={notifications}
-          onDismiss={removeNotification}
-          onPress={handleNotificationPress}
-          onMarkAsRead={handleNotificationMarkAsRead}
-          onReply={handleNotificationReply}
-          onSendReply={handleSendReply}
-        />
+      <NotificationContainer
+        notifications={notifications}
+        onDismiss={removeNotification}
+        onPress={handleNotificationPress}
+        onMarkAsRead={handleNotificationMarkAsRead}
+        onReply={handleNotificationReply}
+        onSendReply={handleSendReply}
+      />
       </Suspense>
       <AppContent navigationRef={navigationRef} />
     </>
@@ -140,40 +140,46 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     });
   };
 
+  // Use ref to prevent double calls in React 18 dev mode
+  const hasInitialized = useRef(false);
   useEffect(() => {
-    // Set global logout handler for invalid token
-    setGlobalLogoutHandler(handleInvalidTokenLogout);
-    
-    // One-time migration: Clear old random salts to use new deterministic salts
-    const migrateEncryptionSalts = async () => {
-      try {
-        const encryptionService = (await import('./services/encryptionService')).default;
-        const migrationKey = 'encryption_salt_migration_v2';
-        const hasMigrated = await AsyncStorage.getItem(migrationKey);
-        
-        if (!hasMigrated) {
-          logger.log('🔄 Migrating encryption salts to deterministic version...');
-          await encryptionService.clearAllSalts();
-          await AsyncStorage.setItem(migrationKey, 'true');
-          logger.log('✅ Encryption salt migration completed');
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      
+      // Set global logout handler for invalid token
+      setGlobalLogoutHandler(handleInvalidTokenLogout);
+      
+      // One-time migration: Clear old random salts to use new deterministic salts
+      const migrateEncryptionSalts = async () => {
+        try {
+          const encryptionService = (await import('./services/encryptionService')).default;
+          const migrationKey = 'encryption_salt_migration_v2';
+          const hasMigrated = await AsyncStorage.getItem(migrationKey);
+          
+          if (!hasMigrated) {
+            logger.log('🔄 Migrating encryption salts to deterministic version...');
+            await encryptionService.clearAllSalts();
+            await AsyncStorage.setItem(migrationKey, 'true');
+            logger.log('✅ Encryption salt migration completed');
+          }
+        } catch (error) {
+          logger.error('Error migrating encryption salts:', error);
         }
-      } catch (error) {
-        logger.error('Error migrating encryption salts:', error);
-      }
-    };
-    
-    migrateEncryptionSalts();
-    checkAuthStatus();
-    handleInitialURL();
-    
-    // Listen for deep links
-    const subscription = Linking.addEventListener('url', handleDeepLink);
-    
-    return () => {
-      subscription?.remove();
-      // Clear global logout handler on unmount
-      setGlobalLogoutHandler(null);
-    };
+      };
+      
+      migrateEncryptionSalts();
+      checkAuthStatus();
+      handleInitialURL();
+      
+      // Listen for deep links
+      const subscription = Linking.addEventListener('url', handleDeepLink);
+      
+      return () => {
+        subscription?.remove();
+        // Clear global logout handler on unmount
+        setGlobalLogoutHandler(null);
+      };
+    }
   }, []);
   
   const handleInitialURL = async () => {
@@ -409,100 +415,100 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             <Stack.Screen name="Chat">
               {(props) => (
                 <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
-                  <ChatScreen
-                    {...props}
-                    userEmail={userEmail}
-                    onLogout={handleLogout}
-                    onProfilePress={() => props.navigation.navigate('Profile')}
-                    onSettingsPress={() => props.navigation.navigate('Settings')}
-                    onLogoutPress={handleLogoutPress}
-                  />
+                <ChatScreen
+                  {...props}
+                  userEmail={userEmail}
+                  onLogout={handleLogout}
+                  onProfilePress={() => props.navigation.navigate('Profile')}
+                  onSettingsPress={() => props.navigation.navigate('Settings')}
+                  onLogoutPress={handleLogoutPress}
+                />
                 </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Profile">
               {(props) => (
                 <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
-                  <ProfileScreen
-                    {...props}
-                    userEmail={userEmail}
-                    initialProfile={profile}
-                    isProfileComplete={profile?.isProfileComplete || false}
-                    onBack={async () => {
-                      // Reload profile to get updated isProfileComplete status
-                      const profileResult = await profileService.getProfile();
-                      if (profileResult.success && profileResult.profile) {
-                        const updatedProfile = profileResult.profile;
-                        setProfile(updatedProfile);
-                        // Navigate to chat if profile is complete
-                        if (updatedProfile?.isProfileComplete) {
-                          props.navigation.navigate('Chat');
-                        } else {
-                          props.navigation.goBack();
-                        }
+                <ProfileScreen
+                  {...props}
+                  userEmail={userEmail}
+                  initialProfile={profile}
+                  isProfileComplete={profile?.isProfileComplete || false}
+                  onBack={async () => {
+                    // Reload profile to get updated isProfileComplete status
+                    const profileResult = await profileService.getProfile();
+                    if (profileResult.success && profileResult.profile) {
+                      const updatedProfile = profileResult.profile;
+                      setProfile(updatedProfile);
+                      // Navigate to chat if profile is complete
+                      if (updatedProfile?.isProfileComplete) {
+                        props.navigation.navigate('Chat');
                       } else {
                         props.navigation.goBack();
                       }
-                    }}
-                    isMandatory={!profile || !profile.isProfileComplete}
-                  />
+                    } else {
+                      props.navigation.goBack();
+                    }
+                  }}
+                  isMandatory={!profile || !profile.isProfileComplete}
+                />
                 </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Settings">
               {(props) => (
                 <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
-                  <SettingsScreen
-                    {...props}
-                    onBack={() => props.navigation.goBack()}
-                  />
+                <SettingsScreen
+                  {...props}
+                  onBack={() => props.navigation.goBack()}
+                />
                 </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Referral">
               {(props) => (
                 <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
-                  <ReferralScreen
-                    {...props}
-                  />
+                <ReferralScreen
+                  {...props}
+                />
                 </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Feed">
               {(props) => (
                 <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
-                  <FeedScreen
-                    {...props}
-                  />
+                <FeedScreen
+                  {...props}
+                />
                 </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Status">
               {(props) => (
                 <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
-                  <StatusScreen
-                    {...props}
-                  />
+                <StatusScreen
+                  {...props}
+                />
                 </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Call">
               {(props) => (
                 <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
-                  <CallScreen
-                    {...props}
-                  />
+                <CallScreen
+                  {...props}
+                />
                 </Suspense>
               )}
             </Stack.Screen>
           </Stack.Navigator>
           
           <Suspense fallback={null}>
-            <LogoutModal
-              visible={showLogoutModal}
-              onConfirm={handleLogout}
-              onCancel={() => setShowLogoutModal(false)}
-            />
+          <LogoutModal
+            visible={showLogoutModal}
+            onConfirm={handleLogout}
+            onCancel={() => setShowLogoutModal(false)}
+          />
           </Suspense>
           
           <StatusBar style={isDark ? "light" : "dark"} />

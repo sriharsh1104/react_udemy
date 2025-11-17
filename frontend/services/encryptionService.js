@@ -175,8 +175,8 @@ class EncryptionService {
    */
   async decryptPrivateMessage(encryptedData, userEmail, contactEmail, retryCount = 0) {
     try {
-      const key = await this.deriveSharedKey(userEmail, contactEmail);
-      return await this.decryptMessage(encryptedData, key);
+    const key = await this.deriveSharedKey(userEmail, contactEmail);
+    return await this.decryptMessage(encryptedData, key);
     } catch (error) {
       // If decryption fails and we haven't retried yet, clear salts/keys and retry
       if (retryCount === 0 && (error.message.includes('empty string') || error.message.includes('Failed to decrypt'))) {
@@ -211,8 +211,8 @@ class EncryptionService {
    */
   async decryptGroupMessage(encryptedData, groupId, retryCount = 0) {
     try {
-      const key = await this.deriveGroupKey(groupId);
-      return await this.decryptMessage(encryptedData, key);
+    const key = await this.deriveGroupKey(groupId);
+    return await this.decryptMessage(encryptedData, key);
     } catch (error) {
       // If decryption fails and we haven't retried yet, clear salts/keys and retry
       if (retryCount === 0 && (error.message.includes('empty string') || error.message.includes('Failed to decrypt'))) {
