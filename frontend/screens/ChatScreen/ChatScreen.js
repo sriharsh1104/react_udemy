@@ -1661,21 +1661,21 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabButton, currentRouteName === 'Feed' && styles.activeTabButton]}
-              onPress={() => navigation.navigate('Feed', { userEmail })}
+              onPress={() => navigation.navigate('Feed')}
             >
               <Text style={[styles.tabIcon, currentRouteName === 'Feed' && styles.activeTabIcon]}>📰</Text>
               <Text style={[styles.tabLabel, currentRouteName === 'Feed' && styles.activeTabLabel, { color: currentRouteName === 'Feed' ? colors.primary : colors.textSecondary }]}>Feed</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabButton, currentRouteName === 'Status' && styles.activeTabButton]}
-              onPress={() => navigation.navigate('Status', { userEmail })}
+              onPress={() => navigation.navigate('Status')}
             >
               <Text style={[styles.tabIcon, currentRouteName === 'Status' && styles.activeTabIcon]}>📱</Text>
               <Text style={[styles.tabLabel, currentRouteName === 'Status' && styles.activeTabLabel, { color: currentRouteName === 'Status' ? colors.primary : colors.textSecondary }]}>Status</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabButton, currentRouteName === 'Call' && styles.activeTabButton]}
-              onPress={() => navigation.navigate('Call', { userEmail })}
+              onPress={() => navigation.navigate('Call')}
             >
               <Text style={[styles.tabIcon, currentRouteName === 'Call' && styles.activeTabIcon]}>📞</Text>
               <Text style={[styles.tabLabel, currentRouteName === 'Call' && styles.activeTabLabel, { color: currentRouteName === 'Call' ? colors.primary : colors.textSecondary }]}>Call</Text>
@@ -1796,21 +1796,21 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, currentRouteName === 'Feed' && styles.activeTabButton]}
-          onPress={() => navigation.navigate('Feed', { userEmail })}
+          onPress={() => navigation.navigate('Feed')}
         >
           <Text style={[styles.tabIcon, currentRouteName === 'Feed' && styles.activeTabIcon]}>📰</Text>
           <Text style={[styles.tabLabel, currentRouteName === 'Feed' && styles.activeTabLabel, { color: currentRouteName === 'Feed' ? colors.primary : colors.textSecondary }]}>Feed</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, currentRouteName === 'Status' && styles.activeTabButton]}
-          onPress={() => navigation.navigate('Status', { userEmail })}
+          onPress={() => navigation.navigate('Status')}
         >
           <Text style={[styles.tabIcon, currentRouteName === 'Status' && styles.activeTabIcon]}>📱</Text>
           <Text style={[styles.tabLabel, currentRouteName === 'Status' && styles.activeTabLabel, { color: currentRouteName === 'Status' ? colors.primary : colors.textSecondary }]}>Status</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, currentRouteName === 'Call' && styles.activeTabButton]}
-          onPress={() => navigation.navigate('Call', { userEmail })}
+          onPress={() => navigation.navigate('Call')}
         >
           <Text style={[styles.tabIcon, currentRouteName === 'Call' && styles.activeTabIcon]}>📞</Text>
           <Text style={[styles.tabLabel, currentRouteName === 'Call' && styles.activeTabLabel, { color: currentRouteName === 'Call' ? colors.primary : colors.textSecondary }]}>Call</Text>

@@ -436,7 +436,6 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
               {(props) => (
                 <FeedScreen
                   {...props}
-                  userEmail={userEmail}
                 />
               )}
             </Stack.Screen>
@@ -444,7 +443,6 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
               {(props) => (
                 <StatusScreen
                   {...props}
-                  userEmail={userEmail}
                 />
               )}
             </Stack.Screen>
@@ -452,7 +450,6 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
               {(props) => (
                 <CallScreen
                   {...props}
-                  userEmail={userEmail}
                 />
               )}
             </Stack.Screen>
