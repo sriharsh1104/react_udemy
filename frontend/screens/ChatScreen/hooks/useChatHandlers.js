@@ -4,7 +4,6 @@
  */
 
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 import logger from '../../../utils/logger';
 import { showSuccessToast } from '../../../utils/toast';
 import contactsService from '../../../services/contactsService';
@@ -42,6 +41,7 @@ export const useChatHandlers = ({
   setMessageInfoMessageId,
   setPinnedMessage,
   loadPinnedMessage,
+  showAlert,
 }) => {
   const handleSendMessage = useCallback(async () => {
     if (inputMessage.trim()) {
@@ -62,7 +62,9 @@ export const useChatHandlers = ({
           }
         } catch (error) {
           logger.error('Error editing message:', error);
-          Alert.alert('Error', 'Failed to edit message');
+          if (showAlert) {
+            showAlert('Error', 'Failed to edit message', 'error');
+          }
         }
         return;
       }
@@ -253,7 +255,9 @@ export const useChatHandlers = ({
     try {
       const parsed = JSON.parse(messageStr);
       if (parsed && parsed.type === 'file') {
-        Alert.alert('Cannot Edit', 'File messages cannot be edited. You can delete and send a new file instead.');
+        if (showAlert) {
+          showAlert('Cannot Edit', 'File messages cannot be edited. You can delete and send a new file instead.', 'warning');
+        }
         setShowMessageMenu(false);
         setSelectedMessage(null);
         return;

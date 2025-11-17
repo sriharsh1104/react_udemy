@@ -47,6 +47,7 @@ import PermissionPrompt from '../../components/call/PermissionPrompt';
 import BillSplitModal from '../../components/chat/BillSplitModal';
 import BillSummaryModal from '../../components/chat/BillSummaryModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
+import AlertModal from '../../components/common/AlertModal';
 import ChatContent from './components/ChatContent';
 import BottomTabBar from './components/BottomTabBar';
 import contactsService from '../../services/contactsService';
@@ -54,7 +55,6 @@ import groupService from '../../services/groupService';
 import settingsService from '../../services/settingsService';
 import billSplitService from '../../services/billSplitService';
 import fileUploadService from '../../services/fileUploadService';
-import { Alert } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import encryptionService from '../../services/encryptionService';
@@ -65,6 +65,22 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const { addNotification, clearNotification } = useNotifications();
   const route = useRoute();
   const currentRouteName = route?.name || 'Chat';
+  
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'default', // 'default' | 'success' | 'error' | 'warning' | 'info'
+  });
+  
+  const showAlert = useCallback((title, message, type = 'default') => {
+    setAlertModal({ visible: true, title, message, type });
+  }, []);
+  
+  const hideAlert = useCallback(() => {
+    setAlertModal(prev => ({ ...prev, visible: false }));
+  }, []);
   
   // Extract username from email
   const getUsernameFromEmail = useCallback((email) => {
@@ -251,6 +267,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     setMessageInfoMessageId,
     setPinnedMessage,
     loadPinnedMessage: () => {}, // Will be set by usePinnedMessage
+    showAlert,
   });
 
   // Contact handlers
@@ -430,7 +447,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                   const messageText = replyMessage.trim();
                   const currentSocket = socketService.getSocket();
                   if (!currentSocket || !currentSocket.connected) {
-                    Alert.alert('Connection Error', 'Not connected to server. Please check your connection.');
+                    showAlert('Connection Error', 'Not connected to server. Please check your connection.', 'error');
                     return;
                   }
                   
@@ -473,7 +490,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                   clearNotification(notificationSenderEmail);
                 } catch (error) {
                   logger.error('Error sending reply:', error);
-                  Alert.alert('Error', `Failed to send message: ${error.message || 'Please try again.'}`);
+                  showAlert('Error', `Failed to send message: ${error.message || 'Please try again.'}`, 'error');
                 }
               }
             },
@@ -995,7 +1012,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               }
             } catch (error) {
                 logger.error('Error creating bill split:', error);
-              Alert.alert('Error', 'Failed to create bill split');
+              showAlert('Error', 'Failed to create bill split', 'error');
             }
           }}
           userEmail={userEmail}
@@ -1262,16 +1279,17 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               setForwardMessage(null);
               
               if (errorCount === 0) {
-                Alert.alert('Success', `Message forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'} successfully`);
+                showAlert('Success', `Message forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'} successfully`, 'success');
               } else {
-                Alert.alert(
+                showAlert(
                   'Partial Success', 
-                  `Message forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'}, ${errorCount} ${errorCount === 1 ? 'failed' : 'failed'}`
+                  `Message forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'}, ${errorCount} ${errorCount === 1 ? 'failed' : 'failed'}`,
+                  'warning'
                 );
               }
             } catch (error) {
               logger.error('Error forwarding message:', error);
-              Alert.alert('Error', 'Failed to forward message');
+              showAlert('Error', 'Failed to forward message', 'error');
             }
           }}
           message={forwardMessage?.message || ''}
@@ -1279,6 +1297,15 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       </KeyboardAvoidingView>
       
       {renderCallScreens()}
+      
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={hideAlert}
+      />
       </SafeAreaView>
   );
 };
