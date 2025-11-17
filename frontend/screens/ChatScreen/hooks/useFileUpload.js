@@ -66,6 +66,7 @@ export const useFileUpload = ({
           fileName: uploadResult.fileName || file.name,
           fileType: uploadResult.fileType || file.type,
           fileSize: uploadResult.fileSize || file.size || 0,
+          localUri: uploadResult.localUri || null, // Include local URI for sender
         });
         
         if (currentChatType === 'private' && currentContactEmail) {

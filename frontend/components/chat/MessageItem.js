@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -9,6 +9,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
+  const autoDownloadAttempted = useRef(false); // Track if auto-download was attempted
   
   // Determine if message is sent by current user (for WhatsApp-like alignment)
   const isMyMessage = isSent !== undefined ? isSent : false;
@@ -30,13 +31,25 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
       const parsed = JSON.parse(messageStr);
       if (parsed && parsed.type === 'file') {
         setFileData(parsed);
-        // Check if file is already downloaded locally
-        checkLocalFile(parsed.fileId, parsed.fileName);
+        
+        // For sender: use localUri if available (from when file was picked)
+        if (isMyMessage && parsed.localUri) {
+          setLocalFileUri(parsed.localUri);
+        } else {
+          // For receiver or if no localUri: check if file is already downloaded locally
+          checkLocalFile(parsed.fileId, parsed.fileName);
+          
+          // Auto-download images/videos for receiver (only once)
+          if (!isMyMessage && (parsed.fileType === 'image' || parsed.fileType === 'video') && !autoDownloadAttempted.current) {
+            autoDownloadAttempted.current = true;
+            autoDownloadFile(parsed.fileId, parsed.fileName, parsed.fileType);
+          }
+        }
       }
     } catch {
       // Not a JSON message, treat as regular text
     }
-  }, [message]);
+  }, [message, isMyMessage]);
   
   const checkLocalFile = async (fileId, fileName) => {
     // Skip file system check on web - expo-file-system is not available on web
@@ -54,9 +67,45 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
       console.error('Error checking local file:', error);
     }
   };
+
+  const autoDownloadFile = async (fileId, fileName, fileType) => {
+    // Skip auto-download if already downloading
+    if (downloading) return;
+    
+    // Check if already downloaded (for native platforms)
+    if (Platform.OS !== 'web') {
+      try {
+        const localUri = `${FileSystem.documentDirectory}${fileId}_${fileName}`;
+        const fileInfo = await FileSystem.getInfoAsync(localUri);
+        if (fileInfo.exists) {
+          setLocalFileUri(localUri);
+          return;
+        }
+      } catch (error) {
+        // Continue to download
+      }
+    }
+    
+    // Download the file (works for both web and native)
+    setDownloading(true);
+    try {
+      const result = await fileUploadService.downloadFile(fileId, fileName, fileType);
+      setLocalFileUri(result.localUri);
+    } catch (error) {
+      console.error('Error auto-downloading file:', error);
+    } finally {
+      setDownloading(false);
+    }
+  };
   
   const handleDownload = async () => {
     if (!fileData || downloading) return;
+    
+    // If already downloaded, just show success
+    if (localFileUri) {
+      Alert.alert('Success', 'File is already downloaded');
+      return;
+    }
     
     setDownloading(true);
     try {

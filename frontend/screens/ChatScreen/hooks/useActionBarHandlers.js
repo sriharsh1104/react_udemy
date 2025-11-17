@@ -7,6 +7,7 @@ import { Alert } from 'react-native';
 import { default as Clipboard } from 'expo-clipboard';
 import logger from '../../../utils/logger';
 import { showSuccessToast } from '../../../utils/toast';
+import fileUploadService from '../../../services/fileUploadService';
 
 export const useActionBarHandlers = ({
   selectedMessages,
@@ -48,9 +49,43 @@ export const useActionBarHandlers = ({
     setSelectedMessages([]);
   }, [selectedMessages, chatType, contactEmail, userEmail, setReplyingTo, setSelectedMessages]);
 
-  const handleActionBarForward = useCallback(() => {
+  const handleActionBarForward = useCallback(async () => {
     if (selectedMessages.length === 0) return;
-    Alert.alert('Forward', 'Forward functionality coming soon');
+    
+    const messageToForward = selectedMessages[0];
+    
+    // Check if message is a file message
+    try {
+      const parsed = JSON.parse(messageToForward.message);
+      if (parsed && parsed.type === 'file') {
+        // Check if file exists locally
+        const localUri = await fileUploadService.getLocalFileUri(parsed.fileId, parsed.fileName);
+        
+        if (localUri) {
+          // File exists locally, we can forward it using cached file
+          // For now, show alert - full forwarding UI can be implemented later
+          Alert.alert(
+            'Forward File',
+            `File "${parsed.fileName}" is available locally and can be forwarded. Forwarding UI coming soon.`,
+            [{ text: 'OK' }]
+          );
+        } else {
+          // File doesn't exist locally, would need to download first
+          Alert.alert(
+            'Forward File',
+            `File "${parsed.fileName}" needs to be downloaded first before forwarding. Forwarding UI coming soon.`,
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        // Regular text message - can forward directly
+        Alert.alert('Forward', 'Forward functionality coming soon');
+      }
+    } catch {
+      // Not a JSON message, treat as regular text
+      Alert.alert('Forward', 'Forward functionality coming soon');
+    }
+    
     setSelectedMessages([]);
   }, [selectedMessages, setSelectedMessages]);
 

@@ -308,6 +308,101 @@ class FileUploadService {
   }
   
   /**
+   * Save file locally for sender to display immediately
+   * Returns the local URI where file is saved
+   */
+  async saveFileLocally(file, fileId) {
+    try {
+      if (Platform.OS === 'web') {
+        // On web, return the original URI (blob URL or data URI)
+        return file.uri;
+      }
+      
+      // On native, copy file to document directory with fileId prefix
+      const localUri = `${FileSystem.documentDirectory}${fileId}_${file.name}`;
+      
+      // Check if file already exists
+      const fileInfo = await FileSystem.getInfoAsync(localUri);
+      if (fileInfo.exists) {
+        return localUri;
+      }
+      
+      // Copy file to document directory
+      await FileSystem.copyAsync({
+        from: file.uri,
+        to: localUri,
+      });
+      
+      return localUri;
+    } catch (error) {
+      console.error('Error saving file locally:', error);
+      // Return original URI as fallback
+      return file.uri;
+    }
+  }
+
+  /**
+   * Get local file URI if file exists locally (for forwarding)
+   * Returns the local URI if file exists, null otherwise
+   */
+  async getLocalFileUri(fileId, fileName) {
+    try {
+      if (Platform.OS === 'web') {
+        // On web, we can't check file system, return null
+        // The blob URL would have been stored in the message's localUri
+        return null;
+      }
+      
+      const localUri = `${FileSystem.documentDirectory}${fileId}_${fileName}`;
+      const fileInfo = await FileSystem.getInfoAsync(localUri);
+      
+      if (fileInfo.exists) {
+        return localUri;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error checking local file:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Upload file from local cache (for forwarding)
+   * This re-uploads a file that was previously downloaded
+   */
+  async uploadFileFromLocal(localUri, fileName, fileType, userEmail) {
+    try {
+      // Create a file object from the local URI
+      const file = {
+        uri: localUri,
+        name: fileName,
+        type: fileType,
+        mimeType: fileType === 'image' ? 'image/jpeg' : 
+                  fileType === 'video' ? 'video/mp4' : 
+                  fileType === 'audio' ? 'audio/mpeg' : 'application/pdf',
+      };
+      
+      // Get file size
+      if (Platform.OS !== 'web') {
+        try {
+          const fileInfo = await FileSystem.getInfoAsync(localUri);
+          file.size = fileInfo.size || 0;
+        } catch (error) {
+          console.warn('Could not get file size:', error);
+          file.size = 0;
+        }
+      }
+      
+      // Upload using the existing uploadFile method
+      return await this.uploadFile(file, userEmail);
+    } catch (error) {
+      console.error('Error uploading file from local cache:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Upload file to server with progress tracking
    */
   async uploadFile(file, userEmail, onProgress) {
@@ -408,11 +503,15 @@ class FileUploadService {
       
       const actualTime = Math.ceil((Date.now() - startTime) / 1000);
       
+      // Save file locally for sender to display immediately
+      const localUri = await this.saveFileLocally(file, data.fileId);
+      
       return {
         ...data,
         estimatedTime: estimatedTimeText,
         actualTime: actualTime,
         fileSize: fileSize,
+        localUri: localUri, // Add local URI for sender to use
       };
     } catch (error) {
       console.error('File upload error:', error);
