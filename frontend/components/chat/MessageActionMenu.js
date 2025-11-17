@@ -33,14 +33,27 @@ const MessageActionMenu = ({
 
   if (!visible) return null;
 
+  // Check if message is a file/image
+  const isFileMessage = (() => {
+    try {
+      const messageStr = typeof message === 'string' ? message : (message?.message || message?.text || '');
+      const parsed = JSON.parse(messageStr);
+      return parsed && parsed.type === 'file';
+    } catch {
+      return false;
+    }
+  })();
+
   const actions = [];
 
-  // Copy - Always available
-  actions.push({
-    icon: '📋',
-    label: 'Copy',
-    onPress: onCopy,
-  });
+  // Copy - Not available for file/image messages
+  if (!isFileMessage) {
+    actions.push({
+      icon: '📋',
+      label: 'Copy',
+      onPress: onCopy,
+    });
+  }
 
   // Edit - Only if message can be edited (not read)
   if (canEdit && onEdit) {

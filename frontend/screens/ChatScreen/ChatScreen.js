@@ -38,6 +38,7 @@ import GroupInfoModal from '../../components/chat/GroupInfoModal';
 import ContactInfoModal from '../../components/chat/ContactInfoModal';
 import MessageActionMenu from '../../components/chat/MessageActionMenu';
 import MessageInfoModal from '../../components/chat/MessageInfoModal';
+import ForwardContactModal from '../../components/chat/ForwardContactModal';
 import GLoader from '../../components/common/GLoader';
 import CallHistory from '../../components/call/CallHistory';
 import IncomingCallScreen from '../../components/call/IncomingCallScreen';
@@ -52,6 +53,7 @@ import contactsService from '../../services/contactsService';
 import groupService from '../../services/groupService';
 import settingsService from '../../services/settingsService';
 import billSplitService from '../../services/billSplitService';
+import fileUploadService from '../../services/fileUploadService';
 import { Alert } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -110,6 +112,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     showCallHistory, setShowCallHistory,
     showBillSplitModal, setShowBillSplitModal,
     showBillSummaryModal, setShowBillSummaryModal,
+    showForwardModal, setShowForwardModal,
+    forwardMessage, setForwardMessage,
     flatListRef,
   } = state;
 
@@ -1052,7 +1056,11 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           isCreator={selectedMessage?.isCreator || false}
           isGroup={selectedMessage?.isGroup || false}
           onDelete={chatHandlers.handleDeleteMessage}
-          onForward={() => Alert.alert('Forward', 'Forward functionality coming soon')}
+          onForward={() => {
+            setForwardMessage(selectedMessage);
+            setShowForwardModal(true);
+            setShowMessageMenu(false);
+          }}
           onReply={chatHandlers.handleReplyMessage}
           onPin={() => selectedMessage?.messageId && chatHandlers.handlePinMessage(selectedMessage.messageId)}
           onUnpin={() => selectedMessage?.messageId && chatHandlers.handleUnpinMessage(selectedMessage.messageId)}
@@ -1085,6 +1093,140 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           chatType={chatType}
           userEmail={userEmail}
           onLoadMessageInfo={loadMessageInfo}
+        />
+
+        <ForwardContactModal
+          visible={showForwardModal}
+          onClose={() => {
+            setShowForwardModal(false);
+            setForwardMessage(null);
+          }}
+          onSelectContact={async (target) => {
+            if (!forwardMessage) return;
+            
+            try {
+              const messageToForward = forwardMessage.message;
+              
+              // Check if it's a file message
+              try {
+                const parsed = JSON.parse(messageToForward);
+                if (parsed && parsed.type === 'file') {
+                  // Check if file exists locally
+                  const localUri = await fileUploadService.getLocalFileUri(parsed.fileId, parsed.fileName);
+                  
+                  if (localUri) {
+                    // File exists locally, re-upload from cache
+                    const uploadResult = await fileUploadService.uploadFileFromLocal(
+                      localUri,
+                      parsed.fileName,
+                      parsed.fileType,
+                      userEmail
+                    );
+                    
+                    if (uploadResult.success && uploadResult.fileId) {
+                      const fileMessage = JSON.stringify({
+                        type: 'file',
+                        fileId: uploadResult.fileId,
+                        fileName: uploadResult.fileName || parsed.fileName,
+                        fileType: uploadResult.fileType || parsed.fileType,
+                        fileSize: uploadResult.fileSize || parsed.fileSize || 0,
+                        localUri: uploadResult.localUri || null,
+                      });
+                      
+                      // Send to selected contact/group
+                      if (target.type === 'private' && target.contactEmail) {
+                        // Use socket to send to different contact
+                        const encryptedData = await encryptionService.encryptPrivateMessage(
+                          fileMessage,
+                          userEmail,
+                          target.contactEmail
+                        );
+                        socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+                          message: JSON.stringify(encryptedData),
+                          contactEmail: target.contactEmail,
+                          senderEmail: userEmail,
+                        });
+                      } else if (target.type === 'group' && target.groupId) {
+                        socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
+                          message: fileMessage,
+                          groupId: target.groupId,
+                          senderEmail: userEmail,
+                        });
+                      }
+                    }
+                  } else {
+                    // File doesn't exist locally, forward the fileId (receiver will download)
+                    if (target.type === 'private' && target.contactEmail) {
+                      const encryptedData = await encryptionService.encryptPrivateMessage(
+                        messageToForward,
+                        userEmail,
+                        target.contactEmail
+                      );
+                      socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+                        message: JSON.stringify(encryptedData),
+                        contactEmail: target.contactEmail,
+                        senderEmail: userEmail,
+                      });
+                    } else if (target.type === 'group' && target.groupId) {
+                      socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
+                        message: messageToForward,
+                        groupId: target.groupId,
+                        senderEmail: userEmail,
+                      });
+                    }
+                  }
+                } else {
+                  // Regular text message
+                  if (target.type === 'private' && target.contactEmail) {
+                    const encryptedData = await encryptionService.encryptPrivateMessage(
+                      messageToForward,
+                      userEmail,
+                      target.contactEmail
+                    );
+                    socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+                      message: JSON.stringify(encryptedData),
+                      contactEmail: target.contactEmail,
+                      senderEmail: userEmail,
+                    });
+                  } else if (target.type === 'group' && target.groupId) {
+                    socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
+                      message: messageToForward,
+                      groupId: target.groupId,
+                      senderEmail: userEmail,
+                    });
+                  }
+                }
+              } catch {
+                // Not JSON, treat as regular text
+                if (target.type === 'private' && target.contactEmail) {
+                  const encryptedData = await encryptionService.encryptPrivateMessage(
+                    messageToForward,
+                    userEmail,
+                    target.contactEmail
+                  );
+                  socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+                    message: JSON.stringify(encryptedData),
+                    contactEmail: target.contactEmail,
+                    senderEmail: userEmail,
+                  });
+                } else if (target.type === 'group' && target.groupId) {
+                  socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
+                    message: messageToForward,
+                    groupId: target.groupId,
+                    senderEmail: userEmail,
+                  });
+                }
+              }
+              
+              setShowForwardModal(false);
+              setForwardMessage(null);
+              Alert.alert('Success', 'Message forwarded successfully');
+            } catch (error) {
+              logger.error('Error forwarding message:', error);
+              Alert.alert('Error', 'Failed to forward message');
+            }
+          }}
+          message={forwardMessage?.message || ''}
         />
       </KeyboardAvoidingView>
       

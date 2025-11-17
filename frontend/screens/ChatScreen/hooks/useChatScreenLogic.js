@@ -46,6 +46,10 @@ export const useChatScreenLogic = (userEmail, socket, isConnected) => {
   const [showBillSplitModal, setShowBillSplitModal] = useState(false);
   const [showBillSummaryModal, setShowBillSummaryModal] = useState(false);
   
+  // Forward state
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [forwardMessage, setForwardMessage] = useState(null);
+  
   // Contacts state
   const [contacts, setContacts] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -139,6 +143,12 @@ export const useChatScreenLogic = (userEmail, socket, isConnected) => {
     setShowBillSplitModal,
     showBillSummaryModal,
     setShowBillSummaryModal,
+    
+    // Forward state
+    showForwardModal,
+    setShowForwardModal,
+    forwardMessage,
+    setForwardMessage,
     
     // Contacts state
     contacts,

@@ -4,11 +4,13 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
+import FullScreenImageViewer from './FullScreenImageViewer';
 
 const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt, onMenuPress, isCallMessage, callRecord, isBillSplit, billSplitData, onMarkAsPaid }) => {
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
+  const [showFullScreen, setShowFullScreen] = useState(false);
   const autoDownloadAttempted = useRef(false); // Track if auto-download was attempted
   
   // Determine if message is sent by current user (for WhatsApp-like alignment)
@@ -199,6 +201,17 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
                   const replyText = typeof replyToMessage === 'string' 
                     ? replyToMessage 
                     : (replyToMessage?.message || replyToMessage?.text || String(replyToMessage || ''));
+                  
+                  // Check if it's a file message and extract file name
+                  try {
+                    const parsed = JSON.parse(replyText);
+                    if (parsed && parsed.type === 'file') {
+                      return parsed.fileName || 'File';
+                    }
+                  } catch {
+                    // Not JSON, use as-is
+                  }
+                  
                   return replyText.length > 50 ? replyText.substring(0, 50) + '...' : replyText;
                 })()}
               </Text>
@@ -234,7 +247,12 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
           {/* Display image if downloaded */}
           {fileData.fileType === 'image' && localFileUri && !isDeleted && (
             <View style={styles.imageContainer}>
-              <Image source={{ uri: localFileUri }} style={styles.fileImage} resizeMode="cover" />
+              <TouchableOpacity
+                onPress={() => setShowFullScreen(true)}
+                activeOpacity={0.9}
+              >
+                <Image source={{ uri: localFileUri }} style={styles.fileImage} resizeMode="cover" />
+              </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.downloadButtonOverlay}
                 onPress={handleDownload}
@@ -247,6 +265,15 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
                 )}
               </TouchableOpacity>
             </View>
+          )}
+          
+          {/* Full screen image viewer */}
+          {fileData.fileType === 'image' && (
+            <FullScreenImageViewer
+              visible={showFullScreen}
+              imageUri={localFileUri}
+              onClose={() => setShowFullScreen(false)}
+            />
           )}
           
           {/* Display video if downloaded */}
@@ -450,6 +477,17 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
                 const replyText = typeof replyToMessage === 'string' 
                   ? replyToMessage 
                   : (replyToMessage?.message || replyToMessage?.text || String(replyToMessage || ''));
+                
+                // Check if it's a file message and extract file name
+                try {
+                  const parsed = JSON.parse(replyText);
+                  if (parsed && parsed.type === 'file') {
+                    return parsed.fileName || 'File';
+                  }
+                } catch {
+                  // Not JSON, use as-is
+                }
+                
                 return replyText.length > 50 ? replyText.substring(0, 50) + '...' : replyText;
               })()}
             </Text>
@@ -461,18 +499,31 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
           </Text>
         ) : (
           <>
-        <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText]}>
           {(() => {
             // Handle different message formats
-            if (typeof message === 'string') {
-              return message;
-            } else if (message && typeof message === 'object') {
-              // If message is an object, try to get the message property
-              return message.message || message.text || JSON.stringify(message);
+            const messageStr = typeof message === 'string' 
+              ? message 
+              : (message?.message || message?.text || String(message || ''));
+            
+            // Check if it's a file message JSON - don't display JSON for file messages
+            let displayText = messageStr;
+            try {
+              const parsed = JSON.parse(messageStr);
+              if (parsed && parsed.type === 'file') {
+                // Don't display JSON for file messages - the file will be displayed in the file section
+                displayText = '';
+              }
+            } catch {
+              // Not JSON, use as-is
             }
-            return String(message || '');
+            
+            // Only render text if there's content to show
+            return displayText ? (
+              <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText]}>
+                {displayText}
+              </Text>
+            ) : null;
           })()}
-        </Text>
             {editedAt && (
               <Text style={[styles.editedLabel, isMyMessage ? styles.sentTimestamp : styles.receivedTimestamp]}>
                 (edited)
