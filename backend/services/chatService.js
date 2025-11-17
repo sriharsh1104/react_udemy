@@ -173,9 +173,11 @@ class ChatService {
       const roomId = this.getRoomId(userEmail, contactEmail);
       const count = await Message.countDocuments({
         roomId,
-        receiverEmail: userEmail,
+        receiverEmail: userEmail, // Only count messages where userEmail is the receiver
+        senderEmail: contactEmail, // Only count messages from the contact (not from user themselves)
         read: false,
         messageType: 'private',
+        isDeleted: { $ne: true }, // Exclude deleted messages
       });
       return count;
     } catch (error) {
