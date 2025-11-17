@@ -600,27 +600,27 @@ const Sidebar = ({ visible, onClose, onSelectContact, contacts: parentContacts =
   const renderContact = ({ item }) => {
     const isOnline = item.isOnline || false;
     return (
-      <TouchableOpacity
-        style={styles.contactItem}
-        onPress={() => {
-          onSelectContact(item.email);
-          onClose();
-        }}
-      >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {item.name.charAt(0).toUpperCase()}
-          </Text>
-        </View>
-        <View style={styles.contactItemText}>
-          <Text style={styles.contactItemName}>{item.name}</Text>
-          <Text style={styles.contactItemEmail}>{item.email}</Text>
-        </View>
-        {item.exists && (
+    <TouchableOpacity
+      style={styles.contactItem}
+      onPress={() => {
+        onSelectContact(item.email);
+        onClose();
+      }}
+    >
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>
+          {item.name.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+      <View style={styles.contactItemText}>
+        <Text style={styles.contactItemName}>{item.name}</Text>
+        <Text style={styles.contactItemEmail}>{item.email}</Text>
+      </View>
+      {item.exists && (
           <Text style={[styles.onlineIndicator, { color: isOnline ? '#4CAF50' : '#9E9E9E' }]}>●</Text>
-        )}
-      </TouchableOpacity>
-    );
+      )}
+    </TouchableOpacity>
+  );
   };
 
   return (
