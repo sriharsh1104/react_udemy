@@ -234,12 +234,27 @@ class UserService {
     this.users.set(socketId, email);
   }
 
-  async getSocketByEmail(email) {
+  async getSocketByEmail(email, verifyConnection = false, io = null) {
     // Try Redis first if available
     if (this.useRedis && redisService.isReady()) {
       try {
         const socketId = await redisService.get(`socket:email:${email}`);
         if (socketId) {
+          // If verification requested, check if socket is actually connected
+          if (verifyConnection && io && io.sockets && io.sockets.sockets) {
+            const socket = io.sockets.sockets.get(socketId);
+            if (!socket || !socket.connected) {
+              // Socket is disconnected, clean up
+              await redisService.delete(`socket:email:${email}`);
+              await redisService.delete(`socket:id:${socketId}`);
+              // Also clean up in-memory
+              this.emailToSocket.delete(email);
+              this.users.delete(socketId);
+              this.socketToEmail.delete(socketId);
+              return null;
+            }
+          }
+          
           // Verify socket is still active by checking activity
           const activity = await redisService.get(`socket:activity:${socketId}`);
           if (activity) {
@@ -250,6 +265,10 @@ class UserService {
             // Socket is stale, clean up
             await redisService.delete(`socket:email:${email}`);
             await redisService.delete(`socket:id:${socketId}`);
+            // Also clean up in-memory
+            this.emailToSocket.delete(email);
+            this.users.delete(socketId);
+            this.socketToEmail.delete(socketId);
           }
         }
       } catch (error) {
@@ -261,8 +280,21 @@ class UserService {
     // Fallback to in-memory
     const socketId = this.emailToSocket.get(email);
     
-    // Verify socket still exists and is active
+    // Verify socket still exists, is in users map, AND is actually connected (if verification requested)
     if (socketId && this.users.has(socketId)) {
+      // CRITICAL: Verify socket is actually connected to the server if verification requested
+      if (verifyConnection && io && io.sockets && io.sockets.sockets) {
+        const socket = io.sockets.sockets.get(socketId);
+        if (!socket || !socket.connected) {
+          // Socket is disconnected, clean up stale data
+          this.emailToSocket.delete(email);
+          this.users.delete(socketId);
+          this.socketToEmail.delete(socketId);
+          this.socketLastActivity.delete(socketId);
+          return null;
+        }
+      }
+      
       // Update last activity
       this.socketLastActivity.set(socketId, Date.now());
       return socketId;
@@ -271,6 +303,9 @@ class UserService {
     // Clean up stale mapping
     if (socketId) {
       this.emailToSocket.delete(email);
+      this.users.delete(socketId);
+      this.socketToEmail.delete(socketId);
+      this.socketLastActivity.delete(socketId);
     }
     
     return null;

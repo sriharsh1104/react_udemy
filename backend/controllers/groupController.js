@@ -50,8 +50,9 @@ class GroupController {
       if (io && group) {
         // Notify all members about the new group
         const allMembers = group.members || [];
-        allMembers.forEach((memberEmail) => {
-          const memberSocketId = userService.getSocketByEmail(memberEmail);
+        // Use Promise.all for async operations
+        await Promise.all(allMembers.map(async (memberEmail) => {
+          const memberSocketId = await userService.getSocketByEmail(memberEmail);
           if (memberSocketId) {
             io.to(memberSocketId).emit('groupsUpdated', {
               groupId: group._id.toString(),
@@ -59,7 +60,7 @@ class GroupController {
               group,
             });
           }
-        });
+        }));
       }
 
       return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.GROUP_CREATED_SUCCESSFULLY, {
@@ -779,7 +780,7 @@ class GroupController {
         const userService = require('../services/userService');
         
         // Get user's socket ID
-        const userSocketId = userService.getSocketByEmail(userEmail);
+        const userSocketId = await userService.getSocketByEmail(userEmail);
         const room = io.sockets.adapter.rooms.get(roomId);
         const socketsInRoom = room?.size || 0;
         

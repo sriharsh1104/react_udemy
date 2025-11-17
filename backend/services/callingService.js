@@ -1321,7 +1321,7 @@ class CallingService {
           };
           
           // Notify caller
-          const callerSocketId = userService.getSocketByEmail(dbCall.callerEmail);
+          const callerSocketId = await userService.getSocketByEmail(dbCall.callerEmail);
           if (callerSocketId) {
             io.to(callerSocketId).emit('callEnded', callEndedData);
             io.to(callerSocketId).emit('CALL_ENDED', callEndedData);
@@ -1535,7 +1535,7 @@ class CallingService {
           for (const memberEmail of memberEmails) {
             if (memberEmail === fromEmail) continue; // Skip sender
             
-            const memberSocketId = userService.getSocketByEmail(memberEmail);
+            const memberSocketId = await userService.getSocketByEmail(memberEmail);
             if (memberSocketId) {
               io.to(memberSocketId).emit('callSignal', {
                 sessionId,

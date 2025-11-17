@@ -208,8 +208,8 @@ class SettingsController {
         });
 
         // Emit to all affected contacts
-        affectedEmails.forEach(contactEmail => {
-          const contactSocketId = userService.getSocketByEmail(contactEmail);
+        await Promise.all(Array.from(affectedEmails).map(async (contactEmail) => {
+          const contactSocketId = await userService.getSocketByEmail(contactEmail);
           if (contactSocketId) {
             const contactSocket = io.sockets.sockets.get(contactSocketId);
             if (contactSocket) {
@@ -219,7 +219,7 @@ class SettingsController {
               });
             }
           }
-        });
+        }));
 
         // If switching from offline to online, send read receipts for all messages read during offline mode
         if (wasOfflineMode && !offlineMode) {
@@ -258,7 +258,7 @@ class SettingsController {
                 );
 
                 // Notify sender that message was read
-                const senderSocketId = userService.getSocketByEmail(message.senderEmail);
+                const senderSocketId = await userService.getSocketByEmail(message.senderEmail);
                 if (senderSocketId) {
                   const senderSocket = io.sockets.sockets.get(senderSocketId);
                   if (senderSocket) {

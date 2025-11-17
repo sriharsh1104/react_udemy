@@ -249,7 +249,7 @@ class SocketService {
       
       // Notify all senders in batch
       for (const senderEmail of senderEmails) {
-        const senderSocketId = userService.getSocketByEmail(senderEmail);
+        const senderSocketId = await userService.getSocketByEmail(senderEmail);
         if (senderSocketId) {
           const senderSocket = this.io.sockets.sockets.get(senderSocketId);
           if (senderSocket) {
@@ -320,7 +320,7 @@ class SocketService {
       
       // Emit contactsUpdated event to sender immediately after unarchiving
       // This ensures the contact appears in Recent Chats right away
-      const senderSocketId = userService.getSocketByEmail(senderEmail);
+      const senderSocketId = await userService.getSocketByEmail(senderEmail);
       if (senderSocketId) {
         this.io.to(senderSocketId).emit('contactsUpdated', {
           contactEmail: contactEmail,
@@ -394,7 +394,7 @@ class SocketService {
         });
         
         // Also emit to sender to refresh their contact list (in case contact was re-added)
-        const senderSocketId = userService.getSocketByEmail(senderEmail);
+        const senderSocketId = await userService.getSocketByEmail(senderEmail);
         if (senderSocketId) {
           this.io.to(senderSocketId).emit('contactsUpdated', {
             contactEmail: contactEmail,

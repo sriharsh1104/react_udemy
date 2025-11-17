@@ -233,7 +233,7 @@ class ContactsController {
       const SocketService = require('../services/socketService');
       const io = SocketService.getIO();
       if (io) {
-        const userSocketId = userService.getSocketByEmail(userEmail);
+        const userSocketId = await userService.getSocketByEmail(userEmail);
         if (userSocketId) {
           io.to(userSocketId).emit('contactsUpdated', {
             contactEmail,
@@ -298,14 +298,26 @@ class ContactsController {
       // Get manually added contacts (for metadata like isFavorite, isPinned, etc.)
       const contactList = await contactsService.getContacts(userEmail);
       
+      // IMPORTANT: Get all socket IDs in parallel with verification for accurate online status
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      const socketIdPromises = Array.from(usersWithMessages).map(email => 
+        userService.getSocketByEmail(email, true, io) // verifyConnection = true
+      );
+      const socketIds = await Promise.all(socketIdPromises);
+      const socketIdMap = new Map();
+      Array.from(usersWithMessages).forEach((email, index) => {
+        socketIdMap.set(email, socketIds[index]);
+      });
+      
       const allContactsData = await Promise.all(
         Array.from(usersWithMessages).map(async (email) => {
           // Check if this is a manually added contact
           const manualContact = contactList.find(c => c.contactEmail === email);
           
           const profile = await userProfileService.getProfileByEmail(email);
-          // Check if contact is online
-          const socketId = userService.getSocketByEmail(email);
+          // Check if contact is online - get from pre-fetched map with verification
+          const socketId = socketIdMap.get(email);
           const isOnline = !!socketId;
           // Get unread message count
           const unreadCount = await chatService.getUnreadCount(userEmail, email);
@@ -634,14 +646,27 @@ class ContactsController {
       });
       
       // 4. Build contacts array with batched data
+      // First, get all socket IDs in parallel for better performance
+      // IMPORTANT: Verify socket connections to ensure accurate online status
+      const SocketService = require('../services/socketService');
+      const io = SocketService.getIO();
+      const socketIdPromises = allContactEmails.map(email => 
+        userService.getSocketByEmail(email, true, io) // verifyConnection = true
+      );
+      const socketIds = await Promise.all(socketIdPromises);
+      const socketIdMap = new Map();
+      allContactEmails.forEach((email, index) => {
+        socketIdMap.set(email, socketIds[index]);
+      });
+      
       const contacts = allContactEmails.map((email) => {
           // Check if this is a manually added contact
           const manualContact = contactList.find(c => c.contactEmail === email);
           const isManuallyAdded = !!manualContact;
           
         const profile = profileMap.get(email);
-          // Check if contact is online
-          const socketId = userService.getSocketByEmail(email);
+          // Check if contact is online - get from pre-fetched map
+          const socketId = socketIdMap.get(email);
           const isOnline = !!socketId;
         // Get unread count from map
         const unreadCount = unreadCountMap.get(email) || 0;
@@ -938,7 +963,7 @@ class ContactsController {
       const SocketService = require('../services/socketService');
       const io = SocketService.getIO();
       if (io) {
-        const userSocketId = userService.getSocketByEmail(userEmail);
+        const userSocketId = await userService.getSocketByEmail(userEmail);
         if (userSocketId) {
           io.to(userSocketId).emit('contactsUpdated', {
             contactEmail,
@@ -1014,7 +1039,7 @@ class ContactsController {
       const SocketService = require('../services/socketService');
       const io = SocketService.getIO();
       if (io) {
-        const userSocketId = userService.getSocketByEmail(userEmail);
+        const userSocketId = await userService.getSocketByEmail(userEmail);
         if (userSocketId) {
           io.to(userSocketId).emit('contactsUpdated', {
             contactEmail,
@@ -1190,7 +1215,7 @@ class ContactsController {
       const SocketService = require('../services/socketService');
       const io = SocketService.getIO();
       if (io) {
-        const userSocketId = userService.getSocketByEmail(userEmail);
+        const userSocketId = await userService.getSocketByEmail(userEmail);
         if (userSocketId) {
           io.to(userSocketId).emit('contactsUpdated', {
             contactEmail: contactEmail,
@@ -1236,7 +1261,7 @@ class ContactsController {
         const userService = require('../services/userService');
         
         // Get user's socket ID
-        const userSocketId = userService.getSocketByEmail(userEmail);
+        const userSocketId = await userService.getSocketByEmail(userEmail);
         const room = io.sockets.adapter.rooms.get(roomId);
         const socketsInRoom = room?.size || 0;
         
