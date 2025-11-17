@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   FlatList,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Text,
@@ -10,48 +9,49 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { useSocket } from '../hooks/useSocket';
-import { useChat } from '../hooks/useChat';
-import { useGroupChat } from '../hooks/useGroupChat';
-import socketService from '../services/socketService';
-import { SOCKET_EVENTS, COLORS, SPACING, TYPOGRAPHY } from '../constants';
-import ChatHeader from '../components/chat/ChatHeader';
-import MessageItem from '../components/chat/MessageItem';
-import MessageInput from '../components/chat/MessageInput';
-import TypingIndicator from '../components/chat/TypingIndicator';
-import Sidebar, { InviteModal } from '../components/chat/Sidebar';
-import RecentChats from '../components/chat/RecentChats';
-import CreateGroupModal from '../components/chat/CreateGroupModal';
-import GroupInfoModal from '../components/chat/GroupInfoModal';
-import ContactInfoModal from '../components/chat/ContactInfoModal';
-import MessageActionMenu from '../components/chat/MessageActionMenu';
-import MessageActionBar from '../components/chat/MessageActionBar';
-import MessageInfoModal from '../components/chat/MessageInfoModal';
-import PinnedMessageBanner from '../components/chat/PinnedMessageBanner';
-import GLoader from '../components/common/GLoader';
-import StatusFeed from '../components/chat/StatusFeed';
-import Status from '../components/chat/Status';
-import CallHistory from '../components/call/CallHistory';
-import CallHistoryTab from '../components/call/CallHistoryTab';
-import IncomingCallScreen from '../components/call/IncomingCallScreen';
-import ActiveCallScreen from '../components/call/ActiveCallScreen';
-import PermissionPrompt from '../components/call/PermissionPrompt';
-import BillSplitModal from '../components/chat/BillSplitModal';
-import BillSummaryModal from '../components/chat/BillSummaryModal';
-import contactsService from '../services/contactsService';
-import billSplitService from '../services/billSplitService';
-import webrtcService from '../services/webrtcService';
-import { useCall } from '../hooks/useCall';
-import groupService from '../services/groupService';
-import fileUploadService from '../services/fileUploadService';
-import settingsService from '../services/settingsService';
+import { useSocket } from '../../hooks/useSocket';
+import { useChat } from '../../hooks/useChat';
+import { useGroupChat } from '../../hooks/useGroupChat';
+import socketService from '../../services/socketService';
+import { SOCKET_EVENTS, COLORS } from '../../constants';
+import styles from './styles';
+import ChatHeader from '../../components/chat/ChatHeader';
+import MessageItem from '../../components/chat/MessageItem';
+import MessageInput from '../../components/chat/MessageInput';
+import TypingIndicator from '../../components/chat/TypingIndicator';
+import Sidebar, { InviteModal } from '../../components/chat/Sidebar';
+import RecentChats from '../../components/chat/RecentChats';
+import CreateGroupModal from '../../components/chat/CreateGroupModal';
+import GroupInfoModal from '../../components/chat/GroupInfoModal';
+import ContactInfoModal from '../../components/chat/ContactInfoModal';
+import MessageActionMenu from '../../components/chat/MessageActionMenu';
+import MessageActionBar from '../../components/chat/MessageActionBar';
+import MessageInfoModal from '../../components/chat/MessageInfoModal';
+import PinnedMessageBanner from '../../components/chat/PinnedMessageBanner';
+import GLoader from '../../components/common/GLoader';
+import StatusFeed from '../../components/chat/StatusFeed';
+import Status from '../../components/chat/Status';
+import CallHistory from '../../components/call/CallHistory';
+import CallHistoryTab from '../../components/call/CallHistoryTab';
+import IncomingCallScreen from '../../components/call/IncomingCallScreen';
+import ActiveCallScreen from '../../components/call/ActiveCallScreen';
+import PermissionPrompt from '../../components/call/PermissionPrompt';
+import BillSplitModal from '../../components/chat/BillSplitModal';
+import BillSummaryModal from '../../components/chat/BillSummaryModal';
+import contactsService from '../../services/contactsService';
+import billSplitService from '../../services/billSplitService';
+import webrtcService from '../../services/webrtcService';
+import { useCall } from '../../hooks/useCall';
+import groupService from '../../services/groupService';
+import fileUploadService from '../../services/fileUploadService';
+import settingsService from '../../services/settingsService';
 import { Alert } from 'react-native';
-import ConfirmationModal from '../components/common/ConfirmationModal';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as Clipboard from 'expo-clipboard';
-import { useTheme } from '../contexts/ThemeContext';
-import { useNotifications } from '../contexts/NotificationContext';
-import encryptionService from '../services/encryptionService';
-import { showSuccessToast } from '../utils/toast';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useNotifications } from '../../contexts/NotificationContext';
+import encryptionService from '../../services/encryptionService';
+import { showSuccessToast } from '../../utils/toast';
 
 const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLogoutPress, navigation }) => {
   const { colors } = useTheme();
@@ -1657,28 +1657,28 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               onPress={() => navigation.navigate('Chat')}
             >
               <Text style={[styles.tabIcon, currentRouteName === 'Chat' && styles.activeTabIcon]}>💬</Text>
-              <Text style={[styles.tabLabel, currentRouteName === 'Chat' && styles.activeTabLabel]}>Chat</Text>
+              <Text style={[styles.tabLabel, currentRouteName === 'Chat' && styles.activeTabLabel, { color: currentRouteName === 'Chat' ? colors.primary : colors.textSecondary }]}>Chat</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabButton, currentRouteName === 'Feed' && styles.activeTabButton]}
               onPress={() => navigation.navigate('Feed', { userEmail })}
             >
               <Text style={[styles.tabIcon, currentRouteName === 'Feed' && styles.activeTabIcon]}>📰</Text>
-              <Text style={[styles.tabLabel, currentRouteName === 'Feed' && styles.activeTabLabel]}>Feed</Text>
+              <Text style={[styles.tabLabel, currentRouteName === 'Feed' && styles.activeTabLabel, { color: currentRouteName === 'Feed' ? colors.primary : colors.textSecondary }]}>Feed</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabButton, currentRouteName === 'Status' && styles.activeTabButton]}
               onPress={() => navigation.navigate('Status', { userEmail })}
             >
               <Text style={[styles.tabIcon, currentRouteName === 'Status' && styles.activeTabIcon]}>📱</Text>
-              <Text style={[styles.tabLabel, currentRouteName === 'Status' && styles.activeTabLabel]}>Status</Text>
+              <Text style={[styles.tabLabel, currentRouteName === 'Status' && styles.activeTabLabel, { color: currentRouteName === 'Status' ? colors.primary : colors.textSecondary }]}>Status</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabButton, currentRouteName === 'Call' && styles.activeTabButton]}
               onPress={() => navigation.navigate('Call', { userEmail })}
             >
               <Text style={[styles.tabIcon, currentRouteName === 'Call' && styles.activeTabIcon]}>📞</Text>
-              <Text style={[styles.tabLabel, currentRouteName === 'Call' && styles.activeTabLabel]}>Call</Text>
+              <Text style={[styles.tabLabel, currentRouteName === 'Call' && styles.activeTabLabel, { color: currentRouteName === 'Call' ? colors.primary : colors.textSecondary }]}>Call</Text>
             </TouchableOpacity>
           </View>
 
@@ -1792,28 +1792,28 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           onPress={() => navigation.navigate('Chat')}
         >
           <Text style={[styles.tabIcon, currentRouteName === 'Chat' && styles.activeTabIcon]}>💬</Text>
-          <Text style={[styles.tabLabel, currentRouteName === 'Chat' && styles.activeTabLabel]}>Chat</Text>
+          <Text style={[styles.tabLabel, currentRouteName === 'Chat' && styles.activeTabLabel, { color: currentRouteName === 'Chat' ? colors.primary : colors.textSecondary }]}>Chat</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, currentRouteName === 'Feed' && styles.activeTabButton]}
           onPress={() => navigation.navigate('Feed', { userEmail })}
         >
           <Text style={[styles.tabIcon, currentRouteName === 'Feed' && styles.activeTabIcon]}>📰</Text>
-          <Text style={[styles.tabLabel, currentRouteName === 'Feed' && styles.activeTabLabel]}>Feed</Text>
+          <Text style={[styles.tabLabel, currentRouteName === 'Feed' && styles.activeTabLabel, { color: currentRouteName === 'Feed' ? colors.primary : colors.textSecondary }]}>Feed</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, currentRouteName === 'Status' && styles.activeTabButton]}
           onPress={() => navigation.navigate('Status', { userEmail })}
         >
           <Text style={[styles.tabIcon, currentRouteName === 'Status' && styles.activeTabIcon]}>📱</Text>
-          <Text style={[styles.tabLabel, currentRouteName === 'Status' && styles.activeTabLabel]}>Status</Text>
+          <Text style={[styles.tabLabel, currentRouteName === 'Status' && styles.activeTabLabel, { color: currentRouteName === 'Status' ? colors.primary : colors.textSecondary }]}>Status</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, currentRouteName === 'Call' && styles.activeTabButton]}
           onPress={() => navigation.navigate('Call', { userEmail })}
         >
           <Text style={[styles.tabIcon, currentRouteName === 'Call' && styles.activeTabIcon]}>📞</Text>
-          <Text style={[styles.tabLabel, currentRouteName === 'Call' && styles.activeTabLabel]}>Call</Text>
+          <Text style={[styles.tabLabel, currentRouteName === 'Call' && styles.activeTabLabel, { color: currentRouteName === 'Call' ? colors.primary : colors.textSecondary }]}>Call</Text>
         </TouchableOpacity>
       </View>
 
@@ -1969,143 +1969,5 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
       </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: SPACING.md,
-    color: COLORS.textSecondary,
-    fontSize: 16,
-  },
-  chatBackground: {
-    flex: 1,
-    backgroundColor: COLORS.chatBackground,
-    position: 'relative',
-  },
-  messagesList: {
-    flex: 1,
-  },
-  messagesContent: {
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.sm,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  comingSoonContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  comingSoonText: {
-    fontSize: TYPOGRAPHY.fontSize.xxl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text,
-    marginBottom: SPACING.md,
-  },
-  comingSoonSubtext: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  bottomTabBar: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    paddingVertical: SPACING.sm,
-    paddingBottom: Platform.OS === 'ios' ? SPACING.md : SPACING.sm,
-    backgroundColor: COLORS.background,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.shadow,
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.xs,
-  },
-  activeTabButton: {
-    // Active state styling handled by icon and label colors
-  },
-  tabIcon: {
-    fontSize: 24,
-    marginBottom: SPACING.xs / 2,
-  },
-  activeTabIcon: {
-    // Icon color stays the same, but you can add transform or other effects
-  },
-  tabLabel: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.textSecondary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-  },
-  activeTabLabel: {
-    color: COLORS.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-  },
-  footer: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderTopWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.background,
-  },
-  footerText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-  },
-  messagesLoadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  messagesLoadingText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.textSecondary,
-  },
-});
 
 export default ChatScreen;
