@@ -93,6 +93,36 @@ class UserService {
     return this.users.get(socketId);
   }
 
+  // Get email from socket ID (with Redis fallback)
+  async getEmailFromSocket(socketId) {
+    if (!socketId) {
+      return null;
+    }
+    
+    // Try in-memory first
+    let email = this.users.get(socketId) || this.socketToEmail.get(socketId);
+    if (email) {
+      return email;
+    }
+    
+    // Try Redis if available
+    if (this.useRedis && redisService.isReady()) {
+      try {
+        email = await redisService.get(`socket:id:${socketId}`);
+        if (email) {
+          // Update in-memory cache
+          this.users.set(socketId, email);
+          this.socketToEmail.set(socketId, email);
+          return email;
+        }
+      } catch (error) {
+        console.error('Error getting email from Redis:', error);
+      }
+    }
+    
+    return null;
+  }
+
   getAllUsers() {
     return Array.from(this.users.values());
   }

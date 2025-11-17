@@ -129,6 +129,27 @@ class CallingService {
    */
   async initiateCall(callerEmail, receiverEmail, groupId, type, socketId) {
     try {
+      console.log('📞 callingService.initiateCall called with:');
+      console.log('  - callerEmail:', callerEmail);
+      console.log('  - receiverEmail:', receiverEmail);
+      console.log('  - groupId:', groupId);
+      console.log('  - type:', type);
+      console.log('  - socketId:', socketId);
+      
+      // Validate inputs
+      if (!callerEmail) {
+        throw new Error('Caller email is required');
+      }
+      
+      if (!receiverEmail && !groupId) {
+        throw new Error('Either receiverEmail or groupId is required');
+      }
+      
+      // Validate that caller and receiver are different
+      if (receiverEmail && callerEmail.toLowerCase() === receiverEmail.toLowerCase()) {
+        throw new Error('Cannot call yourself');
+      }
+      
       const io = SocketService.getIO();
       if (!io) {
         throw new Error('Socket.IO not initialized');
@@ -140,12 +161,13 @@ class CallingService {
       let receiverSocketId = null;
       if (receiverEmail) {
         receiverSocketId = await userService.getSocketByEmail(receiverEmail);
+        console.log('📞 callingService: Receiver socket ID:', receiverSocketId);
       }
       
       const callData = {
         sessionId,
-        callerEmail,
-        receiverEmail: receiverEmail || null,
+        callerEmail: callerEmail.toLowerCase().trim(), // Normalize email
+        receiverEmail: receiverEmail ? receiverEmail.toLowerCase().trim() : null, // Normalize email
         groupId: groupId || null,
         type, // 'audio' or 'video'
         status: 'ringing',
@@ -154,6 +176,14 @@ class CallingService {
         callerSocketId: socketId,
         receiverSocketId: receiverSocketId, // Store receiver socket ID immediately
       };
+      
+      console.log('📞 callingService: Call data to be stored:', {
+        sessionId: callData.sessionId,
+        callerEmail: callData.callerEmail,
+        receiverEmail: callData.receiverEmail,
+        groupId: callData.groupId,
+        type: callData.type
+      });
 
       // Store call session in Redis
       const redisStored = await redisService.set(`call:${sessionId}`, callData, 300); // 5 min TTL
@@ -173,17 +203,80 @@ class CallingService {
         console.log('✅ Backend: Verified call session in Redis');
       }
 
-      // Create call record in database
-      const call = new Call({
-        callerEmail,
-        receiverEmail: receiverEmail || null,
-        groupId: groupId || null,
-        type,
+      // Get names for caller and receiver
+      const User = require('../models/User');
+      let callerName = '';
+      let receiverName = '';
+      
+      try {
+        const callerProfile = await User.findOne({ email: callData.callerEmail }).select('name').lean();
+        callerName = callerProfile?.name || callData.callerEmail.split('@')[0];
+      } catch (error) {
+        console.warn('Error fetching caller name:', error);
+        callerName = callData.callerEmail.split('@')[0];
+      }
+      
+      if (callData.receiverEmail) {
+        try {
+          const receiverProfile = await User.findOne({ email: callData.receiverEmail }).select('name').lean();
+          receiverName = receiverProfile?.name || callData.receiverEmail.split('@')[0];
+        } catch (error) {
+          console.warn('Error fetching receiver name:', error);
+          receiverName = callData.receiverEmail.split('@')[0];
+        }
+      }
+      
+      // Create call record for CALLER (outgoing direction)
+      const callerCall = new Call({
+        callerEmail: callData.callerEmail, // Use normalized email from callData
+        receiverEmail: callData.receiverEmail, // Use normalized email from callData
+        callerName: callerName, // Populate caller name
+        receiverName: receiverName, // Populate receiver name
+        groupId: callData.groupId,
+        type: callData.type,
         direction: 'outgoing',
         status: 'ringing',
-        sessionId,
+        sessionId: callData.sessionId,
       });
-      await call.save();
+      
+      console.log('📞 callingService: Saving caller call to database:', {
+        callerEmail: callerCall.callerEmail,
+        callerName: callerCall.callerName,
+        receiverEmail: callerCall.receiverEmail,
+        receiverName: callerCall.receiverName,
+        direction: callerCall.direction,
+        sessionId: callerCall.sessionId
+      });
+      
+      await callerCall.save();
+      
+      // Create call record for RECEIVER (incoming direction) if receiverEmail exists
+      if (callData.receiverEmail) {
+        const receiverCall = new Call({
+          callerEmail: callData.callerEmail,
+          receiverEmail: callData.receiverEmail,
+          callerName: callerName, // Caller's name (for receiver's incoming call)
+          receiverName: receiverName, // Receiver's name (for receiver's incoming call)
+          groupId: callData.groupId,
+          type: callData.type,
+          direction: 'incoming',
+          status: 'ringing',
+          sessionId: `${callData.sessionId}_incoming`, // Unique session ID for receiver's record
+        });
+        
+        console.log('📞 callingService: Saving receiver call to database:', {
+          callerEmail: receiverCall.callerEmail,
+          callerName: receiverCall.callerName,
+          receiverEmail: receiverCall.receiverEmail,
+          receiverName: receiverCall.receiverName,
+          direction: receiverCall.direction,
+          sessionId: receiverCall.sessionId
+        });
+        
+        await receiverCall.save();
+      }
+      
+      console.log('📞 callingService: Call records saved to database successfully');
 
       // Check if receiver is online and available
       if (receiverEmail) {
@@ -192,13 +285,19 @@ class CallingService {
         const isReceiverBusy = await this.isUserBusy(receiverEmail);
 
         if (!isReceiverOnline) {
-          // User is offline - mark as missed
-          await this.handleCallFailed(sessionId, 'missed', 'User offline');
+          // User is offline - try calling for 20 seconds then auto cut
+          const offlineTimeout = setTimeout(async () => {
+            await this.handleCallFailed(sessionId, 'missed', 'User offline');
+          }, 20000); // 20 seconds for offline users
+          await this.setRingTimeout(sessionId, offlineTimeout);
+          
+          // Still emit call to receiver (they might come online)
+          // But set shorter timeout
           return {
-            success: false,
-            status: 'missed',
-            message: 'User is offline',
+            success: true,
+            status: 'ringing',
             sessionId,
+            message: 'User is offline, trying to connect...',
           };
         }
 
@@ -228,10 +327,10 @@ class CallingService {
           timestamp: new Date().toISOString(),
         });
 
-        // Set ringing timeout (30 seconds)
+        // Set ringing timeout (50 seconds for online users)
         const ringTimeout = setTimeout(async () => {
           await this.handleCallTimeout(sessionId);
-        }, 30000);
+        }, 50000); // 50 seconds for online users
         await this.setRingTimeout(sessionId, ringTimeout);
 
         // Track active call
@@ -392,18 +491,29 @@ class CallingService {
       callData.acceptedAt = new Date();
       await redisService.set(`call:${sessionId}`, callData, 3600); // 1 hour TTL
 
-      // Update database
+      // Update both call records in database (caller and receiver)
+      const callStartTime = new Date();
+      callData.startedAt = callStartTime;
+      
+      // Update caller's call record (outgoing)
       await Call.updateOne(
         { sessionId },
         {
           status: 'connecting',
-          startedAt: new Date(),
+          startedAt: callStartTime,
         }
       );
-
-      // Start call duration tracking - use same timestamp for both sides
-      const callStartTime = new Date();
-      callData.startedAt = callStartTime;
+      
+      // Update receiver's call record (incoming)
+      if (callData.receiverEmail) {
+        await Call.updateOne(
+          { sessionId: `${sessionId}_incoming` },
+          {
+            status: 'connecting',
+            startedAt: callStartTime,
+          }
+        );
+      }
       await this.setActiveCall(sessionId, callData);
 
       // Notify caller with start time for timer sync
@@ -550,8 +660,11 @@ class CallingService {
 
       const io = SocketService.getIO();
       
-      // Update status to missed
+      // Update status to missed for both call records
       await this.updateCallStatus(sessionId, 'missed');
+      if (callData.receiverEmail) {
+        await this.updateCallStatus(`${sessionId}_incoming`, 'missed');
+      }
 
       // Notify caller
       io.to(callData.callerSocketId).emit('callMissed', {
@@ -586,20 +699,35 @@ class CallingService {
           timestamp: new Date().toISOString(),
         });
 
-        // If status is 'missed' and there's a receiver, create incoming call record for receiver
-        if (status === 'missed' && callData.receiverEmail) {
-          // Create incoming call record for receiver
-          const receiverCall = new Call({
-            callerEmail: callData.callerEmail,
-            receiverEmail: callData.receiverEmail,
-            groupId: callData.groupId || null,
-            type: callData.type,
-            direction: 'incoming',
-            status: 'missed',
-            sessionId: `${sessionId}_incoming`, // Unique session ID for receiver's record
-            endedAt: new Date(),
-          });
-          await receiverCall.save();
+        // Update receiver's call record if it exists (created during initiateCall)
+        if (callData.receiverEmail) {
+          const receiverSessionId = `${sessionId}_incoming`;
+          const existingReceiverCall = await Call.findOne({ sessionId: receiverSessionId });
+          
+          if (existingReceiverCall) {
+            // Update existing receiver call record
+            await Call.updateOne(
+              { sessionId: receiverSessionId },
+              {
+                status,
+                endedAt: new Date(),
+                updatedAt: new Date(),
+              }
+            );
+          } else if (status === 'missed') {
+            // Create incoming call record for receiver if it doesn't exist (fallback)
+            const receiverCall = new Call({
+              callerEmail: callData.callerEmail,
+              receiverEmail: callData.receiverEmail,
+              groupId: callData.groupId || null,
+              type: callData.type,
+              direction: 'incoming',
+              status: 'missed',
+              sessionId: receiverSessionId,
+              endedAt: new Date(),
+            });
+            await receiverCall.save();
+          }
 
           // Try to notify receiver if they're online
           const receiverSocketId = await userService.getSocketByEmail(callData.receiverEmail);
@@ -904,7 +1032,7 @@ class CallingService {
       
       const io = SocketService.getIO();
       let duration = 0;
-      let status = 'cancelled';
+      let status = 'busy'; // Default to busy if cut before pickup
       let startedAt = null;
 
       if (callData) {
@@ -914,10 +1042,10 @@ class CallingService {
           // Handle both Date objects and ISO strings
           const startTime = startedAt instanceof Date ? startedAt : new Date(startedAt);
           duration = Math.floor((new Date() - startTime) / 1000);
-          status = duration > 0 ? 'completed' : 'cancelled';
+          status = duration > 0 ? 'completed' : 'busy';
         } else {
-          // Call was ended before being accepted
-          status = 'cancelled';
+          // Call was ended before being accepted - mark as busy (cut before pickup)
+          status = 'busy';
         }
 
         // Check current call status in database before updating
@@ -940,16 +1068,32 @@ class CallingService {
           return { success: true, duration: 0, status: 'missed' };
         }
 
-        // Update database
+        // Update both call records in database (caller and receiver)
+        const endTime = new Date();
+        
+        // Update caller's call record (outgoing)
         await Call.updateOne(
           { sessionId },
           {
             status,
             duration,
-            endedAt: new Date(),
-            updatedAt: new Date(),
+            endedAt: endTime,
+            updatedAt: endTime,
           }
         );
+        
+        // Update receiver's call record (incoming)
+        if (callData.receiverEmail) {
+          await Call.updateOne(
+            { sessionId: `${sessionId}_incoming` },
+            {
+              status,
+              duration,
+              endedAt: endTime,
+              updatedAt: endTime,
+            }
+          );
+        }
 
         // Prepare callEnded data
         const callEndedData = {

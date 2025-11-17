@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
@@ -8,6 +8,9 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useCall } from '../../hooks/useCall';
 import useUserEmail from '../../hooks/useUserEmail';
 import { Alert } from 'react-native';
+import IncomingCallScreen from '../../components/call/IncomingCallScreen';
+import ActiveCallScreen from '../../components/call/ActiveCallScreen';
+import contactsService from '../../services/contactsService';
 import styles from './styles';
 
 const CallScreen = ({ navigation }) => {
@@ -15,22 +18,66 @@ const CallScreen = ({ navigation }) => {
   const currentRoute = useRoute();
   const { userEmail } = useUserEmail();
   const [loading, setLoading] = useState(false);
+  const [contacts, setContacts] = useState([]);
   const currentRouteName = currentRoute?.name || 'Call';
 
+  // Get all call state and handlers from useCall hook
   const {
+    callState,
+    callData,
+    localStream,
+    remoteStream,
+    isMuted,
+    isSpeakerOn,
+    isVideoOn,
+    callDuration,
     initiateCall: initiateCallHook,
+    acceptCall,
+    declineCall,
+    endCall,
+    toggleMute,
+    toggleSpeaker,
+    toggleVideo,
+    showPermissionPrompt,
+    permissionDeviceType,
+    handlePermissionRetry,
+    handlePermissionCancel,
   } = useCall(userEmail);
+
+  // Load contacts to get names
+  useEffect(() => {
+    const loadContacts = async () => {
+      try {
+        const result = await contactsService.getContacts();
+        if (result.success) {
+          setContacts(result.contacts || []);
+        }
+      } catch (error) {
+        console.error('Error loading contacts:', error);
+      }
+    };
+    loadContacts();
+  }, []);
+
+  // Get contact name from email
+  const getContactName = useCallback((email) => {
+    if (!email) return null;
+    // Try to find contact by contactEmail or email field
+    const contact = contacts.find(c => 
+      (c.contactEmail === email) || (c.email === email)
+    );
+    // Return contact name if found, otherwise extract from email
+    return contact?.name || email.split('@')[0];
+  }, [contacts]);
 
   const handleCallFromHistory = async (type, targetEmail, targetGroupId) => {
     try {
       if (targetGroupId) {
         await initiateCallHook(null, targetGroupId, type);
-        // Navigate back to Chat screen where call UI is handled
-        navigation.navigate('Chat');
+        // Call UI will show directly in CallScreen, no need to navigate
       } else if (targetEmail) {
         await initiateCallHook(targetEmail, null, type);
-        // Navigate back to Chat screen where call UI is handled
-        navigation.navigate('Chat');
+        // Call UI will show directly in CallScreen, no need to navigate
       }
     } catch (error) {
       console.error('Error calling from history:', error);
@@ -38,12 +85,70 @@ const CallScreen = ({ navigation }) => {
     }
   };
 
+  // Render call screens
+  const renderCallScreens = useCallback(() => {
+    if (!callState || callState === 'idle') return null;
+
+    const isOutgoing = callData?.direction === 'outgoing';
+    
+    // Get names for incoming calls
+    const incomingCallerName = callData?.direction === 'incoming' 
+      ? (getContactName(callData?.callerEmail) || callData?.callerEmail?.split('@')[0] || 'Unknown')
+      : null;
+    
+    // Get names for outgoing calls
+    const outgoingReceiverName = callData?.direction === 'outgoing'
+      ? (getContactName(callData?.receiverEmail) || callData?.receiverEmail?.split('@')[0] || 'Unknown')
+      : null;
+    
+    // Get participant name for active call
+    const participantEmail = callData?.direction === 'outgoing' 
+      ? callData?.receiverEmail 
+      : callData?.callerEmail;
+    const participantName = getContactName(participantEmail) || participantEmail?.split('@')[0] || 'Unknown';
+    
+    return (
+      <>
+        <IncomingCallScreen
+          visible={callState === 'ringing'}
+          callerName={incomingCallerName}
+          callerEmail={callData?.callerEmail}
+          callType={callData?.type || 'audio'}
+          isOutgoing={isOutgoing}
+          receiverName={outgoingReceiverName}
+          receiverEmail={callData?.receiverEmail}
+          onAccept={acceptCall}
+          onDecline={declineCall}
+        />
+        <ActiveCallScreen
+          visible={callState === 'active' || callState === 'connecting'}
+          participantName={participantName}
+          participantEmail={participantEmail}
+          callType={callData?.type || 'audio'}
+          duration={callDuration}
+          localStream={localStream}
+          remoteStream={remoteStream}
+          onEndCall={endCall}
+          onToggleMute={toggleMute}
+          onToggleSpeaker={toggleSpeaker}
+          onToggleVideo={toggleVideo}
+          isMuted={isMuted}
+          isSpeakerOn={isSpeakerOn}
+          isVideoOn={isVideoOn}
+        />
+      </>
+    );
+  }, [callState, callData, callDuration, localStream, remoteStream, acceptCall, declineCall, endCall, toggleMute, toggleSpeaker, toggleVideo, isMuted, isSpeakerOn, isVideoOn, getContactName]);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <CallHistoryTab
         userEmail={userEmail}
         onCallPress={handleCallFromHistory}
       />
+      
+      {/* Call UI Screens - Ringing and Active Call */}
+      {renderCallScreens()}
       
       {/* Bottom Tab Bar */}
       <View style={[styles.bottomTabBar, { borderTopColor: colors.divider, backgroundColor: colors.background }]}>

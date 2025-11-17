@@ -32,18 +32,21 @@ class CallController {
       const email = req.userEmail; // From auth middleware
       const { contactEmail, groupId } = req.query;
 
+      // IMPORTANT: Filter by direction to get only the user's perspective
+      // - If user is caller: get records with direction='outgoing' AND callerEmail=email
+      // - If user is receiver: get records with direction='incoming' AND receiverEmail=email
       let query = {
         $or: [
-          { callerEmail: email },
-          { receiverEmail: email },
+          { callerEmail: email, direction: 'outgoing' }, // User's outgoing calls
+          { receiverEmail: email, direction: 'incoming' }, // User's incoming calls
         ],
       };
 
       if (contactEmail) {
         query = {
           $or: [
-            { callerEmail: email, receiverEmail: contactEmail },
-            { callerEmail: contactEmail, receiverEmail: email },
+            { callerEmail: email, receiverEmail: contactEmail, direction: 'outgoing' },
+            { callerEmail: contactEmail, receiverEmail: email, direction: 'incoming' },
           ],
         };
       }
@@ -52,8 +55,8 @@ class CallController {
         query = {
           groupId: groupId,
           $or: [
-            { callerEmail: email },
-            { receiverEmail: email },
+            { callerEmail: email, direction: 'outgoing' },
+            { receiverEmail: email, direction: 'incoming' },
           ],
         };
       }

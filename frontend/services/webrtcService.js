@@ -123,6 +123,15 @@ class WebRTCService {
    */
   async initiateCall(receiverEmail, groupId, type = 'audio') {
     try {
+      // Clean up any existing local stream first
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => {
+          track.stop();
+          track.enabled = false;
+        });
+        this.localStream = null;
+      }
+
       // Request permissions first
       await this.requestPermissions(type);
 
@@ -173,6 +182,18 @@ class WebRTCService {
           cleanup();
           
           const sessionId = data.sessionId;
+          
+          // Clean up any existing peer connection for this session before creating a new one
+          const existingConnection = this.peerConnections.get(sessionId);
+          if (existingConnection) {
+            console.log('🧹 Cleaning up existing peer connection for session:', sessionId);
+            try {
+              existingConnection.close();
+            } catch (error) {
+              console.warn('Error closing existing peer connection:', error);
+            }
+            this.peerConnections.delete(sessionId);
+          }
           
           // Create peer connection for caller
           const peerConnection = this.createPeerConnection(sessionId);
@@ -272,6 +293,27 @@ class WebRTCService {
       if (!this.currentCall || this.currentCall.sessionId !== sessionId) {
         console.error('❌ webrtcService: Call not found or sessionId mismatch');
         throw new Error('Call not found');
+      }
+
+      // Clean up any existing local stream first
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => {
+          track.stop();
+          track.enabled = false;
+        });
+        this.localStream = null;
+      }
+
+      // Clean up any existing peer connection for this session before creating a new one
+      const existingConnection = this.peerConnections.get(sessionId);
+      if (existingConnection) {
+        console.log('🧹 Cleaning up existing peer connection for session:', sessionId);
+        try {
+          existingConnection.close();
+        } catch (error) {
+          console.warn('Error closing existing peer connection:', error);
+        }
+        this.peerConnections.delete(sessionId);
       }
 
       // Request permissions first
@@ -505,6 +547,12 @@ class WebRTCService {
           throw new Error('Invalid SDP format: expected string');
         }
         
+        // Check if remote description is already set
+        if (peerConnection.remoteDescription) {
+          console.warn('⚠️ Remote description already set for offer, ignoring duplicate');
+          return;
+        }
+        
         await peerConnection.setRemoteDescription(new RTCSessionDescription({
           type: 'offer',
           sdp: normalizedSignal.sdp,
@@ -528,25 +576,107 @@ class WebRTCService {
           throw new Error('Invalid SDP format: expected string');
         }
         
+        // Check peer connection state before setting remote description
+        const currentState = peerConnection.signalingState;
+        if (currentState === 'stable' && peerConnection.remoteDescription) {
+          console.warn('⚠️ Remote description already set and connection is stable, ignoring duplicate answer');
+          return;
+        }
+        
+        // Only set if we're in have-local-offer state (waiting for answer)
+        if (currentState !== 'have-local-offer' && currentState !== 'stable') {
+          console.warn(`⚠️ Cannot set remote answer in state: ${currentState}, ignoring`);
+          return;
+        }
+        
         await peerConnection.setRemoteDescription(new RTCSessionDescription({
           type: 'answer',
           sdp: normalizedSignal.sdp,
         }));
       } else if (normalizedSignal.type === 'ice-candidate') {
         // Add ICE candidate for both sides
-        if (normalizedSignal.candidate) {
-          // Ensure candidate is properly formatted
-          const candidate = normalizedSignal.candidate.candidate || normalizedSignal.candidate;
-          if (candidate) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(
-              typeof candidate === 'string' ? { candidate } : candidate
-            ));
+        if (!normalizedSignal.candidate) {
+          return;
+        }
+        
+        // Extract candidate data
+        let candidateData = normalizedSignal.candidate;
+        
+        // Handle different candidate formats
+        if (typeof candidateData === 'string') {
+          candidateData = { candidate: candidateData };
+        } else if (candidateData && typeof candidateData === 'object') {
+          // Already in object format, make a copy
+          candidateData = { ...candidateData };
+        } else {
+          console.warn('⚠️ Invalid ICE candidate format:', candidateData);
+          return;
+        }
+        
+        // Validate ICE candidate - must have candidate string
+        if (!candidateData.candidate || typeof candidateData.candidate !== 'string' || candidateData.candidate.trim() === '') {
+          console.warn('⚠️ ICE candidate missing or invalid candidate string, ignoring');
+          return;
+        }
+        
+        // Check for end-of-candidates marker
+        if (candidateData.candidate.includes('end-of-candidates') || candidateData.candidate.trim() === '') {
+          console.log('📡 Received end-of-candidates marker');
+          return;
+        }
+        
+        // Validate that at least one of sdpMid or sdpMLineIndex is present
+        // According to WebRTC spec, both cannot be null for regular candidates
+        const sdpMid = candidateData.sdpMid;
+        const sdpMLineIndex = candidateData.sdpMLineIndex;
+        
+        // Check if both are explicitly null or undefined
+        if ((sdpMid === null || sdpMid === undefined) && (sdpMLineIndex === null || sdpMLineIndex === undefined)) {
+          console.warn('⚠️ ICE candidate missing both sdpMid and sdpMLineIndex, skipping:', {
+            candidate: candidateData.candidate.substring(0, 50) + '...',
+            sdpMid,
+            sdpMLineIndex
+          });
+          return;
+        }
+        
+        // Prepare candidate object with only valid fields
+        const validCandidateData = {
+          candidate: candidateData.candidate,
+        };
+        
+        // Add sdpMid if present and not null
+        if (sdpMid !== null && sdpMid !== undefined) {
+          validCandidateData.sdpMid = sdpMid;
+        }
+        
+        // Add sdpMLineIndex if present and not null
+        if (sdpMLineIndex !== null && sdpMLineIndex !== undefined) {
+          validCandidateData.sdpMLineIndex = sdpMLineIndex;
+        }
+        
+        // Add usernameFragment if present
+        if (candidateData.usernameFragment) {
+          validCandidateData.usernameFragment = candidateData.usernameFragment;
+        }
+        
+        // Add the validated ICE candidate
+        try {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(validCandidateData));
+        } catch (iceError) {
+          // If adding candidate fails, log but don't throw (candidates can arrive out of order)
+          // This is common when candidates arrive before remote description is set
+          if (iceError.message && iceError.message.includes('sdpMid and sdpMLineIndex are both null')) {
+            console.warn('⚠️ ICE candidate validation failed (both sdpMid and sdpMLineIndex null):', iceError.message);
+          } else {
+            console.warn('⚠️ Failed to add ICE candidate (may be out of order or invalid):', iceError.message);
           }
         }
       }
     } catch (error) {
       console.error('Error handling signaling:', error);
-      throw error;
+      // Don't throw - log and continue to avoid breaking the signaling flow
+      // Some errors (like duplicate descriptions) are recoverable
     }
   }
 

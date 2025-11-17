@@ -146,9 +146,9 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     if (!hasInitialized.current) {
       hasInitialized.current = true;
       
-      // Set global logout handler for invalid token
-      setGlobalLogoutHandler(handleInvalidTokenLogout);
-      
+    // Set global logout handler for invalid token
+    setGlobalLogoutHandler(handleInvalidTokenLogout);
+    
       // One-time migration: Clear old random salts to use new deterministic salts
       const migrateEncryptionSalts = async () => {
         try {
@@ -168,17 +168,17 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       };
       
       migrateEncryptionSalts();
-      checkAuthStatus();
-      handleInitialURL();
-      
-      // Listen for deep links
-      const subscription = Linking.addEventListener('url', handleDeepLink);
-      
-      return () => {
-        subscription?.remove();
-        // Clear global logout handler on unmount
-        setGlobalLogoutHandler(null);
-      };
+    checkAuthStatus();
+    handleInitialURL();
+    
+    // Listen for deep links
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    
+    return () => {
+      subscription?.remove();
+      // Clear global logout handler on unmount
+      setGlobalLogoutHandler(null);
+    };
     }
   }, []);
   

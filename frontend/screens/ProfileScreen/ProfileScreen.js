@@ -57,34 +57,34 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   useEffect(() => {
     if (!hasLoadedProfile.current) {
       hasLoadedProfile.current = true;
-      // Only load profile if not passed as prop (to avoid double API call)
-      if (initialProfile) {
-        // Use initial profile data
-        const initialName = initialProfile.name || '';
-        const initialAge = initialProfile.age ? initialProfile.age.toString() : '';
-        const initialPhone1 = initialProfile.phoneNumbers?.[0] || '';
-        const initialPhone2 = initialProfile.phoneNumbers?.[1] || '';
-        
-        setName(initialName);
-        setAge(initialAge);
-        setPhone1(initialPhone1);
-        setPhone2(initialPhone2);
-        
-        // Store initial values for change detection
-        setInitialValues({
-          name: initialName,
-          age: initialAge,
-          phone1: initialPhone1,
-          phone2: initialPhone2,
-        });
-        
-        setProfileCompleteStatus(initialProfile.isProfileComplete || false);
-        setFollowersCount(initialProfile.followersCount || 0);
-        setFollowingCount(initialProfile.followingCount || 0);
-        setFollowingList(initialProfile.followingList || []);
-        setInitialLoading(false);
-      } else {
-        loadProfile();
+    // Only load profile if not passed as prop (to avoid double API call)
+    if (initialProfile) {
+      // Use initial profile data
+      const initialName = initialProfile.name || '';
+      const initialAge = initialProfile.age ? initialProfile.age.toString() : '';
+      const initialPhone1 = initialProfile.phoneNumbers?.[0] || '';
+      const initialPhone2 = initialProfile.phoneNumbers?.[1] || '';
+      
+      setName(initialName);
+      setAge(initialAge);
+      setPhone1(initialPhone1);
+      setPhone2(initialPhone2);
+      
+      // Store initial values for change detection
+      setInitialValues({
+        name: initialName,
+        age: initialAge,
+        phone1: initialPhone1,
+        phone2: initialPhone2,
+      });
+      
+      setProfileCompleteStatus(initialProfile.isProfileComplete || false);
+      setFollowersCount(initialProfile.followersCount || 0);
+      setFollowingCount(initialProfile.followingCount || 0);
+      setFollowingList(initialProfile.followingList || []);
+      setInitialLoading(false);
+    } else {
+    loadProfile();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

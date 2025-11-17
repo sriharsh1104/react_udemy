@@ -182,16 +182,16 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   useEffect(() => {
     if (!hasLoadedOfflineMode.current) {
       hasLoadedOfflineMode.current = true;
-      const loadOfflineMode = async () => {
-        try {
-          const result = await settingsService.getOfflineMode();
-          if (result.success) {
-            setOfflineMode(result.offlineMode || false);
-          }
-        } catch (error) {
+  const loadOfflineMode = async () => {
+    try {
+      const result = await settingsService.getOfflineMode();
+      if (result.success) {
+        setOfflineMode(result.offlineMode || false);
+      }
+    } catch (error) {
           logger.error('Error loading offline mode:', error);
-        }
-      };
+    }
+  };
       loadOfflineMode();
     }
   }, [setOfflineMode]);

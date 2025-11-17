@@ -166,7 +166,7 @@ class SocketService {
   async handleJoinChat(socket, data) {
     const timestamp = new Date().toISOString();
     const { userEmail, contactEmail } = data;
-    const currentUserEmail = this.getEmailFromSocket(socket.id);
+    const currentUserEmail = await this.getEmailFromSocket(socket.id);
     
     if (!currentUserEmail || currentUserEmail !== userEmail) {
       console.log(`[${timestamp}] ❌ JOIN CHAT FAILED - Email mismatch:`, { 
@@ -286,7 +286,7 @@ class SocketService {
     const { message, contactEmail, senderEmail: providedSenderEmail, replyTo, replyToMessage, replyToSender } = data;
     
     // Try to get senderEmail from data first, fallback to socket lookup
-    let senderEmail = providedSenderEmail || this.getEmailFromSocket(socket.id);
+    let senderEmail = providedSenderEmail || await this.getEmailFromSocket(socket.id);
     
     if (!senderEmail || !contactEmail) {
       console.log(`[${timestamp}] ❌ PRIVATE MESSAGE FAILED - Missing data:`, { 
@@ -299,7 +299,7 @@ class SocketService {
     }
     
     // Verify senderEmail matches the socket (security check)
-    const socketEmail = this.getEmailFromSocket(socket.id);
+    const socketEmail = await this.getEmailFromSocket(socket.id);
     if (socketEmail && socketEmail !== senderEmail) {
       // Use socket email if available, otherwise use provided
       senderEmail = socketEmail;
@@ -443,9 +443,9 @@ class SocketService {
     }
   }
 
-  handleTyping(socket, data) {
+  async handleTyping(socket, data) {
     const { contactEmail, isTyping } = data;
-    const senderEmail = this.getEmailFromSocket(socket.id);
+    const senderEmail = await this.getEmailFromSocket(socket.id);
     
     if (!senderEmail || !contactEmail) {
       return;
@@ -526,7 +526,7 @@ class SocketService {
 
   async handleJoinGroup(socket, data) {
     const { groupId } = data;
-    const userEmail = this.getEmailFromSocket(socket.id);
+    const userEmail = await this.getEmailFromSocket(socket.id);
     
     if (!userEmail || !groupId) {
       console.log('Join group failed: missing data', { userEmail, groupId });
@@ -579,19 +579,19 @@ class SocketService {
 
   }
 
-  handleLeaveGroup(socket, data) {
+  async handleLeaveGroup(socket, data) {
     const { groupId } = data;
     if (groupId) {
       const roomId = `group_${groupId}`;
       socket.leave(roomId);
-      const userEmail = this.getEmailFromSocket(socket.id);
+      const userEmail = await this.getEmailFromSocket(socket.id);
     }
   }
 
   async handleGroupMessage(socket, data) {
     const { message, groupId, senderEmail: providedSenderEmail, replyTo, replyToMessage, replyToSender } = data;
     // Try to get senderEmail from data first, fallback to socket lookup
-    let senderEmail = providedSenderEmail || this.getEmailFromSocket(socket.id);
+    let senderEmail = providedSenderEmail || await this.getEmailFromSocket(socket.id);
     
     if (!senderEmail || !groupId) {
       console.log('Missing senderEmail or groupId:', { senderEmail, groupId, socketId: socket.id });
@@ -599,7 +599,7 @@ class SocketService {
     }
     
     // Verify senderEmail matches the socket (security check)
-    const socketEmail = this.getEmailFromSocket(socket.id);
+    const socketEmail = await this.getEmailFromSocket(socket.id);
     if (socketEmail && socketEmail !== senderEmail) {
       console.log('SenderEmail mismatch:', { provided: senderEmail, socket: socketEmail });
       // Use socket email if available, otherwise use provided
@@ -696,9 +696,9 @@ class SocketService {
     console.log(`📤 Group message DELIVERED: Group ${groupId} received message from ${senderEmail}`);
   }
 
-  handleGroupTyping(socket, data) {
+  async handleGroupTyping(socket, data) {
     const { groupId, isTyping } = data;
-    const senderEmail = this.getEmailFromSocket(socket.id);
+    const senderEmail = await this.getEmailFromSocket(socket.id);
     
     if (!senderEmail || !groupId) {
       return;
@@ -716,7 +716,7 @@ class SocketService {
 
   async handleMessageRead(socket, data) {
     const { messageId, senderEmail } = data;
-    const readerEmail = this.getEmailFromSocket(socket.id);
+    const readerEmail = await this.getEmailFromSocket(socket.id);
     
     if (!readerEmail || !messageId) {
       return;
@@ -768,23 +768,54 @@ class SocketService {
     }
   }
 
-  getEmailFromSocket(socketId) {
-    const user = userService.getUser(socketId);
-    return user || null;
+  async getEmailFromSocket(socketId) {
+    if (!socketId) {
+      console.error('❌ getEmailFromSocket: socketId is null or undefined');
+      return null;
+    }
+    
+    // Use userService method which handles both in-memory and Redis
+    const email = await userService.getEmailFromSocket(socketId);
+    
+    if (email) {
+      console.log(`✅ getEmailFromSocket: Found email: ${email} for socketId: ${socketId}`);
+    } else {
+      console.error(`❌ getEmailFromSocket: Email not found for socketId: ${socketId}`);
+    }
+    
+    return email;
   }
 
   // Call handlers
   async handleInitiateCall(socket, data) {
     try {
       const callingService = require('./callingService');
-      const email = this.getEmailFromSocket(socket.id);
+      const email = await this.getEmailFromSocket(socket.id);
+      
+      console.log('📞 handleInitiateCall: Socket ID:', socket.id);
+      console.log('📞 handleInitiateCall: Retrieved caller email:', email);
+      console.log('📞 handleInitiateCall: Received data:', JSON.stringify(data));
       
       if (!email) {
+        console.error('❌ handleInitiateCall: No email found for socket:', socket.id);
         socket.emit('callError', { message: 'User not authenticated' });
         return;
       }
 
       const { receiverEmail, groupId, type } = data;
+      
+      console.log('📞 handleInitiateCall: Caller Email:', email);
+      console.log('📞 handleInitiateCall: Receiver Email:', receiverEmail);
+      console.log('📞 handleInitiateCall: Group ID:', groupId);
+      console.log('📞 handleInitiateCall: Call Type:', type);
+      
+      // Validate that callerEmail and receiverEmail are different
+      if (receiverEmail && email.toLowerCase() === receiverEmail.toLowerCase()) {
+        console.error('❌ handleInitiateCall: Caller and receiver emails are the same!');
+        socket.emit('callError', { message: 'Cannot call yourself' });
+        return;
+      }
+      
       const result = await callingService.initiateCall(
         email,
         receiverEmail,
@@ -792,6 +823,12 @@ class SocketService {
         type,
         socket.id
       );
+      
+      console.log('📞 handleInitiateCall: Call initiated result:', {
+        success: result.success,
+        sessionId: result.sessionId,
+        status: result.status
+      });
 
       // Always emit response to caller (even if failed, so frontend knows)
       if (result.success) {
@@ -830,7 +867,7 @@ class SocketService {
   async handleAcceptCall(socket, data) {
     try {
       const callingService = require('./callingService');
-      const email = this.getEmailFromSocket(socket.id);
+      const email = await this.getEmailFromSocket(socket.id);
       
       if (!email) {
         console.error('❌ Backend: handleAcceptCall - User not authenticated');
@@ -871,7 +908,7 @@ class SocketService {
   async handleDeclineCall(socket, data) {
     try {
       const callingService = require('./callingService');
-      const email = this.getEmailFromSocket(socket.id);
+      const email = await this.getEmailFromSocket(socket.id);
       
       if (!email) {
         return;
@@ -887,7 +924,7 @@ class SocketService {
   async handleEndCall(socket, data) {
     try {
       const callingService = require('./callingService');
-      const email = this.getEmailFromSocket(socket.id);
+      const email = await this.getEmailFromSocket(socket.id);
       
       if (!email) {
         console.warn('End call: User not authenticated');
@@ -924,7 +961,7 @@ class SocketService {
   async handleCallSignal(socket, data) {
     try {
       const callingService = require('./callingService');
-      const email = this.getEmailFromSocket(socket.id);
+      const email = await this.getEmailFromSocket(socket.id);
       
       if (!email) {
         return;
