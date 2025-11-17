@@ -12,6 +12,18 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
     }
   };
   
+  const handleKeyPress = (e) => {
+    // On web, detect Enter key without Shift to send message
+    if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  // For mobile: when multiline is false, Enter will trigger onSubmitEditing
+  // For web: we use onKeyPress to handle Enter
+  const shouldUseMultiline = Platform.OS === 'web';
+  
   const handleAttachmentPress = () => {
     setShowAttachmentMenu(true);
   };
@@ -197,9 +209,13 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
           placeholderTextColor={COLORS.inputPlaceholder}
           value={value}
           onChangeText={onChangeText}
-          multiline
+          multiline={shouldUseMultiline}
           maxLength={1000}
           textAlignVertical="center"
+          onSubmitEditing={!shouldUseMultiline ? handleSend : undefined}
+          blurOnSubmit={false}
+          returnKeyType="send"
+          onKeyPress={handleKeyPress}
         />
         <TouchableOpacity 
           style={[styles.sendButton, !value.trim() && styles.sendButtonDisabled]} 

@@ -13,6 +13,7 @@ import {
   Linking,
   Share,
   ScrollView,
+  Pressable,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as Contacts from 'expo-contacts';
@@ -628,8 +629,11 @@ const Sidebar = ({ visible, onClose, onSelectContact, contacts: parentContacts =
         animationType="slide"
         onRequestClose={onClose}
       >
-        <View style={styles.container}>
-          <View style={styles.sidebar}>
+        <Pressable style={styles.container} onPress={onClose}>
+          <View 
+            style={styles.sidebar}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Contacts</Text>
               <View style={styles.headerButtons}>
@@ -813,7 +817,7 @@ const Sidebar = ({ visible, onClose, onSelectContact, contacts: parentContacts =
               </>
             )}
           </View>
-        </View>
+        </Pressable>
       </Modal>
 
       <InviteModal
