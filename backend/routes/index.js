@@ -104,6 +104,7 @@ router.post('/groups/toggle-mute', asyncHandler(groupController.toggleMute.bind(
 
 // File routes - Upload rate limiting
 router.post('/files/upload', uploadLimiter, fileController.uploadFile);
+router.get('/files/view/:fileId', fileController.viewFile); // View file without download
 router.get('/files/download/:fileId', fileController.downloadFile);
 router.delete('/files/delete/:fileId', writeLimiter, fileController.deleteFile);
 

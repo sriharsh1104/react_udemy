@@ -10,11 +10,14 @@ import {
   Platform,
   Dimensions,
   Alert,
+  Image,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 import groupService from '../../services/groupService';
 import profileService from '../../services/profileService';
 import feedService from '../../services/feedService';
+import fileUploadService from '../../services/fileUploadService';
+import FullScreenImageViewer from './FullScreenImageViewer';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,6 +38,9 @@ const ContactInfoModal = ({
   const [contactProfile, setContactProfile] = useState(null);
   const [followStatus, setFollowStatus] = useState('not_following');
   const [isPrivate, setIsPrivate] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showFullScreen, setShowFullScreen] = useState(false);
+  const [mediaUrls, setMediaUrls] = useState({}); // Store URLs for each media item
 
   useEffect(() => {
     if (visible && contactEmail && userEmail) {
@@ -50,6 +56,9 @@ const ContactInfoModal = ({
       setContactProfile(null);
       setFollowStatus('not_following');
       setIsPrivate(false);
+      setSelectedImage(null);
+      setShowFullScreen(false);
+      setMediaUrls({});
     }
   }, [visible, contactEmail, userEmail]);
 
@@ -125,15 +134,22 @@ const ContactInfoModal = ({
 
       // Extract shared media from messages
       const media = [];
+      const urls = {};
       messages.forEach(msg => {
         try {
           const parsed = JSON.parse(msg.message);
           if (parsed && parsed.type === 'file' && (parsed.fileType === 'image' || parsed.fileType === 'video')) {
-            media.push({
+            const mediaItem = {
               type: parsed.fileType,
               fileId: parsed.fileId,
               fileName: parsed.fileName,
               timestamp: msg.timestamp,
+            };
+            media.push(mediaItem);
+            // Load image URL from server
+            fileUploadService.getFileViewUrl(parsed.fileId).then(url => {
+              urls[parsed.fileId] = url;
+              setMediaUrls(prev => ({ ...prev, [parsed.fileId]: url }));
             });
           }
         } catch {
@@ -310,19 +326,40 @@ const ContactInfoModal = ({
                     </Text>
                     
                     <View style={styles.mediaGrid}>
-                      {mediaToShow.map((item, index) => (
-                        <View key={index} style={styles.mediaItem}>
-                          {item.type === 'image' ? (
-                            <View style={styles.mediaPlaceholder}>
-                              <Text style={styles.mediaIcon}>🖼️</Text>
-                            </View>
-                          ) : (
-                            <View style={styles.mediaPlaceholder}>
-                              <Text style={styles.mediaIcon}>🎥</Text>
-                            </View>
-                          )}
-                        </View>
-                      ))}
+                      {mediaToShow.map((item, index) => {
+                        const imageUrl = mediaUrls[item.fileId];
+                        return (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.mediaItem}
+                            onPress={() => {
+                              if (item.type === 'image' && imageUrl) {
+                                setSelectedImage(imageUrl);
+                                setShowFullScreen(true);
+                              }
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            {item.type === 'image' ? (
+                              imageUrl ? (
+                                <Image
+                                  source={{ uri: imageUrl }}
+                                  style={styles.mediaImage}
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <View style={styles.mediaPlaceholder}>
+                                  <ActivityIndicator size="small" color={COLORS.primary} />
+                                </View>
+                              )
+                            ) : (
+                              <View style={styles.mediaPlaceholder}>
+                                <Text style={styles.mediaIcon}>🎥</Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
 
                     {sharedMedia.length > 6 && !showAllMedia && (
@@ -348,6 +385,18 @@ const ContactInfoModal = ({
           </ScrollView>
         </View>
       </View>
+
+      {/* Full Screen Image Viewer */}
+      {selectedImage && (
+        <FullScreenImageViewer
+          visible={showFullScreen}
+          imageUri={selectedImage}
+          onClose={() => {
+            setShowFullScreen(false);
+            setSelectedImage(null);
+          }}
+        />
+      )}
     </Modal>
   );
 };
@@ -508,6 +557,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.receivedMessage,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  mediaImage: {
+    width: '100%',
+    height: '100%',
   },
   mediaIcon: {
     fontSize: 32,

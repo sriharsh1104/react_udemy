@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -101,18 +101,19 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
 
-  const loadFeed = useCallback(async (pageNum = 1, append = false, mode = null) => {
+  useEffect(() => {
+    loadFeed();
+  }, [contacts, userEmail, feedMode]);
+
+  const loadFeed = async (pageNum = 1, append = false) => {
     if (pageNum === 1) {
       setLoading(true);
     } else {
       setRefreshing(true);
     }
     
-    // Use provided mode or current feedMode from state
-    const currentMode = mode || feedMode;
-    
     try {
-      const result = await feedService.getFeed(pageNum, 10, currentMode);
+      const result = await feedService.getFeed(pageNum, 10, feedMode);
       if (result.success) {
         if (append) {
           setFeed(prev => [...prev, ...result.feed]);
@@ -137,16 +138,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [feedMode]);
-
-  useEffect(() => {
-    // Reset page and feed when feedMode changes
-    setPage(1);
-    setFeed([]);
-    setHasMore(true);
-    // Use the current feedMode from state
-    loadFeed(1, false, feedMode);
-  }, [contacts, userEmail, feedMode]);
+  };
 
   const loadMore = () => {
     if (hasMore && !loading) {
@@ -760,9 +752,9 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                   {
                     transform: [{ scale: heartScale }],
                     opacity: heartOpacity,
+                    pointerEvents: 'none',
                   },
                 ]}
-                pointerEvents="none"
               >
                 <Text style={styles.heartEmoji}>❤️</Text>
               </Animated.View>
@@ -875,11 +867,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
               styles.feedModeButton,
               feedMode === 'public' && { backgroundColor: colors.primary },
             ]}
-            onPress={() => {
-              if (feedMode !== 'public') {
-                setFeedMode('public');
-              }
-            }}
+            onPress={() => setFeedMode('public')}
           >
             <Text style={[
               styles.feedModeText,
@@ -893,11 +881,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
               styles.feedModeButton,
               feedMode === 'private' && { backgroundColor: colors.primary },
             ]}
-            onPress={() => {
-              if (feedMode !== 'private') {
-                setFeedMode('private');
-              }
-            }}
+            onPress={() => setFeedMode('private')}
           >
             <Text style={[
               styles.feedModeText,

@@ -159,20 +159,13 @@ class FileController {
         fileRecord.downloadedBy = req.userEmail;
         await fileRecord.save();
         
-        // Send file
+        // Send file (don't delete - keep on server)
         res.download(fileRecord.filePath, fileRecord.fileName, (err) => {
           if (err) {
             console.error('File download error:', err);
             return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'File download failed');
-          } else {
-            // Delete file from server after successful download
-            setTimeout(() => {
-              if (fs.existsSync(fileRecord.filePath)) {
-                fs.unlinkSync(fileRecord.filePath);
-                fileRecord.deleteOne().catch(console.error);
-              }
-            }, 1000); // Wait 1 second before deletion
           }
+          // File stays on server - no deletion
         });
       } catch (error) {
         console.error('File download error:', error);
@@ -181,6 +174,40 @@ class FileController {
     },
   ];
   
+  // View file (serve without download - for displaying images/videos)
+  viewFile = [
+    // Support both token in header and query param (for Image component)
+    async (req, res, next) => {
+      // Check if token is in query param (for Image component compatibility)
+      if (req.query.token && !req.headers.authorization) {
+        req.headers.authorization = `Bearer ${req.query.token}`;
+      }
+      verifyToken(req, res, next);
+    },
+    async (req, res) => {
+      try {
+        const { fileId } = req.params;
+        
+        const fileRecord = await File.findOne({ fileId });
+        if (!fileRecord) {
+          return sendError(res, HTTP_STATUS.NOT_FOUND, 'File not found');
+        }
+        
+        if (!fs.existsSync(fileRecord.filePath)) {
+          return sendError(res, HTTP_STATUS.NOT_FOUND, 'File not found on server');
+        }
+        
+        // Send file with appropriate headers for viewing (not download)
+        res.setHeader('Content-Type', fileRecord.mimeType);
+        res.setHeader('Content-Disposition', `inline; filename="${fileRecord.fileName}"`);
+        res.sendFile(path.resolve(fileRecord.filePath));
+      } catch (error) {
+        console.error('File view error:', error);
+        return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'File view failed');
+      }
+    },
+  ];
+
   // Delete file
   deleteFile = [
     verifyToken,

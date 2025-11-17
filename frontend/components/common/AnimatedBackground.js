@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -543,11 +543,15 @@ const AnimatedBackground = () => {
             },
           ]}
         />
-        <Text style={[styles.privacyIconText, { 
+        <Text style={[styles.privacyIconText, 
+          Platform.OS === 'web' ? {
+            textShadow: `0px 0px 10px ${colors.primary}80`,
+          } : {
           textShadowColor: colors.primary + '80',
           textShadowOffset: { width: 0, height: 0 },
           textShadowRadius: 10,
-        }]}>{icon}</Text>
+          }
+        ]}>{icon}</Text>
       </Animated.View>
     );
   };
@@ -602,7 +606,7 @@ const AnimatedBackground = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]} pointerEvents="none">
+    <View style={[styles.container, { backgroundColor: colors.background, pointerEvents: 'none' }]}>
       {/* Premium gradient overlay for depth */}
       <View style={[styles.gradientOverlay, { backgroundColor: colors.primary + '08' }]} />
       <View style={[styles.gradientOverlay2, { backgroundColor: colors.primary + '05' }]} />

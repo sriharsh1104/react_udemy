@@ -49,8 +49,8 @@ const FileSchema = new mongoose.Schema({
   },
 });
 
-// Auto-delete files older than 24 hours (using TTL index)
-FileSchema.index({ uploadedAt: 1 }, { expireAfterSeconds: 86400 });
+// Don't auto-delete files - keep them on server
+// Removed TTL index - files will stay on server
 
 module.exports = mongoose.model('File', FileSchema);
 

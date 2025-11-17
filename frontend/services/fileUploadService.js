@@ -520,6 +520,39 @@ class FileUploadService {
   }
   
   /**
+   * Get file view URL (for displaying images/videos without download)
+   * WhatsApp-style: Images display directly from server
+   * Note: For React Native Image component, we need to add token as query param
+   */
+  async getFileViewUrl(fileId) {
+    if (!fileId) return null;
+    
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (token) {
+        // Add token as query param for Image component compatibility
+        return `${API_CONFIG.API_BASE}/files/view/${fileId}?token=${encodeURIComponent(token)}`;
+      }
+      return `${API_CONFIG.API_BASE}/files/view/${fileId}`;
+    } catch (error) {
+      console.error('Error getting file view URL:', error);
+      // Return URL anyway - let Image component handle auth if needed
+      return `${API_CONFIG.API_BASE}/files/view/${fileId}`;
+    }
+  }
+
+  /**
+   * Get file view URL synchronously (for immediate use)
+   * This constructs the URL without async token fetch
+   * Token will be added via query param when available
+   */
+  getFileViewUrlSync(fileId) {
+    if (!fileId) return null;
+    // Return URL - token will be added by backend via query param or header
+    return `${API_CONFIG.API_BASE}/files/view/${fileId}`;
+  }
+
+  /**
    * Download file from server
    */
   async downloadFile(fileId, fileName, fileType) {

@@ -68,9 +68,13 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 28,
     letterSpacing: 0.5,
+    ...(Platform.OS === 'web' ? {
+      textShadow: '0px 2px 4px rgba(99, 102, 241, 0.3)',
+    } : {
     textShadowColor: 'rgba(99, 102, 241, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
+    }),
   },
   emailText: {
     fontWeight: TYPOGRAPHY.fontWeight.semibold,

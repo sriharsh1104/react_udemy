@@ -9,7 +9,7 @@ import Toast from 'react-native-toast-message';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import logger from './utils/logger';
-import GLoader from './components/common/GLoader';
+// GLoader removed - all loaders disabled
 import profileService from './services/profileService';
 import authService from './services/authService';
 import { setGlobalLogoutHandler } from './utils/apiHelper';
@@ -140,7 +140,7 @@ const AppContentWithNotifications = () => {
 
   return (
     <>
-      <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+      <Suspense fallback={null}>
       <NotificationContainer
         notifications={notifications}
         onDismiss={removeNotification}
@@ -158,7 +158,7 @@ const AppContentWithNotifications = () => {
 const AppContent = ({ navigationRef: externalNavRef }) => {
   const { colors, isDark } = useTheme();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Disabled initial loader
   const [userEmail, setUserEmail] = useState(null);
   const [profile, setProfile] = useState(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -339,9 +339,8 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       }
     } catch (error) {
       logger.error('Error checking auth status:', error);
-    } finally {
-      setIsLoading(false);
     }
+    // No loader needed - removed setIsLoading
   };
 
   const handleLogin = async (email, token, loginProfile, isProfileComplete) => {
@@ -470,14 +469,14 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
           >
             <Stack.Screen name="Login">
               {(props) => (
-                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                <Suspense fallback={null}>
                   <LoginScreen {...props} onLogin={handleLogin} />
                 </Suspense>
               )}
             </Stack.Screen>
             <Stack.Screen name="Chat">
               {(props) => (
-                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                <Suspense fallback={null}>
                 <ChatScreen
                   {...props}
                   userEmail={userEmail}
@@ -491,7 +490,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             </Stack.Screen>
             <Stack.Screen name="Profile">
               {(props) => (
-                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                <Suspense fallback={null}>
                 <ProfileScreen
                   {...props}
                   userEmail={userEmail}
@@ -520,7 +519,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             </Stack.Screen>
             <Stack.Screen name="Settings">
               {(props) => (
-                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                <Suspense fallback={null}>
                 <SettingsScreen
                   {...props}
                   onBack={() => props.navigation.goBack()}
@@ -530,7 +529,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             </Stack.Screen>
             <Stack.Screen name="Referral">
               {(props) => (
-                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                <Suspense fallback={null}>
                 <ReferralScreen
                   {...props}
                 />
@@ -539,7 +538,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             </Stack.Screen>
             <Stack.Screen name="Feed">
               {(props) => (
-                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                <Suspense fallback={null}>
                 <FeedScreen
                   {...props}
                 />
@@ -548,7 +547,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             </Stack.Screen>
             <Stack.Screen name="Status">
               {(props) => (
-                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                <Suspense fallback={null}>
                 <StatusScreen
                   {...props}
                 />
@@ -557,7 +556,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             </Stack.Screen>
             <Stack.Screen name="Call">
               {(props) => (
-                <Suspense fallback={<GLoader visible={true} message="Loading..." />}>
+                <Suspense fallback={null}>
                 <CallScreen
                   {...props}
                 />
@@ -588,11 +587,15 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
                   marginTop: 8,
                   alignSelf: 'flex-end',
                   maxWidth: '80%',
+                  ...(Platform.OS === 'web' ? {
+                    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.25)',
+                  } : {
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.25,
                   shadowRadius: 3.84,
                   elevation: 5,
+                  }),
                 }}>
                   <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>
                     {props.text1}
@@ -615,11 +618,15 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
                   marginTop: 8,
                   alignSelf: 'flex-end',
                   maxWidth: '80%',
+                  ...(Platform.OS === 'web' ? {
+                    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.25)',
+                  } : {
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: 0.25,
                   shadowRadius: 3.84,
                   elevation: 5,
+                  }),
                 }}>
                   <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>
                     {props.text1}
@@ -637,7 +644,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
           />
         </View>
       </NavigationContainer>
-      <GLoader visible={isLoading} message="Loading..." />
+      {/* Initial loader disabled - removed to prevent stuck loader */}
     </>
   );
 };

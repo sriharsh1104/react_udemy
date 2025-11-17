@@ -17,7 +17,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
-import GLoader from '../../components/common/GLoader';
+// GLoader removed - loader disabled
 import profileService from '../../services/profileService';
 import styles from './styles';
 
@@ -309,7 +309,7 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <GLoader visible={initialLoading} message="Loading profile..." />
+      {/* Loader disabled - removed to prevent stuck loader */}
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

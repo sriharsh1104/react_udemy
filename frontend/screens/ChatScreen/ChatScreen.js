@@ -39,7 +39,7 @@ import ContactInfoModal from '../../components/chat/ContactInfoModal';
 import MessageActionMenu from '../../components/chat/MessageActionMenu';
 import MessageInfoModal from '../../components/chat/MessageInfoModal';
 import ForwardContactModal from '../../components/chat/ForwardContactModal';
-import GLoader from '../../components/common/GLoader';
+// GLoader removed - loader disabled
 import CallHistory from '../../components/call/CallHistory';
 import IncomingCallScreen from '../../components/call/IncomingCallScreen';
 import ActiveCallScreen from '../../components/call/ActiveCallScreen';
@@ -817,7 +817,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   if (!contactEmail && !groupId) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <GLoader visible={loadingContacts} message="Loading contacts..." />
+        {/* Loader disabled - removed to prevent stuck loader */}
         <KeyboardAvoidingView
           style={styles.container}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

@@ -220,7 +220,7 @@ const NotificationContainer = ({ notifications, onDismiss, onPress, onMarkAsRead
   if (notifications.length === 0) return null;
 
   return (
-    <View style={styles.wrapper} pointerEvents="box-none">
+    <View style={[styles.wrapper, { pointerEvents: 'box-none' }]}>
       {notifications.map((notification) => (
         <Notification
           key={notification.id}

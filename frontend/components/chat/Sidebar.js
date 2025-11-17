@@ -19,7 +19,7 @@ import Toast from 'react-native-toast-message';
 import * as Contacts from 'expo-contacts';
 import * as Clipboard from 'expo-clipboard';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
-import GLoader from '../common/GLoader';
+// GLoader removed - loader disabled
 import contactsService from '../../services/contactsService';
 
 export const InviteModal = ({ visible, onClose, email }) => {
@@ -625,7 +625,7 @@ const Sidebar = ({ visible, onClose, onSelectContact, contacts: parentContacts =
 
   return (
     <>
-      <GLoader visible={loading || loadingPhoneContacts} message={loadingPhoneContacts ? "Loading phone contacts..." : "Loading..."} />
+      {/* Loader disabled - removed to prevent stuck loader */}
       <Modal
         transparent={true}
         visible={visible}

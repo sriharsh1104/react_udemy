@@ -17,7 +17,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import Button from '../../components/common/Button';
 import PasswordInput from '../../components/common/PasswordInput';
 import AnimatedBackground from '../../components/common/AnimatedBackground';
-import GLoader from '../../components/common/GLoader';
+// GLoader removed - loader disabled
 import authService from '../../services/authService';
 import { validateIdentifier, isValidPassword, sanitizeString } from '../../utils/validation';
 import styles from './styles';
@@ -301,7 +301,7 @@ const LoginScreen = ({ onLogin }) => {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <AnimatedBackground />
-      <GLoader visible={loading} message="Please wait..." />
+      {/* Loader disabled - removed to prevent stuck loader */}
       <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

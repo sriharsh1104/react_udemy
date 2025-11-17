@@ -24,6 +24,10 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
   
   // Check if message is a file message
   useEffect(() => {
+    // Reset state when message changes
+    setFileData(null);
+    setLocalFileUri(null);
+    
     // Ensure message is a string before parsing
     const messageStr = typeof message === 'string' 
       ? message 
@@ -34,18 +38,31 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
       if (parsed && parsed.type === 'file') {
         setFileData(parsed);
         
-        // For sender: use localUri if available (from when file was picked)
-        if (isMyMessage && parsed.localUri) {
-          setLocalFileUri(parsed.localUri);
-        } else {
-          // For receiver or if no localUri: check if file is already downloaded locally
-          checkLocalFile(parsed.fileId, parsed.fileName);
-          
-          // Auto-download images/videos for receiver (only once)
-          if (!isMyMessage && (parsed.fileType === 'image' || parsed.fileType === 'video') && !autoDownloadAttempted.current) {
-            autoDownloadAttempted.current = true;
-            autoDownloadFile(parsed.fileId, parsed.fileName, parsed.fileType);
+        // WhatsApp-style: Always use server URL for both sender and receiver
+        // Images display directly from server without download
+        if (parsed.fileId) {
+          // For sender: show localUri first for instant preview, then load server URL
+          if (isMyMessage && parsed.localUri) {
+            setLocalFileUri(parsed.localUri);
           }
+          
+          // Always load server URL (works for both sender and receiver)
+          fileUploadService.getFileViewUrl(parsed.fileId)
+            .then(url => {
+              if (url) {
+                setLocalFileUri(url);
+              }
+            })
+            .catch(error => {
+              console.error('Error getting file view URL:', error);
+              // If server URL fails and we have localUri (sender), keep it
+              if (isMyMessage && parsed.localUri && !localFileUri) {
+                setLocalFileUri(parsed.localUri);
+              }
+            });
+        } else if (isMyMessage && parsed.localUri) {
+          // Fallback for sender if fileId not available
+          setLocalFileUri(parsed.localUri);
         }
       }
     } catch {
@@ -119,9 +136,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
       
       setLocalFileUri(result.localUri);
       
-      // Delete file from server after download
-      await fileUploadService.deleteFileFromServer(fileData.fileId);
-      
+      // Don't delete file from server - keep it for future use
       Alert.alert('Success', 'File downloaded successfully');
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to download file');
@@ -217,26 +232,29 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
               </Text>
             </View>
           )}
-          <View style={styles.messageHeader}>
-            {onMenuPress && (
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => onMenuPress({
-                  message,
-                  messageId,
-                  isSent,
-                  isPinned,
-                  isCreator,
-                  isGroup,
-                })}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={[styles.menuIcon, { color: isMyMessage ? COLORS.white : COLORS.textSecondary }]}>
-                  ⋮
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          {/* Hide 3 dots menu for image messages - WhatsApp style */}
+          {fileData?.fileType !== 'image' && (
+            <View style={styles.messageHeader}>
+              {onMenuPress && (
+                <TouchableOpacity
+                  style={styles.menuButton}
+                  onPress={() => onMenuPress({
+                    message,
+                    messageId,
+                    isSent,
+                    isPinned,
+                    isCreator,
+                    isGroup,
+                  })}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={[styles.menuIcon, { color: isMyMessage ? COLORS.white : COLORS.textSecondary }]}>
+                    ⋮
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
           {/* Show deleted message for image/video files */}
           {isDeleted && (fileData.fileType === 'image' || fileData.fileType === 'video') && (
             <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText, styles.deletedMessage]}>
@@ -244,26 +262,62 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
             </Text>
           )}
           
-          {/* Display image if downloaded */}
-          {fileData.fileType === 'image' && localFileUri && !isDeleted && (
+          {/* Display image directly from server - WhatsApp style */}
+          {fileData.fileType === 'image' && !isDeleted && (
             <View style={styles.imageContainer}>
               <TouchableOpacity
-                onPress={() => setShowFullScreen(true)}
+                onPress={() => {
+                  // WhatsApp-style: Click to view full screen
+                  if (localFileUri) {
+                    setShowFullScreen(true);
+                  } else if (fileData.fileId) {
+                    // Get URL and show
+                    fileUploadService.getFileViewUrl(fileData.fileId).then(url => {
+                      if (url) {
+                        setLocalFileUri(url);
+                        setShowFullScreen(true);
+                      }
+                    });
+                  }
+                }}
                 activeOpacity={0.9}
               >
-                <Image source={{ uri: localFileUri }} style={styles.fileImage} resizeMode="cover" />
+                {localFileUri ? (
+                  <Image 
+                    source={{ uri: localFileUri }} 
+                    style={styles.fileImage} 
+                    resizeMode="cover" 
+                    onError={(error) => {
+                      console.error('Image load error:', error);
+                      // Retry with server URL
+                      if (fileData.fileId) {
+                        fileUploadService.getFileViewUrl(fileData.fileId).then(url => {
+                          if (url) setLocalFileUri(url);
+                        });
+                      }
+                    }}
+                  />
+                ) : fileData.fileId ? (
+                  // Show loading while URL is being fetched
+                  <View style={[styles.fileImage, { backgroundColor: COLORS.divider, justifyContent: 'center', alignItems: 'center' }]}>
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                  </View>
+                ) : null}
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.downloadButtonOverlay}
-                onPress={handleDownload}
-                disabled={downloading}
-              >
-                {downloading ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
-                ) : (
-                  <Text style={styles.downloadIcon}>⬇️</Text>
-                )}
-              </TouchableOpacity>
+              {/* Download button - only show when image is loaded */}
+              {localFileUri && (
+                <TouchableOpacity 
+                  style={styles.downloadButtonOverlay}
+                  onPress={handleDownload}
+                  disabled={downloading}
+                >
+                  {downloading ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <Text style={styles.downloadIcon}>⬇️</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           )}
           
@@ -276,10 +330,10 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
             />
           )}
           
-          {/* Display video if downloaded */}
-          {fileData.fileType === 'video' && localFileUri && !isDeleted && (
+          {/* Display video directly from server */}
+          {fileData.fileType === 'video' && !isDeleted && (
             <View style={styles.videoContainer}>
-              <VideoPlayer uri={localFileUri} />
+              <VideoPlayer uri={localFileUri || `${fileUploadService.getFileViewUrl(fileData.fileId)}`} />
               <TouchableOpacity 
                 style={styles.downloadButtonOverlay}
                 onPress={handleDownload}
@@ -294,8 +348,8 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
             </View>
           )}
           
-          {/* Show file info and download button for non-image/video files or when not downloaded */}
-          {(!localFileUri || (fileData.fileType !== 'image' && fileData.fileType !== 'video')) && (
+          {/* Show file info and download button for non-image/video files */}
+          {(fileData.fileType !== 'image' && fileData.fileType !== 'video') && (
             <>
               {isDeleted ? (
                 <Text style={[styles.messageText, isMyMessage ? styles.sentText : styles.receivedText, styles.deletedMessage]}>
@@ -332,8 +386,8 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
             </>
           )}
           
-          {/* Show download option for images/videos that are displayed but can be re-downloaded */}
-          {(fileData.fileType === 'image' || fileData.fileType === 'video') && localFileUri && (
+          {/* Show file info for images/videos */}
+          {(fileData.fileType === 'image' || fileData.fileType === 'video') && (
             <View style={styles.fileInfoContainer}>
               <Text style={[styles.fileName, isMyMessage ? styles.sentText : styles.receivedText]}>
                 {fileData.fileName}

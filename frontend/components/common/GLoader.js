@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Modal, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated, Modal, Dimensions, Platform } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { TYPOGRAPHY, SPACING } from '../../constants';
 
@@ -10,47 +10,74 @@ const GLoader = ({ visible = false, message = 'Loading...' }) => {
   const spinValue = useRef(new Animated.Value(0)).current;
   const scaleValue = useRef(new Animated.Value(0.8)).current;
   const opacityValue = useRef(new Animated.Value(0)).current;
+  const animationRef = useRef(null);
+
+  // useNativeDriver doesn't work on web, so disable it for web
+  const useNativeDriver = Platform.OS !== 'web';
 
   useEffect(() => {
     if (visible) {
+      // Stop any existing animations first
+      if (animationRef.current) {
+        animationRef.current.stop();
+      }
+
       // Start animations
-      Animated.parallel([
-        // Spinning animation
-        Animated.loop(
+      const spinAnimation = Animated.loop(
           Animated.timing(spinValue, {
             toValue: 1,
             duration: 1500,
-            useNativeDriver: true,
+          useNativeDriver: useNativeDriver,
           })
-        ),
-        // Scale pulse animation
-        Animated.loop(
+      );
+
+      const scaleAnimation = Animated.loop(
           Animated.sequence([
             Animated.timing(scaleValue, {
               toValue: 1.2,
               duration: 800,
-              useNativeDriver: true,
+            useNativeDriver: useNativeDriver,
             }),
             Animated.timing(scaleValue, {
               toValue: 0.8,
               duration: 800,
-              useNativeDriver: true,
+            useNativeDriver: useNativeDriver,
             }),
           ])
-        ),
-        // Fade in
-        Animated.timing(opacityValue, {
+      );
+
+      const fadeAnimation = Animated.timing(opacityValue, {
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+        useNativeDriver: useNativeDriver,
+      });
+
+      animationRef.current = Animated.parallel([
+        spinAnimation,
+        scaleAnimation,
+        fadeAnimation,
+      ]);
+
+      animationRef.current.start();
     } else {
-      // Reset animations when hidden
+      // Stop animations when hidden
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+      // Reset animation values
       spinValue.setValue(0);
       scaleValue.setValue(0.8);
       opacityValue.setValue(0);
     }
+
+    // Cleanup on unmount
+    return () => {
+      if (animationRef.current) {
+        animationRef.current.stop();
+        animationRef.current = null;
+      }
+    };
   }, [visible]);
 
   const spin = spinValue.interpolate({
