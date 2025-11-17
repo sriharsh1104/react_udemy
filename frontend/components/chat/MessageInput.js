@@ -60,6 +60,7 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
   };
 
   const handleTakePhoto = async () => {
+    setShowAttachmentMenu(false);
     try {
       const file = await fileUploadService.takePhoto();
       if (file && onFileSelect) {
@@ -68,6 +69,31 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to take photo');
     }
+  };
+
+  // Placeholder handlers for new options (backend functions will be added later)
+  const handlePoll = () => {
+    setShowAttachmentMenu(false);
+    // TODO: Add poll functionality
+    Alert.alert('Poll', 'Poll feature coming soon');
+  };
+
+  const handleLocation = () => {
+    setShowAttachmentMenu(false);
+    // TODO: Add location functionality
+    Alert.alert('Location', 'Location feature coming soon');
+  };
+
+  const handleDocument = () => {
+    setShowAttachmentMenu(false);
+    // TODO: Add document picker functionality
+    Alert.alert('Document', 'Document feature coming soon');
+  };
+
+  const handleContact = () => {
+    setShowAttachmentMenu(false);
+    // TODO: Add contact sharing functionality
+    Alert.alert('Contact', 'Contact sharing feature coming soon');
   };
 
   // Extract message text from replyingTo (handle JSON file messages)
@@ -241,38 +267,76 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
           activeOpacity={1}
           onPress={() => setShowAttachmentMenu(false)}
         >
-          <View style={styles.attachmentMenu}>
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => handleFileSelect('image')}
-            >
-              <Text style={styles.menuIcon}>🖼️</Text>
-              <Text style={styles.menuText}>Image</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => handleFileSelect('video')}
-            >
-              <Text style={styles.menuIcon}>🎥</Text>
-              <Text style={styles.menuText}>Video</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => handleFileSelect('audio')}
-            >
-              <Text style={styles.menuIcon}>🎵</Text>
-              <Text style={styles.menuText}>Audio</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => handleFileSelect('pdf')}
-            >
-              <Text style={styles.menuIcon}>📄</Text>
-              <Text style={styles.menuText}>PDF</Text>
-            </TouchableOpacity>
+          <View style={styles.attachmentMenu} onStartShouldSetResponder={() => true}>
+            {/* Row 1 */}
+            <View style={styles.menuRow}>
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => handleFileSelect('image')}
+              >
+                <Text style={styles.menuIcon}>🖼️</Text>
+                <Text style={styles.menuText}>Gallery</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={handleTakePhoto}
+              >
+                <Text style={styles.menuIcon}>📷</Text>
+                <Text style={styles.menuText}>Camera</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={handleLocation}
+              >
+                <Text style={styles.menuIcon}>📍</Text>
+                <Text style={styles.menuText}>Location</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={handleContact}
+              >
+                <Text style={styles.menuIcon}>👤</Text>
+                <Text style={styles.menuText}>Contact</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Row 2 */}
+            <View style={styles.menuRow}>
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={handleDocument}
+              >
+                <Text style={styles.menuIcon}>📄</Text>
+                <Text style={styles.menuText}>Document</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => handleFileSelect('audio')}
+              >
+                <Text style={styles.menuIcon}>🎵</Text>
+                <Text style={styles.menuText}>Audio</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={handlePoll}
+              >
+                <Text style={styles.menuIcon}>📊</Text>
+                <Text style={styles.menuText}>Poll</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => handleFileSelect('video')}
+              >
+                <Text style={styles.menuIcon}>🎥</Text>
+                <Text style={styles.menuText}>Video</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -387,12 +451,17 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: BORDER_RADIUS.xl,
     borderTopRightRadius: BORDER_RADIUS.xl,
     padding: SPACING.lg,
+    paddingBottom: SPACING.xl,
+  },
+  menuRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    marginBottom: SPACING.md,
   },
   menuItem: {
     alignItems: 'center',
-    padding: SPACING.md,
+    padding: SPACING.sm,
+    minWidth: 70,
   },
   menuIcon: {
     fontSize: 32,
