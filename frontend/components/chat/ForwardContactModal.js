@@ -8,21 +8,29 @@ import {
   StyleSheet,
   TextInput,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
 import contactsService from '../../services/contactsService';
 
-const ForwardContactModal = ({ visible, onClose, onSelectContact, message }) => {
+const ForwardContactModal = ({ visible, onClose, onSelectContacts, message }) => {
   const { colors } = useTheme();
   const [contacts, setContacts] = useState([]);
   const [groups, setGroups] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedItems, setSelectedItems] = useState([]); // Array of {type: 'contact'|'group', id: string}
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (visible) {
       loadContacts();
+      setSelectedItems([]); // Reset selections when modal opens
+    } else {
+      // Reset when modal closes
+      setSelectedItems([]);
+      setSearchQuery('');
     }
   }, [visible]);
 
@@ -65,33 +73,120 @@ const ForwardContactModal = ({ visible, onClose, onSelectContact, message }) => 
     return name.includes(query);
   });
 
-  const handleSelect = (item, type) => {
+  const getItemId = (item, type) => {
     if (type === 'contact') {
-      onSelectContact({
-        type: 'private',
-        contactEmail: getDisplayEmail(item),
-        contactName: getDisplayName(item),
-      });
-    } else if (type === 'group') {
-      onSelectContact({
-        type: 'group',
-        groupId: item._id,
-        groupName: item.name,
-      });
+      return `contact_${getDisplayEmail(item)}`;
+    } else {
+      return `group_${item._id}`;
     }
-    onClose();
+  };
+
+  const toggleSelection = (item, type) => {
+    const itemId = getItemId(item, type);
+    setSelectedItems(prev => {
+      if (prev.includes(itemId)) {
+        return prev.filter(id => id !== itemId);
+      } else {
+        return [...prev, itemId];
+      }
+    });
+  };
+
+  const isSelected = (item, type) => {
+    const itemId = getItemId(item, type);
+    return selectedItems.includes(itemId);
+  };
+
+  const handleSelectAll = () => {
+    const allItems = [
+      ...filteredContacts.map(item => getItemId(item, 'contact')),
+      ...filteredGroups.map(item => getItemId(item, 'group')),
+    ];
+    
+    // If all are selected, deselect all. Otherwise, select all.
+    const allSelected = allItems.every(id => selectedItems.includes(id));
+    if (allSelected) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems(allItems);
+    }
+  };
+
+  const handleSend = async () => {
+    if (selectedItems.length === 0) return;
+    
+    setSending(true);
+    try {
+      const selectedTargets = [];
+      
+      // Process selected contacts
+      filteredContacts.forEach(contact => {
+        const itemId = getItemId(contact, 'contact');
+        if (selectedItems.includes(itemId)) {
+          selectedTargets.push({
+            type: 'private',
+            contactEmail: getDisplayEmail(contact),
+            contactName: getDisplayName(contact),
+          });
+        }
+      });
+      
+      // Process selected groups
+      filteredGroups.forEach(group => {
+        const itemId = getItemId(group, 'group');
+        if (selectedItems.includes(itemId)) {
+          selectedTargets.push({
+            type: 'group',
+            groupId: group._id,
+            groupName: group.name,
+          });
+        }
+      });
+      
+      if (onSelectContacts && selectedTargets.length > 0) {
+        await onSelectContacts(selectedTargets);
+      }
+      
+      setSelectedItems([]);
+      onClose();
+    } catch (error) {
+      console.error('Error sending forward:', error);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const allFilteredItemsSelected = () => {
+    const allItems = [
+      ...filteredContacts.map(item => getItemId(item, 'contact')),
+      ...filteredGroups.map(item => getItemId(item, 'group')),
+    ];
+    return allItems.length > 0 && allItems.every(id => selectedItems.includes(id));
   };
 
   const renderContactItem = ({ item, type }) => {
     const displayName = type === 'contact' ? getDisplayName(item) : item.name;
     const subtitle = type === 'contact' ? getDisplayEmail(item) : `${item.members?.length || 0} members`;
+    const selected = isSelected(item, type);
 
     return (
       <TouchableOpacity
-        style={[styles.contactItem, { backgroundColor: colors.background }]}
-        onPress={() => handleSelect(item, type)}
+        style={[
+          styles.contactItem, 
+          { backgroundColor: colors.background },
+          selected && { backgroundColor: colors.primary + '20' }
+        ]}
+        onPress={() => toggleSelection(item, type)}
+        activeOpacity={0.7}
       >
         <View style={styles.contactInfo}>
+          <View style={[styles.checkbox, { borderColor: selected ? COLORS.primary : colors.divider }]}>
+            {selected && (
+              <View style={[styles.checkboxInner, { backgroundColor: COLORS.primary }]}>
+                <Text style={styles.checkmark}>✓</Text>
+              </View>
+            )}
+          </View>
           <View style={[styles.avatar, { backgroundColor: COLORS.primary }]}>
             <Text style={styles.avatarText}>
               {type === 'contact' ? '👤' : '👥'}
@@ -125,7 +220,18 @@ const ForwardContactModal = ({ visible, onClose, onSelectContact, message }) => 
               <Text style={[styles.closeButtonText, { color: colors.text }]}>Cancel</Text>
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Forward to</Text>
-            <View style={styles.placeholder} />
+            <TouchableOpacity 
+              onPress={handleSelectAll} 
+              style={styles.selectAllButton}
+              disabled={filteredContacts.length === 0 && filteredGroups.length === 0}
+            >
+              <Text style={[
+                styles.selectAllText, 
+                { color: allFilteredItemsSelected() ? COLORS.primary : colors.textSecondary }
+              ]}>
+                {allFilteredItemsSelected() ? 'Deselect All' : 'Select All'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Search */}
@@ -149,12 +255,41 @@ const ForwardContactModal = ({ visible, onClose, onSelectContact, message }) => 
             renderItem={({ item }) => renderContactItem({ item, type: item.itemType })}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  {loading ? 'Loading...' : 'No contacts found'}
-                </Text>
+                {loading ? (
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                ) : (
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    No contacts found
+                  </Text>
+                )}
               </View>
             }
+            contentContainerStyle={selectedItems.length > 0 ? styles.listWithSelection : null}
           />
+
+          {/* Send Button */}
+          {selectedItems.length > 0 && (
+            <View style={[styles.sendButtonContainer, { backgroundColor: colors.background, borderTopColor: colors.divider }]}>
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  { backgroundColor: COLORS.primary },
+                  sending && styles.sendButtonDisabled
+                ]}
+                onPress={handleSend}
+                disabled={sending || selectedItems.length === 0}
+                activeOpacity={0.8}
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.sendButtonText}>
+                    Send ({selectedItems.length})
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -194,6 +329,15 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 60,
   },
+  selectAllButton: {
+    padding: SPACING.xs,
+    minWidth: 80,
+    alignItems: 'flex-end',
+  },
+  selectAllText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
   searchContainer: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -215,6 +359,27 @@ const styles = StyleSheet.create({
   contactInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginRight: SPACING.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmark: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   avatar: {
     width: 50,
@@ -244,6 +409,31 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: TYPOGRAPHY.fontSize.md,
+  },
+  listWithSelection: {
+    paddingBottom: 80, // Space for send button
+  },
+  sendButtonContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderTopWidth: 1,
+    paddingBottom: Platform.OS === 'ios' ? SPACING.xl + 20 : SPACING.md,
+  },
+  sendButton: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  sendButtonDisabled: {
+    opacity: 0.6,
+  },
+  sendButtonText: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });
 

@@ -3,11 +3,9 @@
  */
 
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 import { default as Clipboard } from 'expo-clipboard';
 import logger from '../../../utils/logger';
 import { showSuccessToast } from '../../../utils/toast';
-import fileUploadService from '../../../services/fileUploadService';
 
 export const useActionBarHandlers = ({
   selectedMessages,
@@ -21,6 +19,8 @@ export const useActionBarHandlers = ({
   handleUnpinMessage,
   setMessageInfoMessageId,
   setShowMessageInfoModal,
+  setShowForwardModal,
+  setForwardMessage,
   chatType,
   contactEmail,
   userEmail,
@@ -49,45 +49,16 @@ export const useActionBarHandlers = ({
     setSelectedMessages([]);
   }, [selectedMessages, chatType, contactEmail, userEmail, setReplyingTo, setSelectedMessages]);
 
-  const handleActionBarForward = useCallback(async () => {
+  const handleActionBarForward = useCallback(() => {
     if (selectedMessages.length === 0) return;
     
     const messageToForward = selectedMessages[0];
     
-    // Check if message is a file message
-    try {
-      const parsed = JSON.parse(messageToForward.message);
-      if (parsed && parsed.type === 'file') {
-        // Check if file exists locally
-        const localUri = await fileUploadService.getLocalFileUri(parsed.fileId, parsed.fileName);
-        
-        if (localUri) {
-          // File exists locally, we can forward it using cached file
-          // For now, show alert - full forwarding UI can be implemented later
-          Alert.alert(
-            'Forward File',
-            `File "${parsed.fileName}" is available locally and can be forwarded. Forwarding UI coming soon.`,
-            [{ text: 'OK' }]
-          );
-        } else {
-          // File doesn't exist locally, would need to download first
-          Alert.alert(
-            'Forward File',
-            `File "${parsed.fileName}" needs to be downloaded first before forwarding. Forwarding UI coming soon.`,
-            [{ text: 'OK' }]
-          );
-        }
-      } else {
-        // Regular text message - can forward directly
-        Alert.alert('Forward', 'Forward functionality coming soon');
-      }
-    } catch {
-      // Not a JSON message, treat as regular text
-      Alert.alert('Forward', 'Forward functionality coming soon');
-    }
-    
+    // Open forward modal with selected message
+    setForwardMessage(messageToForward);
+    setShowForwardModal(true);
     setSelectedMessages([]);
-  }, [selectedMessages, setSelectedMessages]);
+  }, [selectedMessages, setSelectedMessages, setForwardMessage, setShowForwardModal]);
 
   const handleActionBarPin = useCallback(() => {
     if (selectedMessages.length === 0 || !groupId) return;
@@ -110,9 +81,28 @@ export const useActionBarHandlers = ({
   const handleActionBarEdit = useCallback(() => {
     if (selectedMessages.length === 0) return;
     const messageToEdit = selectedMessages[0];
+    
+    // Extract message string
+    const messageStr = typeof messageToEdit.message === 'string' 
+      ? messageToEdit.message 
+      : (messageToEdit.message?.message || messageToEdit.message?.text || String(messageToEdit.message || ''));
+    
+    // Check if message is a file message - file messages cannot be edited
+    try {
+      const parsed = JSON.parse(messageStr);
+      if (parsed && parsed.type === 'file') {
+        // File messages cannot be edited - this should be handled by canEditMessage check
+        // But adding safety check here too
+        setSelectedMessages([]);
+        return;
+      }
+    } catch {
+      // Not a JSON message, proceed with normal edit
+    }
+    
     setSelectedMessage(messageToEdit);
     setEditingMessage(messageToEdit);
-    setInputMessage(messageToEdit.message);
+    setInputMessage(messageStr);
     setSelectedMessages([]);
   }, [selectedMessages, setSelectedMessage, setEditingMessage, setInputMessage, setSelectedMessages]);
 
@@ -143,6 +133,20 @@ export const useActionBarHandlers = ({
     const msg = selectedMessages[0];
     if (!msg.isSent) return false;
     if (msg.isDeleted) return false;
+    
+    // Check if message is a file message - file messages cannot be edited
+    try {
+      const messageStr = typeof msg.message === 'string' 
+        ? msg.message 
+        : (msg.message?.message || msg.message?.text || String(msg.message || ''));
+      const parsed = JSON.parse(messageStr);
+      if (parsed && parsed.type === 'file') {
+        return false; // File messages cannot be edited
+      }
+    } catch {
+      // Not a JSON message, proceed with normal check
+    }
+    
     if (chatType === 'private') {
       return msg.status !== 'read';
     }

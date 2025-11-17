@@ -243,8 +243,28 @@ export const useChatHandlers = ({
 
   const handleEditMessage = useCallback(() => {
     if (!selectedMessage) return;
+    
+    // Extract message string
+    const messageStr = typeof selectedMessage.message === 'string' 
+      ? selectedMessage.message 
+      : (selectedMessage.message?.message || selectedMessage.message?.text || String(selectedMessage.message || ''));
+    
+    // Check if message is a file message - file messages cannot be edited
+    try {
+      const parsed = JSON.parse(messageStr);
+      if (parsed && parsed.type === 'file') {
+        Alert.alert('Cannot Edit', 'File messages cannot be edited. You can delete and send a new file instead.');
+        setShowMessageMenu(false);
+        setSelectedMessage(null);
+        return;
+      }
+    } catch {
+      // Not a JSON message, proceed with normal edit
+    }
+    
+    // For text messages, set the text content for editing
     setEditingMessage(selectedMessage);
-    setInputMessage(selectedMessage.message);
+    setInputMessage(messageStr);
     setShowMessageMenu(false);
     setSelectedMessage(null);
   }, [selectedMessage, setEditingMessage, setInputMessage, setShowMessageMenu, setSelectedMessage]);
