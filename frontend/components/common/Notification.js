@@ -93,8 +93,34 @@ const Notification = ({ notification, onDismiss, onPress, onMarkAsRead, onReply,
     setShowReplyInput(false);
   };
 
-  // Truncate message if too long
+  // Truncate message if too long - handle file messages
   const truncateMessage = (message, maxLength = 50) => {
+    if (!message) return '';
+    
+    // Check if message is a file message JSON
+    try {
+      const parsed = JSON.parse(message);
+      if (parsed && parsed.type === 'file') {
+        // Display file name with appropriate icon
+        const fileName = parsed.fileName || 'File';
+        const fileType = parsed.fileType || 'file';
+        
+        // Add icon based on file type
+        let icon = '📎'; // Default file icon
+        if (fileType === 'image') icon = '🖼️';
+        else if (fileType === 'video') icon = '🎥';
+        else if (fileType === 'audio') icon = '🎵';
+        else if (fileType === 'pdf') icon = '📄';
+        
+        const displayText = `${icon} ${fileName}`;
+        if (displayText.length <= maxLength) return displayText;
+        return displayText.substring(0, maxLength) + '...';
+      }
+    } catch {
+      // Not JSON, treat as regular text
+    }
+    
+    // Regular text message
     if (message.length <= maxLength) return message;
     return message.substring(0, maxLength) + '...';
   };

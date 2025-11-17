@@ -419,6 +419,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             },
             onMarkAsRead: async () => {
               await contactsService.markMessagesAsRead(notificationSenderEmail);
+              // Immediately reload contacts to update unread count
+              loadContacts(false);
             },
             onReply: async (replyMessage) => {
               if (replyMessage && replyMessage.trim()) {
@@ -482,7 +484,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     return () => {
       socket.off('privateMessage', handleAnyPrivateMessage);
     };
-  }, [socket, userEmail, contactEmail, chatType, contacts, addNotification, clearNotification, sendPrivateMessage, setContactEmail, setChatType, setContactName]);
+  }, [socket, userEmail, contactEmail, chatType, contacts, addNotification, clearNotification, sendPrivateMessage, setContactEmail, setChatType, setContactName, loadContacts]);
 
   // Socket events for contacts/groups updates
   useEffect(() => {

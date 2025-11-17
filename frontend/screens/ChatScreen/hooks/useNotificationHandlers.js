@@ -19,6 +19,7 @@ export const useNotificationHandlers = ({
   clearNotification,
   sendPrivateMessage,
   socket,
+  loadContacts,
 }) => {
   const createNotification = useCallback((data) => {
     const isViewingThisChat = contactEmail === data.senderEmail && chatType === 'private';
@@ -60,6 +61,10 @@ export const useNotificationHandlers = ({
           },
           onMarkAsRead: async () => {
             await contactsService.markMessagesAsRead(notificationSenderEmail);
+            // Immediately reload contacts to update unread count
+            if (loadContacts) {
+              loadContacts(false);
+            }
           },
           onReply: async (replyMessage) => {
             if (replyMessage && replyMessage.trim()) {
@@ -119,7 +124,7 @@ export const useNotificationHandlers = ({
       
       decryptMessage();
     }
-  }, [userEmail, contactEmail, chatType, contacts, addNotification, clearNotification, sendPrivateMessage]);
+  }, [userEmail, contactEmail, chatType, contacts, addNotification, clearNotification, sendPrivateMessage, loadContacts]);
 
   return { createNotification };
 };
