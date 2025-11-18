@@ -1,15 +1,18 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, Platform, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Platform, KeyboardAvoidingView } from 'react-native';
+import AlertModal from '../AlertModal/AlertModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './UsernameInput.styles';
 
 const UsernameInput = ({ onJoin }) => {
+  const { showAlert, alertState, hideAlert } = useAlertModal();
   const [username, setUsername] = React.useState('');
 
   const handleJoin = () => {
     if (username.trim() && username.trim().length >= 2) {
       onJoin(username.trim());
     } else {
-      Alert.alert('Invalid Username', 'Please enter a username (at least 2 characters)');
+      showAlert('Invalid Username', 'Please enter a username (at least 2 characters)', { type: 'error' });
     }
   };
 
@@ -52,6 +55,16 @@ const UsernameInput = ({ onJoin }) => {
           <Text style={styles.buttonText}>Continue</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
     </KeyboardAvoidingView>
   );
 };

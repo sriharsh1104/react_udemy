@@ -8,7 +8,6 @@ import {
   FlatList,
   ActivityIndicator,
   ScrollView,
-  Alert,
   Share,
   Linking,
   Platform,
@@ -17,6 +16,9 @@ import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../../contexts/ThemeContext';
 import Button from '../../common/Button';
 import GLoader from '../../common/GLoader';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import ConfirmationModal from '../../common/ConfirmationModal/ConfirmationModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import contactsService from '../../../services/contactsService';
 import groupService from '../../../services/groupService';
 import { showToastFromResponse } from '../../../utils/toast';
@@ -25,6 +27,7 @@ import styles from './GroupInfoModal.styles';
 
 const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, onExitGroup, onClearChat }) => {
   const { colors } = useTheme();
+  const { showAlert, showConfirm, alertState, confirmState, hideAlert, hideConfirm } = useAlertModal();
   const [groupDetails, setGroupDetails] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -115,63 +118,61 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
       message = 'You are the group creator. If you exit, the next oldest member will become the new creator. Are you sure you want to exit?';
     } else if (isCreatorExiting && memberCount === 1) {
       message = 'You are the only member. Please delete the group instead of exiting.';
-      Alert.alert('Cannot Exit', message, [{ text: 'OK' }]);
+      showAlert('Cannot Exit', message, { type: 'warning' });
       return;
     }
 
-    Alert.alert(
+    showConfirm(
       'Exit Group',
       message,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Exit',
-          style: 'destructive',
-          onPress: async () => {
-            setExiting(true);
-            const result = await groupService.removeMember(groupDetails._id, userEmail);
-            setExiting(false);
+      {
+        confirmText: 'Exit',
+        cancelText: 'Cancel',
+        confirmButtonStyle: 'destructive',
+        onConfirm: async () => {
+          setExiting(true);
+          const result = await groupService.removeMember(groupDetails._id, userEmail);
+          setExiting(false);
 
-            if (result.success) {
-              showToastFromResponse(result, { 
-                successTitle: isCreatorExiting ? 'Exited Group - Creator Transferred' : 'Exited Group' 
-              });
-              if (onExitGroup) {
-                onExitGroup();
-              }
-              onClose();
+          if (result.success) {
+            showToastFromResponse(result, { 
+              successTitle: isCreatorExiting ? 'Exited Group - Creator Transferred' : 'Exited Group' 
+            });
+            if (onExitGroup) {
+              onExitGroup();
             }
-          },
+            onClose();
+          }
         },
-      ]
+        onCancel: () => {},
+      }
     );
   };
 
   const handleDeleteGroup = async () => {
     if (!groupDetails || !groupDetails._id) return;
 
-    Alert.alert(
+    showConfirm(
       'Delete Group',
       `Are you sure you want to delete "${groupDetails.name}"? This action cannot be undone and all messages will be lost.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingGroup(true);
-            const result = await groupService.deleteGroup(groupDetails._id);
-            setDeletingGroup(false);
+      {
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        confirmButtonStyle: 'destructive',
+        onConfirm: async () => {
+          setDeletingGroup(true);
+          const result = await groupService.deleteGroup(groupDetails._id);
+          setDeletingGroup(false);
 
-            if (result.success) {
-              if (onExitGroup) {
-                onExitGroup();
-              }
-              onClose();
+          if (result.success) {
+            if (onExitGroup) {
+              onExitGroup();
             }
-          },
+            onClose();
+          }
         },
-      ]
+        onCancel: () => {},
+      }
     );
   };
 
@@ -188,22 +189,21 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
   const handleResetLink = async () => {
     if (!group || !group._id) return;
     
-    Alert.alert(
+    showConfirm(
       'Reset Invite Link',
       'This will expire the current link and generate a new one. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            setResettingLink(true);
-            const result = await groupService.resetInviteLink(group._id);
-            setResettingLink(false);
-            if (result.success && result.inviteLink) {
-              setInviteLink(result.inviteLink);
-              Toast.show({
-                type: 'success',
+      {
+        confirmText: 'Reset',
+        cancelText: 'Cancel',
+        confirmButtonStyle: 'destructive',
+        onConfirm: async () => {
+          setResettingLink(true);
+          const result = await groupService.resetInviteLink(group._id);
+          setResettingLink(false);
+          if (result.success && result.inviteLink) {
+            setInviteLink(result.inviteLink);
+            Toast.show({
+              type: 'success',
                 text1: 'Link Reset',
                 text2: 'New invite link generated',
                 position: 'top',
@@ -213,7 +213,7 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
             }
           },
         },
-      ]
+      // ]
     );
   };
 
@@ -638,20 +638,19 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
                   <Button
                     title="🗑️ Clear Chat"
                     onPress={() => {
-                      Alert.alert(
+                      showConfirm(
                         'Clear Chat',
                         'Are you sure you want to clear all messages in this chat? This action cannot be undone.',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Clear',
-                            style: 'destructive',
-                            onPress: () => {
-                              onClearChat();
-                              onClose();
-                            },
+                        {
+                          confirmText: 'Clear',
+                          cancelText: 'Cancel',
+                          confirmButtonStyle: 'destructive',
+                          onConfirm: () => {
+                            onClearChat();
+                            onClose();
                           },
-                        ]
+                          onCancel: () => {},
+                        }
                       );
                     }}
                     variant="outline"
@@ -685,6 +684,28 @@ const GroupInfoModal = ({ visible, onClose, group, userEmail, onGroupUpdated, on
           </View>
         </View>
       </Modal>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        visible={confirmState.visible}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        cancelText={confirmState.cancelText}
+        confirmButtonStyle={confirmState.confirmButtonStyle}
+        onConfirm={() => hideConfirm(true)}
+        onCancel={() => hideConfirm(false)}
+      />
     </>
   );
 };

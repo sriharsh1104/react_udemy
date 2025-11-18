@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { COLORS } from '../../../constants';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './BillSplitModal.styles';
 
 const BillSplitModal = ({
@@ -20,6 +21,7 @@ const BillSplitModal = ({
   groupId,
   groupMembers = [],
 }) => {
+  const { showAlert, alertState, hideAlert } = useAlertModal();
   const [billName, setBillName] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
   const [splits, setSplits] = useState([]);
@@ -100,13 +102,13 @@ const BillSplitModal = ({
     
     const sanitizedBillName = sanitizeString(billName);
     if (!sanitizedBillName.trim()) {
-      Alert.alert('Error', 'Please enter a bill name');
+      showAlert('Error', 'Please enter a bill name', { type: 'error' });
       return;
     }
 
     const sanitizedAmount = sanitizeAmount(totalAmount);
     if (!isValidAmount(sanitizedAmount)) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      showAlert('Error', 'Please enter a valid amount', { type: 'error' });
       return;
     }
 
@@ -114,7 +116,7 @@ const BillSplitModal = ({
     const selectedSplits = splits.filter(s => s.selected);
     
     if (selectedSplits.length === 0) {
-      Alert.alert('Error', 'Please select at least one person');
+      showAlert('Error', 'Please select at least one person', { type: 'error' });
       return;
     }
 
@@ -124,7 +126,7 @@ const BillSplitModal = ({
 
     // Check if totals match (allow small rounding difference)
     if (Math.abs(splitTotal - total) > 0.01) {
-      Alert.alert('Error', `Split amounts (₹${splitTotal.toFixed(2)}) must equal total amount (₹${total.toFixed(2)})`);
+      showAlert('Error', `Split amounts (₹${splitTotal.toFixed(2)}) must equal total amount (₹${total.toFixed(2)})`, { type: 'error' });
       return;
     }
 
@@ -301,6 +303,14 @@ const BillSplitModal = ({
           </View>
         </View>
       </View>
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
     </Modal>
   );
 };

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   Modal,
   Dimensions,
   Platform,
@@ -17,6 +16,9 @@ import statusService from '../../../services/statusService';
 import * as ImagePicker from 'expo-image-picker';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { API_CONFIG } from '../../../constants';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import ActionModal from '../../common/ActionModal/ActionModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './Status.styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -106,6 +108,7 @@ const StatusContentView = ({ status, onClose, onNext, onPrev, currentIndex, tota
 
 const Status = ({ userEmail, contacts = [] }) => {
   const { colors } = useTheme();
+  const { showAlert, showAction, alertState, actionState, hideAlert, hideAction } = useAlertModal();
   const [statuses, setStatuses] = useState([]);
   const [myStatus, setMyStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -139,12 +142,12 @@ const Status = ({ userEmail, contacts = [] }) => {
       if (Platform.OS !== 'web') {
         const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (mediaStatus !== 'granted') {
-          Alert.alert('Permission Denied', 'We need camera roll permissions to add status');
+          showAlert('Permission Denied', 'We need camera roll permissions to add status', { type: 'warning' });
           return;
         }
       }
 
-      Alert.alert(
+      showAction(
         'Add Status',
         'Choose an option',
         [
@@ -160,12 +163,11 @@ const Status = ({ userEmail, contacts = [] }) => {
             text: 'Cancel', 
             style: 'cancel' 
           },
-        ],
-        { cancelable: true }
+        ]
       );
     } catch (error) {
       console.error('Error adding status:', error);
-      Alert.alert('Error', 'Failed to add status');
+      showAlert('Error', 'Failed to add status', { type: 'error' });
     }
   };
 
@@ -199,7 +201,7 @@ const Status = ({ userEmail, contacts = [] }) => {
 
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need camera roll permissions');
+        showAlert('Permission Denied', 'We need camera roll permissions', { type: 'warning' });
         return;
       }
 
@@ -224,24 +226,24 @@ const Status = ({ userEmail, contacts = [] }) => {
       }
     } catch (error) {
       console.error('Error opening gallery:', error);
-      Alert.alert('Error', 'Failed to open gallery');
+      showAlert('Error', 'Failed to open gallery', { type: 'error' });
     }
   };
 
   const pickFromCamera = async () => {
     try {
       if (Platform.OS === 'web') {
-        Alert.alert('Not Available', 'Camera is not available on web. Please use Gallery option.');
+        showAlert('Not Available', 'Camera is not available on web. Please use Gallery option.', { type: 'info' });
         return;
       }
 
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need camera permissions');
+        showAlert('Permission Denied', 'We need camera permissions', { type: 'warning' });
         return;
       }
 
-      Alert.alert(
+      showAction(
         'Take Photo/Video',
         'Choose media type',
         [
@@ -252,7 +254,7 @@ const Status = ({ userEmail, contacts = [] }) => {
       );
     } catch (error) {
       console.error('Error opening camera:', error);
-      Alert.alert('Error', 'Failed to open camera');
+      showAlert('Error', 'Failed to open camera', { type: 'error' });
     }
   };
 
@@ -278,7 +280,7 @@ const Status = ({ userEmail, contacts = [] }) => {
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      Alert.alert('Error', 'Failed to take photo');
+      showAlert('Error', 'Failed to take photo', { type: 'error' });
     }
   };
 
@@ -303,7 +305,7 @@ const Status = ({ userEmail, contacts = [] }) => {
       }
     } catch (error) {
       console.error('Error taking video:', error);
-      Alert.alert('Error', 'Failed to take video');
+      showAlert('Error', 'Failed to take video', { type: 'error' });
     }
   };
 
@@ -315,12 +317,12 @@ const Status = ({ userEmail, contacts = [] }) => {
       const fileSize = file.size || 0;
       
       if (type === 'image' && fileSize > MAX_IMAGE_SIZE) {
-        Alert.alert('File Too Large', 'Image size must be less than 2MB');
+        showAlert('File Too Large', 'Image size must be less than 2MB', { type: 'warning' });
         return;
       }
       
       if (type === 'video' && fileSize > MAX_VIDEO_SIZE) {
-        Alert.alert('File Too Large', 'Video size must be less than 5MB');
+        showAlert('File Too Large', 'Video size must be less than 5MB', { type: 'warning' });
         return;
       }
       
@@ -331,11 +333,11 @@ const Status = ({ userEmail, contacts = [] }) => {
       if (result.success) {
         await loadStatuses();
       } else {
-        Alert.alert('Upload Failed', result.message || 'Failed to upload status');
+        showAlert('Upload Failed', result.message || 'Failed to upload status', { type: 'error' });
       }
     } catch (error) {
       console.error('Error uploading status:', error);
-      Alert.alert('Error', 'Failed to upload status. Please try again.');
+      showAlert('Error', 'Failed to upload status. Please try again.', { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -551,6 +553,25 @@ const Status = ({ userEmail, contacts = [] }) => {
           )}
         </View>
       </Modal>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
+
+      {/* Action Modal */}
+      <ActionModal
+        visible={actionState.visible}
+        title={actionState.title}
+        message={actionState.message}
+        options={actionState.options}
+        onClose={hideAction}
+      />
     </View>
   );
 };

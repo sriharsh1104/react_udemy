@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Platform,
   Dimensions,
-  Alert,
   Image,
 } from 'react-native';
 import { COLORS } from '../../../constants';
@@ -17,6 +16,8 @@ import profileService from '../../../services/profileService';
 import feedService from '../../../services/feedService';
 import fileUploadService from '../../../services/fileUploadService';
 import FullScreenImageViewer from '../FullScreenImageViewer';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './ContactInfoModal.styles';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -30,6 +31,7 @@ const ContactInfoModal = ({
   onSelectGroup,
   messages = []
 }) => {
+  const { showAlert, alertState, hideAlert } = useAlertModal();
   const [commonGroups, setCommonGroups] = useState([]);
   const [sharedMedia, setSharedMedia] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -240,7 +242,7 @@ const ContactInfoModal = ({
                     if (followStatus === 'accepted') {
                       handleUnfollow();
                     } else if (followStatus === 'pending') {
-                      Alert.alert('Follow Request', 'Follow request already sent. Waiting for approval.');
+                      showAlert('Follow Request', 'Follow request already sent. Waiting for approval.', { type: 'info' });
                     } else {
                       handleFollow();
                     }
@@ -397,6 +399,16 @@ const ContactInfoModal = ({
           }}
         />
       )}
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
     </Modal>
   );
 };

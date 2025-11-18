@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Platform, Modal, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Platform, Modal } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS } from '../../../constants';
 import fileUploadService from '../../../services/fileUploadService';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import EmojiPicker from '../EmojiPicker';
 import GIFPicker from '../GIFPicker';
 import styles from './MessageInput.styles';
 
 const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, replyingTo, onCancelReply, editingMessage, onCancelEdit, onBillSplitPress }) => {
+  const { showAlert, alertState, hideAlert } = useAlertModal();
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGIFPicker, setShowGIFPicker] = useState(false);
@@ -61,7 +64,7 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
         onFileSelect(file);
       }
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to select file');
+      showAlert('Error', error.message || 'Failed to select file', { type: 'error' });
     }
   };
 
@@ -73,7 +76,7 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
         onFileSelect(file);
       }
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to take photo');
+      showAlert('Error', error.message || 'Failed to take photo', { type: 'error' });
     }
   };
 
@@ -81,25 +84,25 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
   const handlePoll = () => {
     setShowAttachmentMenu(false);
     // TODO: Add poll functionality
-    Alert.alert('Poll', 'Poll feature coming soon');
+    showAlert('Poll', 'Poll feature coming soon', { type: 'info' });
   };
 
   const handleLocation = () => {
     setShowAttachmentMenu(false);
     // TODO: Add location functionality
-    Alert.alert('Location', 'Location feature coming soon');
+    showAlert('Location', 'Location feature coming soon', { type: 'info' });
   };
 
   const handleDocument = () => {
     setShowAttachmentMenu(false);
     // TODO: Add document picker functionality
-    Alert.alert('Document', 'Document feature coming soon');
+    showAlert('Document', 'Document feature coming soon', { type: 'info' });
   };
 
   const handleContact = () => {
     setShowAttachmentMenu(false);
     // TODO: Add contact sharing functionality
-    Alert.alert('Contact', 'Contact sharing feature coming soon');
+    showAlert('Contact', 'Contact sharing feature coming soon', { type: 'info' });
   };
 
   const handleEmojiSelect = (emoji) => {
@@ -150,7 +153,7 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
       }
     } catch (error) {
       console.error('Error handling GIF:', error);
-      Alert.alert('Error', 'Failed to send GIF. Please try again.');
+      showAlert('Error', 'Failed to send GIF. Please try again.', { type: 'error' });
     }
   };
 
@@ -433,6 +436,16 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
         visible={showGIFPicker}
         onClose={() => setShowGIFPicker(false)}
         onGIFSelect={handleGIFSelect}
+      />
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
       />
     </View>
   );

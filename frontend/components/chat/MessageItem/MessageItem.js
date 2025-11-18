@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Platform, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Platform, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS } from '../../../constants';
 import fileUploadService from '../../../services/fileUploadService';
 import FullScreenImageViewer from '../FullScreenImageViewer';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './MessageItem.styles';
 
 const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt, onMenuPress, isCallMessage, callRecord, isBillSplit, billSplitData, onMarkAsPaid }) => {
+  const { showAlert, alertState, hideAlert } = useAlertModal();
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
@@ -123,7 +126,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
     
     // If already downloaded, just show success
     if (localFileUri) {
-      Alert.alert('Success', 'File is already downloaded');
+      showAlert('Success', 'File is already downloaded', { type: 'success' });
       return;
     }
     
@@ -138,9 +141,9 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
       setLocalFileUri(result.localUri);
       
       // Don't delete file from server - keep it for future use
-      Alert.alert('Success', 'File downloaded successfully');
+      showAlert('Success', 'File downloaded successfully', { type: 'success' });
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to download file');
+      showAlert('Error', error.message || 'Failed to download file', { type: 'error' });
     } finally {
       setDownloading(false);
     }
@@ -607,6 +610,16 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
           )}
         </View>
       </View>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
     </TouchableOpacity>
   );
 };

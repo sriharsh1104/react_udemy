@@ -7,7 +7,6 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
-  Alert,
   Platform,
   Linking,
   Share,
@@ -19,9 +18,12 @@ import * as Contacts from 'expo-contacts';
 import * as Clipboard from 'expo-clipboard';
 import { COLORS } from '../../../constants';
 import contactsService from '../../../services/contactsService';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './Sidebar.styles';
 
 export const InviteModal = ({ visible, onClose, email }) => {
+  const { showAlert, alertState, hideAlert } = useAlertModal();
   const [inviteLink, setInviteLink] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [referralLink, setReferralLink] = useState('');
@@ -126,15 +128,15 @@ export const InviteModal = ({ visible, onClose, email }) => {
             webUrl = `https://t.me/share/url?url=${encodeURIComponent(linkToShare)}&text=${encodeURIComponent(message)}`;
             break;
           default:
-            Alert.alert('Error', `${platform.charAt(0).toUpperCase() + platform.slice(1)} app is not installed`);
+            showAlert('Error', `${platform.charAt(0).toUpperCase() + platform.slice(1)} app is not installed`, { type: 'error' });
             setShowShareModal(false);
             return;
         }
         Linking.openURL(webUrl).catch(() => {
-          Alert.alert('Error', `Could not open ${platform}`);
+          showAlert('Error', `Could not open ${platform}`, { type: 'error' });
         });
       } else {
-        Alert.alert('Error', `Could not share via ${platform}`);
+        showAlert('Error', `Could not share via ${platform}`, { type: 'error' });
       }
     });
     setShowShareModal(false);
@@ -145,7 +147,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
     const message = `Join me on Chat App! Use my referral code: ${referralCode || 'N/A'}\n${linkToShare}`;
     const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
     Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'WhatsApp is not installed');
+      showAlert('Error', 'WhatsApp is not installed', { type: 'error' });
     });
   };
 
@@ -162,7 +164,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
         position: 'top',
       });
     } catch (error) {
-      Alert.alert('Error', 'Failed to copy link');
+      showAlert('Error', 'Failed to copy link', { type: 'error' });
     }
   };
 
@@ -178,7 +180,7 @@ export const InviteModal = ({ visible, onClose, email }) => {
         position: 'top',
       });
     } catch (error) {
-      Alert.alert('Error', 'Failed to copy referral code');
+      showAlert('Error', 'Failed to copy referral code', { type: 'error' });
     }
   };
 
@@ -345,11 +347,22 @@ export const InviteModal = ({ visible, onClose, email }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
     </Modal>
   );
 };
 
 const Sidebar = ({ visible, onClose, onSelectContact, contacts: parentContacts = [] }) => {
+  const { showAlert, alertState, hideAlert } = useAlertModal();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [contacts, setContacts] = useState([]);
@@ -412,7 +425,7 @@ const Sidebar = ({ visible, onClose, onSelectContact, contacts: parentContacts =
       // Request permission
       const { status } = await Contacts.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Contacts permission is required to sync phone contacts.');
+        showAlert('Permission Denied', 'Contacts permission is required to sync phone contacts.', { type: 'warning' });
         setLoadingPhoneContacts(false);
         return;
       }
@@ -470,7 +483,7 @@ const Sidebar = ({ visible, onClose, onSelectContact, contacts: parentContacts =
       }
     } catch (error) {
       console.error('Error loading phone contacts:', error);
-      Alert.alert('Error', 'Failed to load phone contacts');
+      showAlert('Error', 'Failed to load phone contacts', { type: 'error' });
     } finally {
       setLoadingPhoneContacts(false);
     }
@@ -881,6 +894,16 @@ const Sidebar = ({ visible, onClose, onSelectContact, contacts: parentContacts =
           </View>
         </View>
       </Modal>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
     </>
   );
 };

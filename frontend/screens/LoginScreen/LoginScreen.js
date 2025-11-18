@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   Platform,
-  Alert,
   KeyboardAvoidingView,
   SafeAreaView,
   ScrollView,
@@ -17,6 +16,8 @@ import { useTheme } from '../../contexts/ThemeContext';
 import Button from '../../components/common/Button';
 import PasswordInput from '../../components/common/PasswordInput';
 import AnimatedBackground from '../../components/common/AnimatedBackground';
+import AlertModal from '../../components/common/AlertModal/AlertModal';
+import useAlertModal from '../../hooks/useAlertModal';
 // GLoader removed - loader disabled
 import authService from '../../services/authService';
 import { validateIdentifier, isValidPassword, sanitizeString } from '../../utils/validation';
@@ -24,6 +25,7 @@ import styles from './styles';
 
 const LoginScreen = ({ onLogin }) => {
   const { colors, isDark } = useTheme();
+  const { showAlert, alertState, hideAlert } = useAlertModal();
   const [identifier, setIdentifier] = useState(''); // email or phone
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
@@ -62,7 +64,7 @@ const LoginScreen = ({ onLogin }) => {
     const trimmedId = identifier.trim();
     
     if (!trimmedId) {
-      Alert.alert('Required', 'Please enter your email or phone number');
+      showAlert('Required', 'Please enter your email or phone number', { type: 'warning' });
       return;
     }
 
@@ -71,12 +73,12 @@ const LoginScreen = ({ onLogin }) => {
     const isEmailInput = isEmail(trimmedId);
     
     if (isEmailInput && !trimmedId.includes('@')) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      showAlert('Invalid Email', 'Please enter a valid email address', { type: 'error' });
       return;
     }
 
     if (!isEmailInput && !isValidPhone(trimmedId)) {
-      Alert.alert('Invalid Phone', 'Please enter a valid phone number');
+      showAlert('Invalid Phone', 'Please enter a valid phone number', { type: 'error' });
       return;
     }
 
@@ -98,7 +100,7 @@ const LoginScreen = ({ onLogin }) => {
 
   const handleVerifyOTP = async () => {
     if (!otp.trim() || otp.length !== 6) {
-      Alert.alert('Invalid OTP', 'Please enter a 6-digit OTP');
+      showAlert('Invalid OTP', 'Please enter a 6-digit OTP', { type: 'error' });
       return;
     }
 
@@ -147,7 +149,7 @@ const LoginScreen = ({ onLogin }) => {
     const trimmedId = identifier.trim();
     
     if (!trimmedId || !password.trim()) {
-      Alert.alert('Required', 'Please enter your email/phone and password');
+      showAlert('Required', 'Please enter your email/phone and password', { type: 'warning' });
       return;
     }
 
@@ -184,14 +186,14 @@ const LoginScreen = ({ onLogin }) => {
     const trimmedId = sanitizeString(identifier);
     
     if (!trimmedId) {
-      Alert.alert('Required', 'Please enter your email or phone number');
+      showAlert('Required', 'Please enter your email or phone number', { type: 'warning' });
       return;
     }
 
     // Validate identifier
     const identifierValidation = validateIdentifier(trimmedId);
     if (!identifierValidation.valid) {
-      Alert.alert('Invalid Input', 'Please enter a valid email or phone number');
+      showAlert('Invalid Input', 'Please enter a valid email or phone number', { type: 'error' });
       return;
     }
 
@@ -211,17 +213,17 @@ const LoginScreen = ({ onLogin }) => {
 
   const handleResetPassword = async () => {
     if (!otp.trim() || otp.length !== 6) {
-      Alert.alert('Invalid OTP', 'Please enter a 6-digit OTP');
+      showAlert('Invalid OTP', 'Please enter a 6-digit OTP', { type: 'error' });
       return;
     }
 
     if (!newPassword.trim() || newPassword.length < 6) {
-      Alert.alert('Invalid Password', 'Password must be at least 6 characters');
+      showAlert('Invalid Password', 'Password must be at least 6 characters', { type: 'error' });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Password Mismatch', 'New password and confirm password do not match');
+      showAlert('Password Mismatch', 'New password and confirm password do not match', { type: 'error' });
       return;
     }
 
@@ -240,7 +242,7 @@ const LoginScreen = ({ onLogin }) => {
       setNewPassword('');
       setConfirmPassword('');
       setPassword('');
-      Alert.alert('Success', 'Password reset successfully. Please login with your new password.');
+      showAlert('Success', 'Password reset successfully. Please login with your new password.', { type: 'success' });
     }
     setLoading(false);
   };
@@ -249,25 +251,25 @@ const LoginScreen = ({ onLogin }) => {
     const trimmedEmail = sanitizeString(signupEmail);
     
     if (!trimmedEmail) {
-      Alert.alert('Required', 'Please enter your email address');
+      showAlert('Required', 'Please enter your email address', { type: 'warning' });
       return;
     }
 
     // Validate email
     const identifierValidation = validateIdentifier(trimmedEmail);
     if (!identifierValidation.valid || identifierValidation.type !== 'email') {
-      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      showAlert('Invalid Email', 'Please enter a valid email address', { type: 'error' });
       return;
     }
 
     // Validate password
     if (!isValidPassword(signupPassword)) {
-      Alert.alert('Invalid Password', 'Password must be at least 6 characters');
+      showAlert('Invalid Password', 'Password must be at least 6 characters', { type: 'error' });
       return;
     }
 
     if (signupPassword !== confirmSignupPassword) {
-      Alert.alert('Password Mismatch', 'Password and confirm password do not match');
+      showAlert('Password Mismatch', 'Password and confirm password do not match', { type: 'error' });
       return;
     }
 
@@ -644,6 +646,14 @@ const LoginScreen = ({ onLogin }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
     </SafeAreaView>
   );
 };

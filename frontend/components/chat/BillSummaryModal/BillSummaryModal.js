@@ -6,10 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { COLORS } from '../../../constants';
 import billSplitService from '../../../services/billSplitService';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './BillSummaryModal.styles';
 
 const BillSummaryModal = ({
@@ -21,6 +22,7 @@ const BillSummaryModal = ({
   roomId,
   groupMembers = [],
 }) => {
+  const { showAlert, alertState, hideAlert } = useAlertModal();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState({
@@ -48,7 +50,7 @@ const BillSummaryModal = ({
       }
     } catch (error) {
       console.error('Error loading bills:', error);
-      Alert.alert('Error', 'Failed to load bills');
+      showAlert('Error', 'Failed to load bills', { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -163,7 +165,7 @@ const BillSummaryModal = ({
   const handleReminder = async () => {
     try {
       if (summary.peopleWhoOwe.length === 0) {
-        Alert.alert('Info', 'No pending payments to remind');
+        showAlert('Info', 'No pending payments to remind', { type: 'info' });
         return;
       }
 
@@ -172,15 +174,15 @@ const BillSummaryModal = ({
       
       if (result.success) {
         // Message will appear in chat automatically via socket
-        Alert.alert('Reminder Sent', `Reminder message sent in chat with total pending amount ₹${summary.totalPending.toFixed(2)}`);
+        showAlert('Reminder Sent', `Reminder message sent in chat with total pending amount ₹${summary.totalPending.toFixed(2)}`, { type: 'success' });
         // Optionally reload bills to refresh the summary
         loadBills();
       } else {
-        Alert.alert('Error', result.message || 'Failed to send reminder');
+        showAlert('Error', result.message || 'Failed to send reminder', { type: 'error' });
       }
     } catch (error) {
       console.error('Error sending reminder:', error);
-      Alert.alert('Error', 'Failed to send reminder');
+      showAlert('Error', 'Failed to send reminder', { type: 'error' });
     }
   };
 
@@ -323,6 +325,16 @@ const BillSummaryModal = ({
           </View>
         </View>
       </View>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
     </Modal>
   );
 };

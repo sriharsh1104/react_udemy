@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   Platform,
-  Alert,
   KeyboardAvoidingView,
   ScrollView,
   SafeAreaView,
@@ -17,12 +16,16 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
+import AlertModal from '../../components/common/AlertModal/AlertModal';
+import ConfirmationModal from '../../components/common/ConfirmationModal/ConfirmationModal';
+import useAlertModal from '../../hooks/useAlertModal';
 // GLoader removed - loader disabled
 import profileService from '../../services/profileService';
 import styles from './styles';
 
 const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile = null, isProfileComplete = false }) => {
   const { colors } = useTheme();
+  const { showAlert, showConfirm, alertState, confirmState, hideAlert, hideConfirm } = useAlertModal();
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [phone1, setPhone1] = useState('');
@@ -184,20 +187,20 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     
     // Validate required fields for mandatory profile
     if (isMandatory && (!name.trim() || !phone1.trim())) {
-      Alert.alert('Required Fields', 'Please fill Name and at least one Phone Number to continue');
+      showAlert('Required Fields', 'Please fill Name and at least one Phone Number to continue', { type: 'warning' });
       return;
     }
 
     // Sanitize and validate name
     const sanitizedName = sanitizeName(name);
     if (!isValidName(sanitizedName)) {
-      Alert.alert('Invalid Name', 'Please enter a valid name');
+      showAlert('Invalid Name', 'Please enter a valid name', { type: 'error' });
       return;
     }
 
     // Validate age
     if (age && !isValidAge(age)) {
-      Alert.alert('Invalid Age', 'Please enter a valid age (1-150)');
+      showAlert('Invalid Age', 'Please enter a valid age (1-150)', { type: 'error' });
       return;
     }
 
@@ -205,13 +208,13 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     const phoneNumbers = [phone1.trim(), phone2.trim()].filter(p => p);
     
     if (isMandatory && phoneNumbers.length === 0) {
-      Alert.alert('Required', 'Please enter at least one phone number');
+      showAlert('Required', 'Please enter at least one phone number', { type: 'warning' });
       return;
     }
     
     for (const phone of phoneNumbers) {
       if (!isValidPhone(phone)) {
-        Alert.alert('Invalid Phone', 'Please enter valid phone numbers');
+        showAlert('Invalid Phone', 'Please enter valid phone numbers', { type: 'error' });
         return;
       }
     }
@@ -258,7 +261,7 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       }
     } catch (error) {
       console.error('❌ Error in handleSave:', error);
-      Alert.alert('Error', `Failed to save profile: ${error.message || 'Unknown error'}`);
+      showAlert('Error', `Failed to save profile: ${error.message || 'Unknown error'}`, { type: 'error' });
       setSaving(false);
     }
   };
@@ -272,13 +275,16 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     
     // If mandatory and profile incomplete, warn user
     if (isMandatory && !profileCompleteStatus) {
-      Alert.alert(
+      showConfirm(
         'Profile Incomplete',
         'Please complete your profile to continue using the app.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Go Back', style: 'destructive', onPress: onBack },
-        ]
+        {
+          confirmText: 'Go Back',
+          cancelText: 'Cancel',
+          confirmButtonStyle: 'destructive',
+          onConfirm: onBack,
+          onCancel: () => {},
+        }
       );
     } else {
       onBack();
@@ -514,6 +520,28 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+
+    {/* Alert Modal */}
+    <AlertModal
+      visible={alertState.visible}
+      title={alertState.title}
+      message={alertState.message}
+      buttonText={alertState.buttonText}
+      type={alertState.type}
+      onClose={hideAlert}
+    />
+
+    {/* Confirmation Modal */}
+    <ConfirmationModal
+      visible={confirmState.visible}
+      title={confirmState.title}
+      message={confirmState.message}
+      confirmText={confirmState.confirmText}
+      cancelText={confirmState.cancelText}
+      confirmButtonStyle={confirmState.confirmButtonStyle}
+      onConfirm={() => hideConfirm(true)}
+      onCancel={() => hideConfirm(false)}
+    />
     </SafeAreaView>
   );
 };

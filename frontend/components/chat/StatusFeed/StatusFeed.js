@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   Modal,
   Dimensions,
   Platform,
@@ -23,6 +22,9 @@ import profileService from '../../../services/profileService';
 import * as ImagePicker from 'expo-image-picker';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { API_CONFIG } from '../../../constants';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import ActionModal from '../../common/ActionModal/ActionModal';
+import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './StatusFeed.styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -77,6 +79,7 @@ const StatusContentView = ({ status }) => {
 
 const StatusFeed = ({ userEmail, contacts = [] }) => {
   const { colors } = useTheme();
+  const { showAlert, showAction, alertState, actionState, hideAlert, hideAction } = useAlertModal();
   const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -155,12 +158,12 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need camera roll permissions to add status');
+        showAlert('Permission Denied', 'We need camera roll permissions to add status', { type: 'warning' });
         return;
       }
 
       // Show options: Gallery, Camera, or Cancel
-      Alert.alert(
+      showAction(
         'Add Status',
         'Choose an option',
         [
@@ -180,7 +183,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       );
     } catch (error) {
       console.error('Error adding status:', error);
-      Alert.alert('Error', 'Failed to add status');
+      showAlert('Error', 'Failed to add status', { type: 'error' });
     }
   };
 
@@ -219,7 +222,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need camera roll permissions');
+        showAlert('Permission Denied', 'We need camera roll permissions', { type: 'warning' });
         return;
       }
 
@@ -245,7 +248,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       }
     } catch (error) {
       console.error('Error opening gallery:', error);
-      Alert.alert('Error', 'Failed to open gallery');
+      showAlert('Error', 'Failed to open gallery', { type: 'error' });
     }
   };
 
@@ -253,19 +256,19 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     try {
       // Web doesn't support camera directly
       if (Platform.OS === 'web') {
-        Alert.alert('Not Available', 'Camera is not available on web. Please use Gallery option.');
+        showAlert('Not Available', 'Camera is not available on web. Please use Gallery option.', { type: 'info' });
         return;
       }
 
       // Request camera permissions
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need camera permissions');
+        showAlert('Permission Denied', 'We need camera permissions', { type: 'warning' });
         return;
       }
 
       // Show options for image or video from camera
-      Alert.alert(
+      showAction(
         'Take Photo/Video',
         'Choose media type',
         [
@@ -276,7 +279,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       );
     } catch (error) {
       console.error('Error opening camera:', error);
-      Alert.alert('Error', 'Failed to open camera');
+      showAlert('Error', 'Failed to open camera', { type: 'error' });
     }
   };
 
@@ -302,7 +305,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      Alert.alert('Error', 'Failed to take photo');
+      showAlert('Error', 'Failed to take photo', { type: 'error' });
     }
   };
 
@@ -327,7 +330,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       }
     } catch (error) {
       console.error('Error taking video:', error);
-      Alert.alert('Error', 'Failed to take video');
+      showAlert('Error', 'Failed to take video', { type: 'error' });
     }
   };
 
@@ -354,7 +357,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      showAlert('Error', 'Failed to pick image', { type: 'error' });
     }
   };
 
@@ -380,7 +383,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       }
     } catch (error) {
       console.error('Error picking video:', error);
-      Alert.alert('Error', 'Failed to pick video');
+      showAlert('Error', 'Failed to pick video', { type: 'error' });
     }
   };
 
@@ -393,24 +396,24 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       const fileSize = file.size || 0;
       
       if (type === 'image' && fileSize > MAX_IMAGE_SIZE) {
-        Alert.alert(
+        showAlert(
           'File Too Large',
           'Image size must be less than 2MB. Please choose a smaller image.',
-          [{ text: 'OK' }]
+          { type: 'warning' }
         );
         return;
       }
       
       if (type === 'video' && fileSize > MAX_VIDEO_SIZE) {
-        Alert.alert(
+        showAlert(
           'File Too Large',
           'Video size must be less than 5MB. Please choose a smaller video.',
-          [{ text: 'OK' }]
+          { type: 'warning' }
         );
         return;
       }
       
-      Alert.alert('Uploading', 'Please wait...');
+      showAlert('Uploading', 'Please wait...', { type: 'info' });
       
       // Upload status
       const result = await statusService.uploadStatus(file, type);
@@ -418,10 +421,15 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       if (result.success) {
         // Refresh feed after upload
         await loadFeed(1, false);
+        hideAlert(); // Hide uploading alert
+      } else {
+        hideAlert(); // Hide uploading alert
+        showAlert('Error', 'Failed to upload status', { type: 'error' });
       }
     } catch (error) {
       console.error('Error uploading status:', error);
-      Alert.alert('Error', 'Failed to upload status');
+      hideAlert(); // Hide uploading alert if it was shown
+      showAlert('Error', 'Failed to upload status', { type: 'error' });
     }
   };
 
@@ -1186,7 +1194,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                           handleUnfollow(selectedUserEmail);
                         } else if (selectedUserProfile.followStatus === 'pending') {
                           // Already requested - show message
-                          Alert.alert('Follow Request', 'Follow request already sent. Waiting for approval.');
+                          showAlert('Follow Request', 'Follow request already sent. Waiting for approval.', { type: 'info' });
                         } else {
                           handleFollow(selectedUserEmail);
                         }
@@ -1224,6 +1232,25 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Alert Modal */}
+      <AlertModal
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttonText={alertState.buttonText}
+        type={alertState.type}
+        onClose={hideAlert}
+      />
+
+      {/* Action Modal */}
+      <ActionModal
+        visible={actionState.visible}
+        title={actionState.title}
+        message={actionState.message}
+        options={actionState.options}
+        onClose={hideAction}
+      />
     </View>
   );
 };
