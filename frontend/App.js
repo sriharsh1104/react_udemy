@@ -190,11 +190,9 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     setShowLogoutModal(true);
   };
 
-  const handleProfileBack = async () => {
-    const updatedProfile = await refreshProfile();
-    if (updatedProfile?.isProfileComplete && navigationRef.current) {
-      navigationRef.current.navigate('Chat');
-    }
+  const handleLogoutConfirm = async () => {
+    setShowLogoutModal(false); // Close modal first
+    await handleLogout(); // Then perform logout
   };
 
   return (
@@ -317,7 +315,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
           <Suspense fallback={null}>
           <LogoutModal
             visible={showLogoutModal}
-            onConfirm={handleLogout}
+            onConfirm={handleLogoutConfirm}
             onCancel={() => setShowLogoutModal(false)}
           />
           </Suspense>
