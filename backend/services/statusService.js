@@ -4,12 +4,14 @@ const Contact = require('../models/Contact');
 
 class StatusService {
   // Create a new status
-  async createStatus(userEmail, fileId, statusType) {
+  async createStatus(userEmail, fileId, statusType, caption = '', tags = []) {
     try {
       const status = new Status({
         userEmail,
         fileId,
         statusType,
+        caption: caption || '',
+        tags: Array.isArray(tags) ? tags : [],
       });
       await status.save();
       return status;

@@ -13,12 +13,13 @@ import {
   Animated,
   ScrollView,
 } from 'react-native';
-import { COLORS } from '../../../constants';
+import { COLORS, SPACING } from '../../../constants';
 import { useTheme } from '../../../contexts/ThemeContext';
 import contactsService from '../../../services/contactsService';
 import statusService from '../../../services/statusService';
 import feedService from '../../../services/feedService';
 import profileService from '../../../services/profileService';
+import fileUploadService from '../../../services/fileUploadService';
 import * as ImagePicker from 'expo-image-picker';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { API_CONFIG } from '../../../constants';
@@ -28,6 +29,56 @@ import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './StatusFeed.styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Caption Input Component
+const CaptionInputComponent = ({ onPost, onCancel, colors }) => {
+  const [caption, setCaption] = useState('');
+  const [tags, setTags] = useState('');
+
+  return (
+    <ScrollView style={styles.captionInputScroll}>
+      <View style={styles.captionInputContainer}>
+        <Text style={[styles.captionLabel, { color: colors.text }]}>Caption</Text>
+        <TextInput
+          style={[styles.captionInput, { backgroundColor: colors.inputBackground || colors.surface, color: colors.text, borderColor: colors.divider }]}
+          placeholder="Write a caption..."
+          placeholderTextColor={colors.textSecondary}
+          value={caption}
+          onChangeText={setCaption}
+          multiline
+          maxLength={500}
+        />
+        <Text style={[styles.captionCharCount, { color: colors.textSecondary }]}>
+          {caption.length}/500
+        </Text>
+      </View>
+
+      <View style={styles.captionInputContainer}>
+        <Text style={[styles.captionLabel, { color: colors.text }]}>Tags (comma-separated)</Text>
+        <TextInput
+          style={[styles.captionInput, { backgroundColor: colors.inputBackground || colors.surface, color: colors.text, borderColor: colors.divider }]}
+          placeholder="e.g., nature, photography, travel"
+          placeholderTextColor={colors.textSecondary}
+          value={tags}
+          onChangeText={setTags}
+          maxLength={200}
+        />
+        <Text style={[styles.captionCharCount, { color: colors.textSecondary }]}>
+          {tags.length}/200
+        </Text>
+      </View>
+
+      <View style={styles.captionButtonContainer}>
+        <TouchableOpacity
+          style={[styles.captionPostButton, { backgroundColor: colors.primary }]}
+          onPress={() => onPost(caption, tags)}
+        >
+          <Text style={[styles.captionPostButtonText, { color: COLORS.white }]}>Post</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
 
 // Status Content Viewer Component
 const StatusContentView = ({ status }) => {
@@ -103,6 +154,8 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  // Optimized: Single state for upload modal
+  const [uploadModal, setUploadModal] = useState({ visible: false, file: null, type: null });
 
   useEffect(() => {
     loadFeed();
@@ -209,7 +262,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                 name: file.name || `status_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
                 size: file.size || 0,
               };
-              await uploadStatus(fileObj, isVideo ? 'video' : 'image');
+              setUploadModal({ visible: true, file: fileObj, type: isVideo ? 'video' : 'image' });
             }
             resolve();
           };
@@ -244,7 +297,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           name: asset.fileName || `status_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
           size: asset.fileSize || 0,
         };
-        await uploadStatus(file, isVideo ? 'video' : 'image');
+        setUploadModal({ visible: true, file, type: isVideo ? 'video' : 'image' });
       }
     } catch (error) {
       console.error('Error opening gallery:', error);
@@ -387,7 +440,10 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     }
   };
 
-  const uploadStatus = async (file, type) => {
+  const handlePostStatus = async (caption, tags) => {
+    const { file, type } = uploadModal;
+    if (!file) return;
+    
     try {
       // Validate file size before upload
       const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -396,41 +452,41 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       const fileSize = file.size || 0;
       
       if (type === 'image' && fileSize > MAX_IMAGE_SIZE) {
-        showAlert(
-          'File Too Large',
-          'Image size must be less than 2MB. Please choose a smaller image.',
-          { type: 'warning' }
-        );
+        showAlert('File Too Large', 'Image size exceeds 2MB limit. Please choose a smaller image.', { type: 'error' });
+        setUploadModal({ visible: false, file: null, type: null });
         return;
       }
       
       if (type === 'video' && fileSize > MAX_VIDEO_SIZE) {
-        showAlert(
-          'File Too Large',
-          'Video size must be less than 5MB. Please choose a smaller video.',
-          { type: 'warning' }
-        );
+        showAlert('File Too Large', 'Video size exceeds 5MB limit. Please choose a smaller video.', { type: 'error' });
+        setUploadModal({ visible: false, file: null, type: null });
         return;
       }
       
+      setUploadModal({ visible: false, file: null, type: null });
       showAlert('Uploading', 'Please wait...', { type: 'info' });
       
-      // Upload status
-      const result = await statusService.uploadStatus(file, type);
+      // Parse tags (comma-separated)
+      const tagsArray = tags?.trim() ? tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : [];
+      
+      // Upload status with caption and tags
+      const result = await statusService.uploadStatus(file, type, caption?.trim() || '', tagsArray);
       
       if (result.success) {
-        // Refresh feed after upload
         await loadFeed(1, false);
-        hideAlert(); // Hide uploading alert
+        hideAlert();
       } else {
-        hideAlert(); // Hide uploading alert
-        showAlert('Error', 'Failed to upload status', { type: 'error' });
+        hideAlert();
       }
     } catch (error) {
       console.error('Error uploading status:', error);
-      hideAlert(); // Hide uploading alert if it was shown
+      hideAlert();
       showAlert('Error', 'Failed to upload status', { type: 'error' });
     }
+  };
+
+  const handleCancelUpload = () => {
+    setUploadModal({ visible: false, file: null, type: null });
   };
 
   const handleLike = async (statusId) => {
@@ -658,15 +714,40 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
 
   // Feed Item Component with proper double tap handling
   const FeedItemComponent = ({ item }) => {
-    const statusUrl = item.statusUrl?.startsWith('http') 
-      ? item.statusUrl 
-      : item.statusUrl 
-        ? `${API_CONFIG.BASE_URL}${item.statusUrl}` 
-        : null;
-    
+    const [imageUrl, setImageUrl] = useState(null);
     const isLiked = likedStatuses.has(item.statusId);
     const isVideo = item.statusType === 'video';
     const lastTapRef = useRef(null);
+    
+    // Load image URL with authentication token
+    useEffect(() => {
+      if (item.fileId && !isVideo) {
+        fileUploadService.getFileViewUrl(item.fileId).then(url => {
+          if (url) setImageUrl(url);
+        }).catch(err => {
+          console.error('Error loading image URL:', err);
+          // Fallback to statusUrl if available
+          if (item.statusUrl) {
+            const fallbackUrl = item.statusUrl.startsWith('http') 
+              ? item.statusUrl 
+              : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
+            setImageUrl(fallbackUrl);
+          }
+        });
+      } else if (item.statusUrl) {
+        // For videos or if fileId is not available, use statusUrl directly
+        const url = item.statusUrl.startsWith('http') 
+          ? item.statusUrl 
+          : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
+        setImageUrl(url);
+      }
+    }, [item.fileId, item.statusUrl, isVideo]);
+    
+    const statusUrl = imageUrl || (item.statusUrl?.startsWith('http') 
+      ? item.statusUrl 
+      : item.statusUrl 
+        ? `${API_CONFIG.BASE_URL}${item.statusUrl}` 
+        : null);
     
     // Initialize animation if needed
     if (!likeAnimations.current[item.statusId]) {
@@ -736,7 +817,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           onPress={handleImagePress}
           style={styles.feedMediaContainer}
         >
-          {statusUrl && (
+          {statusUrl ? (
             <>
               {isVideo ? (
                 <VideoView
@@ -750,6 +831,15 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                   source={{ uri: statusUrl }}
                   style={styles.feedMedia}
                   resizeMode="cover"
+                  onError={(error) => {
+                    console.error('Image load error:', error);
+                    // Retry with fileId if available
+                    if (item.fileId) {
+                      fileUploadService.getFileViewUrl(item.fileId).then(url => {
+                        if (url) setImageUrl(url);
+                      });
+                    }
+                  }}
                 />
               )}
               
@@ -767,7 +857,12 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                 <Text style={styles.heartEmoji}>❤️</Text>
               </Animated.View>
             </>
-          )}
+          ) : item.fileId ? (
+            // Show loading indicator while URL is being fetched
+            <View style={[styles.feedMedia, { backgroundColor: colors.divider, justifyContent: 'center', alignItems: 'center', minHeight: SCREEN_WIDTH - (SPACING.md * 2) }]}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : null}
         </TouchableOpacity>
 
         {/* Actions */}
@@ -797,16 +892,16 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         )}
 
         {/* Caption */}
-        {item.caption && (
+        {item.caption && item.caption.trim() ? (
           <View style={styles.feedCaption}>
             <Text style={[styles.feedCaptionText, { color: colors.text }]}>
               <Text style={[styles.feedCaptionUser, { color: colors.text }]}>
-                {item.userName || item.userEmail?.split('@')[0]}{' '}
+                {item.userName || item.userEmail?.split('@')[0]}
               </Text>
-              {item.caption}
+              <Text> {String(item.caption || '')}</Text>
             </Text>
           </View>
-        )}
+        ) : null}
 
         {/* Comments count */}
         {item.commentsCount > 0 && (
@@ -1251,6 +1346,49 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         options={actionState.options}
         onClose={hideAction}
       />
+
+      {/* Upload Modal with Caption and Tags */}
+      <Modal
+        visible={uploadModal.visible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCancelUpload}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.captionModal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.divider }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Add Caption & Tags</Text>
+              <TouchableOpacity onPress={handleCancelUpload} style={styles.modalCloseButton}>
+                <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Preview */}
+            {uploadModal.file && (
+              <View style={styles.captionPreviewContainer}>
+                {uploadModal.type === 'image' ? (
+                  <Image
+                    source={{ uri: uploadModal.file.uri }}
+                    style={styles.captionPreviewImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.captionPreviewImage, { backgroundColor: colors.divider, justifyContent: 'center', alignItems: 'center' }]}>
+                    <Text style={{ color: colors.textSecondary }}>Video Preview</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Caption Input */}
+            <CaptionInputComponent
+              onPost={handlePostStatus}
+              onCancel={handleCancelUpload}
+              colors={colors}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

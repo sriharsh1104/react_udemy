@@ -42,6 +42,9 @@ const StatusSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  tags: [{
+    type: String,
+  }],
   likes: [{
     userEmail: {
       type: String,

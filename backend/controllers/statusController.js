@@ -85,7 +85,7 @@ class StatusController {
       });
     },
     asyncHandler(async (req, res) => {
-      const { type } = req.body;
+      const { type, caption, tags } = req.body;
       
       if (!req.file) {
         return sendError(res, HTTP_STATUS.BAD_REQUEST, 'No file uploaded');
@@ -119,6 +119,17 @@ class StatusController {
         return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Video size exceeds 5MB limit. Please choose a smaller video.');
       }
 
+      // Parse tags if provided as JSON string
+      let tagsArray = [];
+      if (tags) {
+        try {
+          tagsArray = typeof tags === 'string' ? JSON.parse(tags) : tags;
+          if (!Array.isArray(tagsArray)) tagsArray = [];
+        } catch (e) {
+          tagsArray = [];
+        }
+      }
+
       // Generate unique file ID
       const fileId = crypto.randomBytes(16).toString('hex');
       
@@ -135,8 +146,8 @@ class StatusController {
       
       await fileRecord.save();
 
-      // Create status
-      const status = await statusService.createStatus(req.userEmail, fileId, type);
+      // Create status with caption and tags
+      const status = await statusService.createStatus(req.userEmail, fileId, type, caption || '', tagsArray);
 
       return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.STATUS_UPLOADED_SUCCESSFULLY, {
         status: {

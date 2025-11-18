@@ -252,12 +252,18 @@ const styles = StyleSheet.create({
   },
   feedMediaContainer: {
     width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   feedMedia: {
-    width: '100%',
-    height: '100%',
+    width: SCREEN_WIDTH - (SPACING.md * 2),
+    aspectRatio: 1,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
   },
   doubleTapHeart: {
     position: 'absolute',
@@ -551,6 +557,62 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
+  },
+  captionModal: {
+    height: '80%',
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    paddingTop: SPACING.md,
+  },
+  captionPreviewContainer: {
+    width: '100%',
+    height: 200,
+    marginVertical: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captionPreviewImage: {
+    width: '90%',
+    height: '100%',
+    borderRadius: BORDER_RADIUS.md,
+  },
+  captionInputScroll: {
+    flex: 1,
+    paddingHorizontal: SPACING.md,
+  },
+  captionInputContainer: {
+    marginBottom: SPACING.md,
+  },
+  captionLabel: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    marginBottom: SPACING.sm,
+  },
+  captionInput: {
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  captionCharCount: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginTop: SPACING.xs,
+    textAlign: 'right',
+  },
+  captionButtonContainer: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.xl,
+  },
+  captionPostButton: {
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center',
+  },
+  captionPostButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });
 

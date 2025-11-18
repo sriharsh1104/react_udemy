@@ -96,7 +96,7 @@ class FeedService {
           userName: user.name,
           fileId: status.fileId,
           statusType: status.statusType,
-          statusUrl: file ? `/api/files/download/${file.fileId}` : null,
+          statusUrl: file ? `/api/files/view/${file.fileId}` : null,
           caption: status.caption || '',
           likesCount: status.likes.length,
           commentsCount: status.comments.length,
