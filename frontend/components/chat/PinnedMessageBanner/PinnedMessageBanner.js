@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
-import { useTheme } from '../../contexts/ThemeContext';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { useTheme } from '../../../contexts/ThemeContext';
+import styles from './PinnedMessageBanner.styles';
 
 const PinnedMessageBanner = ({ pinnedMessage, onPress, onClose, isCreator }) => {
   const { colors } = useTheme();
@@ -61,44 +61,6 @@ const PinnedMessageBanner = ({ pinnedMessage, onPress, onClose, isCreator }) => 
     </TouchableOpacity>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    marginRight: SPACING.sm,
-  },
-  pinIcon: {
-    fontSize: 16,
-  },
-  messageContainer: {
-    flex: 1,
-    marginRight: SPACING.xs,
-  },
-  senderName: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    marginBottom: 2,
-  },
-  messageText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-  },
-  closeButton: {
-    padding: SPACING.xs,
-  },
-  closeIcon: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});
 
 export default PinnedMessageBanner;
 
