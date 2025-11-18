@@ -27,6 +27,9 @@ import { API_CONFIG } from '../../../constants';
 import AlertModal from '../../common/AlertModal/AlertModal';
 import ActionModal from '../../common/ActionModal/ActionModal';
 import useAlertModal from '../../../hooks/useAlertModal';
+import EmojiPicker from '../EmojiPicker';
+import GIFPicker from '../GIFPicker';
+import * as FileSystem from 'expo-file-system/legacy';
 import styles from './StatusFeed.styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -166,6 +169,9 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [replyText, setReplyText] = useState('');
   const [expandedReplies, setExpandedReplies] = useState(new Set());
   const [selectedStatusOwner, setSelectedStatusOwner] = useState(null);
+  // Emoji/GIF picker state for comments
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGIFPicker, setShowGIFPicker] = useState(false);
 
   useEffect(() => {
     // Only load feed when screen is focused
@@ -654,6 +660,89 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       }
     } catch (error) {
       console.error('Error adding comment:', error);
+    }
+  };
+
+  // Handle Enter key press for comment input
+  const handleCommentKeyPress = (e) => {
+    // On web, detect Enter key without Shift to send comment
+    if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+      e.preventDefault();
+      handleAddComment();
+    }
+  };
+
+  // Handle emoji selection
+  const handleEmojiSelect = (emoji) => {
+    if (replyingToCommentId) {
+      setReplyText(replyText + emoji);
+    } else {
+      setCommentText(commentText + emoji);
+    }
+    setShowEmojiPicker(false);
+  };
+
+  // Handle GIF selection
+  const handleGIFSelect = async (gifUrl) => {
+    setShowGIFPicker(false);
+    
+    try {
+      let fileUri;
+      let fileSize = 0;
+      
+      if (Platform.OS === 'web') {
+        // On web, download and create blob URL
+        const response = await fetch(gifUrl);
+        const blob = await response.blob();
+        fileUri = URL.createObjectURL(blob);
+        fileSize = blob.size || 0;
+      } else {
+        // On native, download to file system
+        const fileName = `gif_${Date.now()}.gif`;
+        const localUri = `${FileSystem.documentDirectory}${fileName}`;
+        
+        const downloadResult = await FileSystem.downloadAsync(gifUrl, localUri);
+        
+        if (downloadResult.status !== 200) {
+          throw new Error('Failed to download GIF');
+        }
+        
+        fileUri = downloadResult.uri;
+        const fileInfo = await FileSystem.getInfoAsync(fileUri);
+        fileSize = fileInfo.size || 0;
+      }
+      
+      // For comments, we'll add the GIF URL as text for now
+      // In a full implementation, you might want to upload and send as image
+      const gifText = `[GIF: ${gifUrl}]`;
+      if (replyingToCommentId) {
+        setReplyText(replyText + gifText);
+      } else {
+        setCommentText(commentText + gifText);
+      }
+    } catch (error) {
+      console.error('Error handling GIF:', error);
+      showAlert('Error', 'Failed to add GIF. Please try again.', 'error');
+    }
+  };
+
+  // Handle camera photo
+  const handleTakePhoto = async () => {
+    try {
+      const file = await fileUploadService.takePhoto();
+      if (file) {
+        // For comments, we'll add a placeholder text
+        // In a full implementation, you might want to upload and send as image
+        const photoText = `[Photo: ${file.name || 'photo'}]`;
+        if (replyingToCommentId) {
+          setReplyText(replyText + photoText);
+        } else {
+          setCommentText(commentText + photoText);
+        }
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      showAlert('Error', error.message || 'Failed to take photo', 'error');
     }
   };
 
@@ -1416,7 +1505,12 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                                   placeholderTextColor={colors.textSecondary}
                                   value={replyText}
                                   onChangeText={setReplyText}
-                                  multiline
+                                  multiline={Platform.OS === 'web'}
+                                  maxLength={1000}
+                                  onSubmitEditing={Platform.OS !== 'web' ? handleAddComment : undefined}
+                                  blurOnSubmit={false}
+                                  returnKeyType="send"
+                                  onKeyPress={handleCommentKeyPress}
                                 />
                                 <View style={styles.replyInputActions}>
                                   <TouchableOpacity
@@ -1455,14 +1549,51 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                 {/* Comment Input */}
                 {!replyingToCommentId && (
                   <View style={[styles.commentInputContainer, { borderTopColor: colors.divider }]}>
-                    <TextInput
-                      style={[styles.commentInput, { color: colors.text, backgroundColor: colors.inputBackground }]}
-                      placeholder="Add a comment..."
-                      placeholderTextColor={colors.textSecondary}
-                      value={commentText}
-                      onChangeText={setCommentText}
-                      multiline
-                    />
+                    <View style={styles.commentInputWrapper}>
+                      <TouchableOpacity 
+                        style={styles.commentActionButton}
+                        onPress={handleTakePhoto}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.commentActionIcon}>📷</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={styles.commentActionButton}
+                        onPress={() => {
+                          setShowGIFPicker(false);
+                          setShowEmojiPicker(!showEmojiPicker);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.commentActionIcon}>😊</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={styles.commentActionButton}
+                        onPress={() => {
+                          setShowEmojiPicker(false);
+                          setShowGIFPicker(!showGIFPicker);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.commentGIFButton, { color: colors.primary }]}>GIF</Text>
+                      </TouchableOpacity>
+                      
+                      <TextInput
+                        style={[styles.commentInput, { color: colors.text, backgroundColor: colors.inputBackground }]}
+                        placeholder="Add a comment..."
+                        placeholderTextColor={colors.textSecondary}
+                        value={commentText}
+                        onChangeText={setCommentText}
+                        multiline={Platform.OS === 'web'}
+                        maxLength={1000}
+                        onSubmitEditing={Platform.OS !== 'web' ? handleAddComment : undefined}
+                        blurOnSubmit={false}
+                        returnKeyType="send"
+                        onKeyPress={handleCommentKeyPress}
+                      />
+                    </View>
                     <TouchableOpacity
                       onPress={handleAddComment}
                       disabled={!commentText.trim()}
@@ -1475,6 +1606,20 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                     </TouchableOpacity>
                   </View>
                 )}
+                
+                {/* Emoji Picker Modal */}
+                <EmojiPicker
+                  visible={showEmojiPicker}
+                  onClose={() => setShowEmojiPicker(false)}
+                  onEmojiSelect={handleEmojiSelect}
+                />
+
+                {/* GIF Picker Modal */}
+                <GIFPicker
+                  visible={showGIFPicker}
+                  onClose={() => setShowGIFPicker(false)}
+                  onGIFSelect={handleGIFSelect}
+                />
               </>
             )}
           </View>

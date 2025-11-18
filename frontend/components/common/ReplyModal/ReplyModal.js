@@ -23,6 +23,15 @@ const ReplyModal = ({ visible, notification, onSend, onClose }) => {
     }
   };
 
+  // Handle Enter key press
+  const handleKeyPress = (e) => {
+    // On web, detect Enter key without Shift to send message
+    if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   const handleClose = () => {
     setReplyText('');
     onClose();
@@ -76,9 +85,13 @@ const ReplyModal = ({ visible, notification, onSend, onClose }) => {
               placeholderTextColor={colors.inputPlaceholder}
               value={replyText}
               onChangeText={setReplyText}
-              multiline
+              multiline={Platform.OS === 'web'}
               autoFocus
               maxLength={1000}
+              onSubmitEditing={Platform.OS !== 'web' ? handleSend : undefined}
+              blurOnSubmit={false}
+              returnKeyType="send"
+              onKeyPress={handleKeyPress}
             />
             <TouchableOpacity
               style={[

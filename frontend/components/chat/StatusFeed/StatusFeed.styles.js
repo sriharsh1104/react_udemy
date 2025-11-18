@@ -462,12 +462,34 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderTopWidth: 1,
   },
+  commentInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  commentActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.xs,
+  },
+  commentActionIcon: {
+    fontSize: 18,
+    color: COLORS.text,
+  },
+  commentGIFButton: {
+    fontSize: 11,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
   commentInput: {
     flex: 1,
     padding: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
-    marginRight: SPACING.md,
     maxHeight: 100,
+    minHeight: 36,
   },
   commentSendButton: {
     paddingHorizontal: SPACING.md,
