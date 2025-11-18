@@ -186,17 +186,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeButton: {
+  topRightButtons: {
     position: 'absolute',
     top: 50,
     right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  viewersIconButton: {
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
+    marginRight: SPACING.xs,
+    minWidth: 50,
+  },
+  viewersIconButtonText: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
   },
   closeButtonText: {
     color: COLORS.white,
@@ -233,6 +251,79 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: TYPOGRAPHY.fontSize.sm,
     opacity: 0.8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  viewersModal: {
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    maxHeight: SCREEN_HEIGHT * 0.7,
+    paddingBottom: SPACING.md,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  modalCloseButton: {
+    padding: SPACING.xs,
+  },
+  modalCloseButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  viewersLoadingContainer: {
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  viewersList: {
+    flex: 1,
+  },
+  viewerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+  },
+  viewerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  viewerAvatarText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  viewerInfo: {
+    flex: 1,
+  },
+  viewerName: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    marginBottom: 2,
+  },
+  viewerTime: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  emptyViewersContainer: {
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  emptyViewersText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    textAlign: 'center',
   },
   statusNavigation: {
     position: 'absolute',

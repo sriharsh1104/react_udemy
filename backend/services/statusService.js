@@ -64,16 +64,29 @@ class StatusService {
       // Combine status with file info and check if viewed
       const result = [];
       for (const [contactEmail, userStatuses] of Object.entries(statusesByUser)) {
-        // Sort by createdAt descending (most recent first)
-        const sortedStatuses = userStatuses.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        const latestStatus = sortedStatuses[0]; // Most recent status
+        // Sort statuses: unviewed first (oldest first), then viewed (oldest first)
+        const sortedStatuses = userStatuses.sort((a, b) => {
+          const aViewed = a.viewers.some(v => v.viewerEmail === userEmail);
+          const bViewed = b.viewers.some(v => v.viewerEmail === userEmail);
+          
+          // If one is viewed and other is not, unviewed comes first
+          if (aViewed !== bViewed) {
+            return aViewed ? 1 : -1; // unviewed (false) comes first
+          }
+          
+          // Both have same viewed status, sort by createdAt ascending (oldest first)
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+        
+        // Get the first status (which will be oldest unviewed, or oldest viewed if all viewed)
+        const firstStatus = sortedStatuses[0];
         
         // Check if any status is unviewed
         const hasUnviewed = sortedStatuses.some(status => 
           !status.viewers.some(v => v.viewerEmail === userEmail)
         );
         
-        // Get all statuses with file info
+        // Get all statuses with file info (already sorted)
         const allStatuses = sortedStatuses.map(status => {
           const file = fileMap[status.fileId];
           return {
@@ -91,18 +104,29 @@ class StatusService {
         result.push({
           email: contactEmail,
           name: contactMap[contactEmail] || contactEmail.split('@')[0],
-          statusId: latestStatus._id.toString(), // Latest status ID for backward compatibility
-          fileId: latestStatus.fileId, // Latest status fileId for avatar
-          statusType: latestStatus.statusType,
-          statusUrl: fileMap[latestStatus.fileId] ? `/api/files/view/${fileMap[latestStatus.fileId].fileId}` : null,
-          statusTime: this.getTimeAgo(latestStatus.createdAt),
+          statusId: firstStatus._id.toString(), // First status ID (oldest unviewed or oldest viewed)
+          fileId: firstStatus.fileId, // First status fileId for avatar
+          statusType: firstStatus.statusType,
+          statusUrl: fileMap[firstStatus.fileId] ? `/api/files/view/${fileMap[firstStatus.fileId].fileId}` : null,
+          statusTime: this.getTimeAgo(firstStatus.createdAt),
           hasUnviewedStatus: hasUnviewed,
-          viewersCount: latestStatus.viewers.length,
-          createdAt: latestStatus.createdAt,
-          allStatuses: allStatuses, // All statuses array
+          viewersCount: firstStatus.viewers.length,
+          createdAt: firstStatus.createdAt,
+          allStatuses: allStatuses, // All statuses array (sorted: unviewed oldest first, then viewed oldest first)
           statusCount: allStatuses.length, // Total count
         });
       }
+
+      // Sort result: contacts with unviewed statuses first, then by oldest status first
+      result.sort((a, b) => {
+        // If one has unviewed and other doesn't, unviewed comes first
+        if (a.hasUnviewedStatus !== b.hasUnviewedStatus) {
+          return a.hasUnviewedStatus ? -1 : 1; // unviewed (true) comes first
+        }
+        
+        // Both have same unviewed status, sort by oldest status first
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
 
       return result;
     } catch (error) {
@@ -119,7 +143,7 @@ class StatusService {
         expiresAt: { $gt: new Date() },
         postType: 'status', // Only show status updates, not feed posts
       })
-        .sort({ createdAt: -1 }) // Most recent first
+        .sort({ createdAt: 1 }) // Oldest first (first loaded = first displayed)
         .lean();
 
       if (!statuses || statuses.length === 0) return null;
@@ -132,7 +156,7 @@ class StatusService {
         fileMap[file.fileId] = file;
       });
 
-      // Return all statuses as array
+      // Return all statuses as array (already sorted oldest first)
       const statusList = statuses.map(status => {
         const file = fileMap[status.fileId];
         return {
@@ -143,13 +167,14 @@ class StatusService {
           statusTime: this.getTimeAgo(status.createdAt),
           viewersCount: status.viewers.length,
           createdAt: status.createdAt,
+          email: userEmail, // Add email for frontend to check if it's own status
         };
       });
 
-      // Return latest status info for backward compatibility, but include allStatuses array
+      // Return first status info for backward compatibility, but include allStatuses array
       return {
-        ...statusList[0], // Latest status for backward compatibility
-        allStatuses: statusList, // All statuses array
+        ...statusList[0], // First status (oldest) for backward compatibility
+        allStatuses: statusList, // All statuses array (oldest first)
         statusCount: statusList.length,
       };
     } catch (error) {

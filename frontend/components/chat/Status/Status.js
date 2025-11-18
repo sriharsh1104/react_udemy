@@ -247,6 +247,11 @@ const Status = ({ userEmail, contacts = [] }) => {
   const [selectedStatusIndex, setSelectedStatusIndex] = useState(0);
   const [showStatusViewer, setShowStatusViewer] = useState(false);
   const [currentStatuses, setCurrentStatuses] = useState([]);
+  const [showViewersModal, setShowViewersModal] = useState(false);
+  const [viewersList, setViewersList] = useState([]);
+  const [loadingViewers, setLoadingViewers] = useState(false);
+  const [selectedStatusIdForViewers, setSelectedStatusIdForViewers] = useState(null);
+  const [viewedStatusIds, setViewedStatusIds] = useState(new Set()); // Track viewed statuses in current session
 
   useEffect(() => {
     loadStatuses();
@@ -259,6 +264,31 @@ const Status = ({ userEmail, contacts = [] }) => {
       if (result.success) {
         setStatuses(result.statuses || []);
         setMyStatus(result.myStatus || null);
+        
+        // Track already viewed statuses from backend
+        const viewedSet = new Set();
+        result.statuses?.forEach(contact => {
+          if (contact.allStatuses) {
+            contact.allStatuses.forEach(status => {
+              if (status.isViewed && status.statusId) {
+                viewedSet.add(status.statusId);
+              }
+            });
+          } else if (contact.isViewed && contact.statusId) {
+            viewedSet.add(contact.statusId);
+          }
+        });
+        
+        // Also track own statuses if viewed
+        if (result.myStatus?.allStatuses) {
+          result.myStatus.allStatuses.forEach(status => {
+            if (status.isViewed && status.statusId) {
+              viewedSet.add(status.statusId);
+            }
+          });
+        }
+        
+        setViewedStatusIds(viewedSet);
       }
     } catch (error) {
       console.error('Error loading statuses:', error);
@@ -485,6 +515,8 @@ const Status = ({ userEmail, contacts = [] }) => {
       fileId: contact.fileId,
       statusId: contact.statusId,
       statusType: contact.statusType,
+      viewersCount: contact.viewersCount || 0,
+      isViewed: contact.isViewed || false, // Include isViewed flag
     }];
 
     // Set all statuses for viewing
@@ -493,10 +525,17 @@ const Status = ({ userEmail, contacts = [] }) => {
     setSelectedContact(contact);
     setShowStatusViewer(true);
 
-    // Mark first status as viewed
+    // Mark first status as viewed (only if not already viewed)
     if (allStatuses.length > 0 && allStatuses[0].statusId) {
-      await statusService.markAsViewed(allStatuses[0].statusId);
-      await loadStatuses();
+      const firstStatusId = allStatuses[0].statusId;
+      const isAlreadyViewed = viewedStatusIds.has(firstStatusId) || allStatuses[0].isViewed;
+      
+      if (!isAlreadyViewed) {
+        await statusService.markAsViewed(firstStatusId);
+        // Track as viewed in current session
+        setViewedStatusIds(prev => new Set(prev).add(firstStatusId));
+        await loadStatuses();
+      }
     }
   };
 
@@ -515,6 +554,7 @@ const Status = ({ userEmail, contacts = [] }) => {
       fileId: myStatus.fileId,
       statusId: myStatus.statusId,
       statusType: myStatus.statusType,
+      viewersCount: myStatus.viewersCount || 0,
     }];
 
     // Set all statuses for viewing
@@ -522,6 +562,28 @@ const Status = ({ userEmail, contacts = [] }) => {
     setSelectedStatusIndex(0);
     setSelectedContact(null);
     setShowStatusViewer(true);
+  };
+
+  const handleViewViewers = async (statusId) => {
+    if (!statusId) return;
+    
+    setSelectedStatusIdForViewers(statusId);
+    setShowViewersModal(true);
+    setLoadingViewers(true);
+    
+    try {
+      const result = await statusService.getViewers(statusId);
+      if (result.success) {
+        setViewersList(result.viewers || []);
+      } else {
+        showAlert('Error', result.message || 'Failed to load viewers', { type: 'error' });
+      }
+    } catch (error) {
+      console.error('Error loading viewers:', error);
+      showAlert('Error', 'Failed to load viewers', { type: 'error' });
+    } finally {
+      setLoadingViewers(false);
+    }
   };
 
   // Status Item Component
@@ -682,16 +744,33 @@ const Status = ({ userEmail, contacts = [] }) => {
         }}
       >
         <View style={styles.statusViewerContainer}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => {
-              setShowStatusViewer(false);
-              setCurrentStatuses([]);
-              setSelectedStatusIndex(0);
-            }}
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
+          {/* Top Right Buttons */}
+          <View style={styles.topRightButtons}>
+            {/* Viewers button - only show for own status */}
+            {currentStatuses.length > 0 && 
+             currentStatuses[selectedStatusIndex]?.email === userEmail && 
+             currentStatuses[selectedStatusIndex]?.statusId && (
+              <TouchableOpacity
+                style={[styles.viewersIconButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
+                onPress={() => handleViewViewers(currentStatuses[selectedStatusIndex].statusId)}
+              >
+                <Text style={styles.viewersIconButtonText}>
+                  👁️ {currentStatuses[selectedStatusIndex]?.viewersCount || 0}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {/* Close button */}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => {
+                setShowStatusViewer(false);
+                setCurrentStatuses([]);
+                setSelectedStatusIndex(0);
+              }}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
           
           {currentStatuses.length > 0 && (
             <StatusContentView
@@ -706,9 +785,16 @@ const Status = ({ userEmail, contacts = [] }) => {
                   const nextIndex = selectedStatusIndex + 1;
                   setSelectedStatusIndex(nextIndex);
                   
-                  // Mark next status as viewed when navigating to it
-                  if (currentStatuses[nextIndex]?.statusId) {
-                    await statusService.markAsViewed(currentStatuses[nextIndex].statusId);
+                  // Mark next status as viewed when navigating to it (only if not already viewed)
+                  const nextStatus = currentStatuses[nextIndex];
+                  if (nextStatus?.statusId) {
+                    const isAlreadyViewed = viewedStatusIds.has(nextStatus.statusId) || nextStatus.isViewed;
+                    
+                    if (!isAlreadyViewed) {
+                      await statusService.markAsViewed(nextStatus.statusId);
+                      // Track as viewed in current session
+                      setViewedStatusIds(prev => new Set(prev).add(nextStatus.statusId));
+                    }
                   }
                 } else {
                   // If last status, close viewer
@@ -748,6 +834,72 @@ const Status = ({ userEmail, contacts = [] }) => {
         options={actionState.options}
         onClose={hideAction}
       />
+
+      {/* Viewers Modal */}
+      <Modal
+        visible={showViewersModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowViewersModal(false);
+          setViewersList([]);
+          setSelectedStatusIdForViewers(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.viewersModal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.divider }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Viewers</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowViewersModal(false);
+                  setViewersList([]);
+                  setSelectedStatusIdForViewers(null);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {loadingViewers ? (
+              <View style={styles.viewersLoadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <FlatList
+                data={viewersList}
+                keyExtractor={(item, index) => `viewer-${item.viewerEmail}-${index}`}
+                style={styles.viewersList}
+                renderItem={({ item }) => (
+                  <View style={[styles.viewerItem, { borderBottomColor: colors.divider }]}>
+                    <View style={[styles.viewerAvatar, { backgroundColor: colors.primary }]}>
+                      <Text style={[styles.viewerAvatarText, { color: colors.white }]}>
+                        {item.viewerName?.charAt(0).toUpperCase() || 'U'}
+                      </Text>
+                    </View>
+                    <View style={styles.viewerInfo}>
+                      <Text style={[styles.viewerName, { color: colors.text }]}>
+                        {item.viewerName || item.viewerEmail?.split('@')[0]}
+                      </Text>
+                      <Text style={[styles.viewerTime, { color: colors.textSecondary }]}>
+                        {new Date(item.viewedAt).toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.emptyViewersContainer}>
+                    <Text style={[styles.emptyViewersText, { color: colors.textSecondary }]}>
+                      No one has viewed this status yet
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
