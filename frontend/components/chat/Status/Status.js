@@ -13,12 +13,14 @@ import {
 import { COLORS } from '../../../constants';
 import { useTheme } from '../../../contexts/ThemeContext';
 import statusService from '../../../services/statusService';
+import fileUploadService from '../../../services/fileUploadService';
 import * as ImagePicker from 'expo-image-picker';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { API_CONFIG } from '../../../constants';
 import AlertModal from '../../common/AlertModal/AlertModal';
 import ActionModal from '../../common/ActionModal/ActionModal';
 import useAlertModal from '../../../hooks/useAlertModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import styles from './Status.styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -33,15 +35,128 @@ const getStatusItemWidth = () => {
 const STATUS_AVATAR_SIZE = SCREEN_WIDTH < 360 ? 50 : 56;
 const STATUS_AVATAR_RADIUS = STATUS_AVATAR_SIZE / 2;
 
+// My Status Avatar Component
+const MyStatusAvatar = ({ fileId, statusUrl }) => {
+  const { colors } = useTheme();
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadAvatarUrl = async () => {
+      setLoading(true);
+      if (fileId) {
+        try {
+          const url = await fileUploadService.getFileViewUrl(fileId);
+          if (url) {
+            setAvatarUrl(url);
+          }
+        } catch (error) {
+          console.error('Error loading my status avatar URL:', error);
+          // Fallback to statusUrl from backend
+          if (statusUrl) {
+            try {
+              const token = await AsyncStorage.getItem('authToken');
+              const baseUrl = statusUrl.startsWith('http') 
+                ? statusUrl 
+                : `${API_CONFIG.BASE_URL}${statusUrl}`;
+              const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+              setAvatarUrl(finalUrl);
+            } catch (err) {
+              console.error('Error getting token:', err);
+            }
+          }
+        }
+      } else if (statusUrl) {
+        try {
+          const token = await AsyncStorage.getItem('authToken');
+          const baseUrl = statusUrl.startsWith('http') 
+            ? statusUrl 
+            : `${API_CONFIG.BASE_URL}${statusUrl}`;
+          const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+          setAvatarUrl(finalUrl);
+        } catch (error) {
+          console.error('Error getting token:', error);
+        }
+      }
+      setLoading(false);
+    };
+    
+    loadAvatarUrl();
+  }, [fileId, statusUrl]);
+
+  if (loading) {
+    return (
+      <View style={[styles.myStatusAvatar, { backgroundColor: colors.divider }]}>
+        <ActivityIndicator size="small" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (avatarUrl) {
+    return (
+      <Image
+        source={{ uri: avatarUrl }}
+        style={styles.myStatusAvatarImage}
+        resizeMode="cover"
+      />
+    );
+  }
+  
+  return (
+    <View style={[styles.myStatusAvatar, { backgroundColor: colors.divider }]}>
+      <Text style={styles.addStatusIcon}>➕</Text>
+    </View>
+  );
+};
+
 // Status Content Viewer Component
 const StatusContentView = ({ status, onClose, onNext, onPrev, currentIndex, totalStatuses }) => {
   const { colors } = useTheme();
+  const [statusUrl, setStatusUrl] = useState(null);
   const isVideo = status?.statusType === 'video' && status?.statusUrl;
-  const statusUrl = status?.statusUrl?.startsWith('http') 
+  
+  // Load status URL with authentication token
+  useEffect(() => {
+    const loadStatusUrl = async () => {
+      if (!status) return;
+      
+      // If fileId is available, use fileUploadService to get URL with token
+      if (status.fileId) {
+        try {
+          const url = await fileUploadService.getFileViewUrl(status.fileId);
+          setStatusUrl(url);
+        } catch (error) {
+          console.error('Error loading status URL:', error);
+          // Fallback to statusUrl from backend
+          const fallbackUrl = status.statusUrl?.startsWith('http') 
     ? status.statusUrl 
-    : status?.statusUrl 
+            : status.statusUrl 
       ? `${API_CONFIG.BASE_URL}${status.statusUrl}` 
       : null;
+          setStatusUrl(fallbackUrl);
+        }
+      } else if (status.statusUrl) {
+        // Fallback: construct URL manually with token
+        const baseUrl = status.statusUrl.startsWith('http') 
+          ? status.statusUrl 
+          : `${API_CONFIG.BASE_URL}${status.statusUrl}`;
+        
+        // Add token as query param for authentication
+        try {
+          const token = await AsyncStorage.getItem('authToken');
+          const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+          setStatusUrl(finalUrl);
+        } catch (error) {
+          console.error('Error getting token:', error);
+          setStatusUrl(baseUrl);
+        }
+      } else {
+        setStatusUrl(null);
+      }
+    };
+    
+    loadStatusUrl();
+  }, [status]);
   
   const player = useVideoPlayer(isVideo && statusUrl ? statusUrl : '', (player) => {
     if (isVideo && player && statusUrl) {
@@ -328,7 +443,8 @@ const Status = ({ userEmail, contacts = [] }) => {
       
       setLoading(true);
       
-      const result = await statusService.uploadStatus(file, type);
+      // Upload status update (postType='status' for WhatsApp-style, default)
+      const result = await statusService.uploadStatus(file, type, '', [], 'status');
       
       if (result.success) {
         await loadStatuses();
@@ -344,21 +460,14 @@ const Status = ({ userEmail, contacts = [] }) => {
   };
 
   const handleStatusPress = async (contact) => {
-    // For now, we'll show a single status. In future, can implement multiple statuses per contact
-    const statusUrl = contact.statusUrl?.startsWith('http') 
-      ? contact.statusUrl 
-      : contact.statusUrl 
-        ? `${API_CONFIG.BASE_URL}${contact.statusUrl}` 
-        : null;
-    
-    if (!statusUrl) return;
-
+    // Status URL will be loaded by StatusContentView component using fileId
+    // Just pass the contact data with fileId
     const statusData = {
       ...contact,
-      statusUrl,
       email: contact.email,
       name: contact.name,
       statusTime: contact.statusTime,
+      fileId: contact.fileId, // Pass fileId so StatusContentView can load URL with auth
     };
 
     setCurrentStatuses([statusData]);
@@ -379,20 +488,13 @@ const Status = ({ userEmail, contacts = [] }) => {
       return;
     }
 
-    const statusUrl = myStatus.statusUrl?.startsWith('http') 
-      ? myStatus.statusUrl 
-      : myStatus.statusUrl 
-        ? `${API_CONFIG.BASE_URL}${myStatus.statusUrl}` 
-        : null;
-    
-    if (!statusUrl) return;
-
+    // Status URL will be loaded by StatusContentView component using fileId
     const statusData = {
       ...myStatus,
-      statusUrl,
       email: userEmail,
       name: userEmail.split('@')[0],
       statusTime: myStatus.statusTime,
+      fileId: myStatus.fileId, // Pass fileId so StatusContentView can load URL with auth
     };
 
     setCurrentStatuses([statusData]);
@@ -401,29 +503,68 @@ const Status = ({ userEmail, contacts = [] }) => {
     setShowStatusViewer(true);
   };
 
-  const renderStatusItem = ({ item, index }) => {
-    const statusUrl = item.statusUrl?.startsWith('http') 
-      ? item.statusUrl 
-      : item.statusUrl 
-        ? `${API_CONFIG.BASE_URL}${item.statusUrl}` 
-        : null;
-    
+  // Status Item Component
+  const StatusItem = ({ item, index, onPress }) => {
+    const { colors } = useTheme();
+    const [avatarUrl, setAvatarUrl] = useState(null);
     const hasUnviewed = item.hasUnviewedStatus;
     const borderColor = hasUnviewed ? colors.primary : colors.divider;
     const borderWidth = hasUnviewed ? 3 : 2;
     const itemWidth = getStatusItemWidth();
     const isLastInRow = (index + 1) % 4 === 0;
 
+    // Load avatar image URL with authentication token
+    useEffect(() => {
+      const loadAvatarUrl = async () => {
+        if (item.fileId) {
+          try {
+            const url = await fileUploadService.getFileViewUrl(item.fileId);
+            setAvatarUrl(url);
+          } catch (error) {
+            console.error('Error loading avatar URL:', error);
+            // Fallback to statusUrl from backend
+            if (item.statusUrl) {
+              try {
+                const token = await AsyncStorage.getItem('authToken');
+                const baseUrl = item.statusUrl.startsWith('http') 
+                  ? item.statusUrl 
+                  : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
+                const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+                setAvatarUrl(finalUrl);
+              } catch (err) {
+                console.error('Error getting token:', err);
+                setAvatarUrl(item.statusUrl.startsWith('http') ? item.statusUrl : `${API_CONFIG.BASE_URL}${item.statusUrl}`);
+              }
+            }
+          }
+        } else if (item.statusUrl) {
+          try {
+            const token = await AsyncStorage.getItem('authToken');
+            const baseUrl = item.statusUrl.startsWith('http') 
+              ? item.statusUrl 
+              : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
+            const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+            setAvatarUrl(finalUrl);
+          } catch (error) {
+            console.error('Error getting token:', error);
+            setAvatarUrl(item.statusUrl.startsWith('http') ? item.statusUrl : `${API_CONFIG.BASE_URL}${item.statusUrl}`);
+          }
+        }
+      };
+      
+      loadAvatarUrl();
+    }, [item.fileId, item.statusUrl]);
+
     return (
       <TouchableOpacity
         style={[styles.statusItem, { width: itemWidth }, isLastInRow && styles.statusItemLast]}
-        onPress={() => handleStatusPress(item)}
+        onPress={onPress}
         activeOpacity={0.7}
       >
         <View style={[styles.statusAvatarContainer, { borderColor, borderWidth }]}>
-          {statusUrl ? (
+          {avatarUrl ? (
             <Image
-              source={{ uri: statusUrl }}
+              source={{ uri: avatarUrl }}
               style={styles.statusAvatarImage}
               resizeMode="cover"
             />
@@ -440,6 +581,10 @@ const Status = ({ userEmail, contacts = [] }) => {
         </Text>
       </TouchableOpacity>
     );
+  };
+
+  const renderStatusItem = ({ item, index }) => {
+    return <StatusItem item={item} index={index} onPress={() => handleStatusPress(item)} />;
   };
 
   if (loading) {
@@ -467,16 +612,8 @@ const Status = ({ userEmail, contacts = [] }) => {
               activeOpacity={0.7}
             >
               <View style={styles.myStatusContainer}>
-                {myStatus?.statusUrl ? (
-                  <Image
-                    source={{ 
-                      uri: myStatus.statusUrl.startsWith('http') 
-                        ? myStatus.statusUrl 
-                        : `${API_CONFIG.BASE_URL}${myStatus.statusUrl}` 
-                    }}
-                    style={styles.myStatusAvatarImage}
-                    resizeMode="cover"
-                  />
+                {myStatus?.fileId ? (
+                  <MyStatusAvatar fileId={myStatus.fileId} statusUrl={myStatus.statusUrl} />
                 ) : (
                   <View style={[styles.myStatusAvatar, { backgroundColor: colors.divider }]}>
                     <Text style={styles.addStatusIcon}>➕</Text>

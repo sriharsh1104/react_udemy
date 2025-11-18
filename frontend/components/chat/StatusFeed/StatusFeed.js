@@ -477,8 +477,8 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       // Parse tags (comma-separated)
       const tagsArray = tags?.trim() ? tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : [];
       
-      // Upload status with caption and tags
-      const result = await statusService.uploadStatus(file, type, caption?.trim() || '', tagsArray);
+      // Upload feed post with caption and tags (postType='feed' for Instagram-style)
+      const result = await statusService.uploadStatus(file, type, caption?.trim() || '', tagsArray, 'feed');
       
       if (result.success) {
         await loadFeed(1, false);

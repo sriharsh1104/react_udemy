@@ -15,6 +15,13 @@ const StatusSchema = new mongoose.Schema({
     required: true,
     enum: ['image', 'video'],
   },
+  postType: {
+    type: String,
+    required: true,
+    enum: ['status', 'feed'],
+    default: 'status',
+    index: true,
+  },
   viewers: [{
     viewerEmail: {
       type: String,

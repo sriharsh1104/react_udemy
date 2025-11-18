@@ -190,12 +190,13 @@ class FeedController {
       const followStatus = await followService.getFollowStatus(req.userEmail, email);
       const canView = await followService.canViewPosts(req.userEmail, email);
 
-      // Get user's posts count (only if can view)
+      // Get user's posts count (only if can view) - only feed posts, not status updates
       const Status = require('../models/Status');
       const postsCount = canView 
         ? await Status.countDocuments({ 
             userEmail: email, 
-            expiresAt: { $gt: new Date() } 
+            expiresAt: { $gt: new Date() },
+            postType: 'feed', // Only count feed posts, not status updates
           })
         : 0;
 

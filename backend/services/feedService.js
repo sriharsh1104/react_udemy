@@ -18,6 +18,7 @@ class FeedService {
         statuses = await Status.find({
           userEmail: { $in: followingList },
           expiresAt: { $gt: new Date() },
+          postType: 'feed', // Only show feed posts, not status updates
       })
           .sort({ createdAt: -1 })
         .skip(skip)
@@ -32,6 +33,7 @@ class FeedService {
         const followedStatuses = await Status.find({
           userEmail: { $in: followingList },
           expiresAt: { $gt: new Date() },
+          postType: 'feed', // Only show feed posts, not status updates
         })
           .sort({ createdAt: -1 })
           .lean();
@@ -40,6 +42,7 @@ class FeedService {
         const randomStatuses = await Status.find({
           userEmail: { $nin: followingList },
           expiresAt: { $gt: new Date() },
+          postType: 'feed', // Only show feed posts, not status updates
         })
           .sort({ createdAt: -1 })
           .limit(Math.max(limitNum - followedStatuses.length, 0))

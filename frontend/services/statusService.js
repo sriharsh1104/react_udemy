@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 
 class StatusService {
-  async uploadStatus(file, type, caption = '', tags = []) {
+  async uploadStatus(file, type, caption = '', tags = [], postType = 'status') {
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
@@ -55,11 +55,12 @@ class StatusService {
         formData.append('type', type);
       }
       
-      // Add caption and tags
+      // Add caption, tags, and postType
       if (caption) formData.append('caption', caption);
       if (tags && Array.isArray(tags) && tags.length > 0) {
         formData.append('tags', JSON.stringify(tags));
       }
+      formData.append('postType', postType || 'status');
       
       const response = await fetch(`${API_CONFIG.API_BASE}/status/upload`, {
         method: 'POST',

@@ -85,7 +85,7 @@ class StatusController {
       });
     },
     asyncHandler(async (req, res) => {
-      const { type, caption, tags } = req.body;
+      const { type, caption, tags, postType } = req.body;
       
       if (!req.file) {
         return sendError(res, HTTP_STATUS.BAD_REQUEST, 'No file uploaded');
@@ -98,6 +98,9 @@ class StatusController {
         }
         return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Invalid file type. Only image or video allowed');
       }
+
+      // Validate postType - default to 'status' for WhatsApp-style statuses
+      const validPostType = postType === 'feed' ? 'feed' : 'status';
 
       // Validate file size based on type
       const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -146,8 +149,8 @@ class StatusController {
       
       await fileRecord.save();
 
-      // Create status with caption and tags
-      const status = await statusService.createStatus(req.userEmail, fileId, type, caption || '', tagsArray);
+      // Create status with caption, tags, and postType
+      const status = await statusService.createStatus(req.userEmail, fileId, type, caption || '', tagsArray, validPostType);
 
       return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.STATUS_UPLOADED_SUCCESSFULLY, {
         status: {

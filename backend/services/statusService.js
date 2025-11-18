@@ -4,7 +4,7 @@ const Contact = require('../models/Contact');
 
 class StatusService {
   // Create a new status
-  async createStatus(userEmail, fileId, statusType, caption = '', tags = []) {
+  async createStatus(userEmail, fileId, statusType, caption = '', tags = [], postType = 'status') {
     try {
       const status = new Status({
         userEmail,
@@ -12,6 +12,7 @@ class StatusService {
         statusType,
         caption: caption || '',
         tags: Array.isArray(tags) ? tags : [],
+        postType: postType || 'status', // 'status' for WhatsApp-style, 'feed' for Instagram-style
       });
       await status.save();
       return status;
@@ -28,10 +29,11 @@ class StatusService {
       const contacts = await Contact.find({ userEmail }).lean();
       const contactEmails = contacts.map(c => c.contactEmail);
       
-      // Get statuses from contacts (last 24 hours)
+      // Get statuses from contacts (last 24 hours) - only WhatsApp-style statuses, not feed posts
       const statuses = await Status.find({
         userEmail: { $in: contactEmails },
         expiresAt: { $gt: new Date() },
+        postType: 'status', // Only show status updates, not feed posts
       })
         .sort({ createdAt: -1 })
         .lean();
@@ -72,7 +74,7 @@ class StatusService {
           statusId: latestStatus._id.toString(),
           fileId: latestStatus.fileId,
           statusType: latestStatus.statusType,
-          statusUrl: file ? `/api/files/download/${file.fileId}` : null,
+          statusUrl: file ? `/api/files/view/${file.fileId}` : null, // Use view endpoint instead of download
           statusTime: this.getTimeAgo(latestStatus.createdAt),
           hasUnviewedStatus: !isViewed,
           viewersCount: latestStatus.viewers.length,
@@ -93,6 +95,7 @@ class StatusService {
       const status = await Status.findOne({
         userEmail,
         expiresAt: { $gt: new Date() },
+        postType: 'status', // Only show status updates, not feed posts
       })
         .sort({ createdAt: -1 })
         .lean();
@@ -105,7 +108,7 @@ class StatusService {
         statusId: status._id.toString(),
         fileId: status.fileId,
         statusType: status.statusType,
-        statusUrl: file ? `/api/files/download/${file.fileId}` : null,
+        statusUrl: file ? `/api/files/view/${file.fileId}` : null, // Use view endpoint instead of download
         statusTime: this.getTimeAgo(status.createdAt),
         viewersCount: status.viewers.length,
         createdAt: status.createdAt,
