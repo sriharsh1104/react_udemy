@@ -614,6 +614,150 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
+  // Full-screen image modal
+  fullScreenImageContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  fullScreenCloseButtonText: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  fullScreenImage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+  },
+  // Comment row and actions
+  commentRow: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  pinButton: {
+    padding: SPACING.xs,
+  },
+  pinButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+  },
+  commentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  commentActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  commentActionIcon: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    marginRight: SPACING.xs / 2,
+  },
+  commentActionCount: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  commentActionText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+  },
+  // Replies
+  repliesContainer: {
+    marginTop: SPACING.md,
+    marginLeft: SPACING.md,
+    paddingLeft: SPACING.md,
+    borderLeftWidth: 2,
+    borderLeftColor: COLORS.divider,
+  },
+  replyItem: {
+    flexDirection: 'row',
+    marginBottom: SPACING.md,
+  },
+  replyAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.sm,
+  },
+  replyAvatarText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  replyContent: {
+    flex: 1,
+  },
+  replyUserName: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    marginBottom: SPACING.xs / 2,
+  },
+  replyText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    marginBottom: SPACING.xs / 2,
+  },
+  replyActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  replyTime: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    marginLeft: SPACING.sm,
+  },
+  // Reply input
+  replyInputContainer: {
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  replyInput: {
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    marginBottom: SPACING.sm,
+    maxHeight: 80,
+  },
+  replyInputActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  replyCancelButton: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    marginRight: SPACING.sm,
+  },
+  replyCancelText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+  },
+  replySendButton: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  replySendText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
 });
 
 export default styles;

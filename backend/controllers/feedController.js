@@ -66,11 +66,11 @@ class FeedController {
     }),
   ];
 
-  // Add comment to a status
+  // Add comment to a status or reply to a comment
   addComment = [
     verifyToken,
     asyncHandler(async (req, res) => {
-      const { statusId, comment } = req.body;
+      const { statusId, comment, replyToCommentId } = req.body;
       
       if (!statusId) {
         return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
@@ -80,9 +80,9 @@ class FeedController {
         return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Comment cannot be empty');
       }
 
-      const result = await feedService.addComment(statusId, req.userEmail, comment);
+      const result = await feedService.addComment(statusId, req.userEmail, comment, replyToCommentId || null);
 
-      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.COMMENT_ADDED_SUCCESSFULLY, {
+      return sendSuccess(res, HTTP_STATUS.OK, result.isReply ? 'Reply added successfully' : SUCCESS_MESSAGES.COMMENT_ADDED_SUCCESSFULLY, {
         comment: result,
       });
     }),
@@ -330,6 +330,44 @@ class FeedController {
       return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.PENDING_REQUESTS_RETRIEVED_SUCCESSFULLY, {
         requests: requestsWithNames,
       });
+    }),
+  ];
+
+  // Toggle like on a comment or reply
+  toggleCommentLike = [
+    verifyToken,
+    asyncHandler(async (req, res) => {
+      const { statusId, commentId, isReply, replyId } = req.body;
+      
+      if (!statusId || !commentId) {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID and Comment ID are required');
+      }
+
+      const result = await feedService.toggleCommentLike(
+        statusId, 
+        commentId, 
+        req.userEmail, 
+        isReply || false, 
+        replyId || null
+      );
+
+      return sendSuccess(res, HTTP_STATUS.OK, 'Like toggled successfully', result);
+    }),
+  ];
+
+  // Pin/unpin a comment
+  togglePinComment = [
+    verifyToken,
+    asyncHandler(async (req, res) => {
+      const { statusId, commentId } = req.body;
+      
+      if (!statusId || !commentId) {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID and Comment ID are required');
+      }
+
+      const result = await feedService.togglePinComment(statusId, commentId, req.userEmail);
+
+      return sendSuccess(res, HTTP_STATUS.OK, result.isPinned ? 'Comment pinned successfully' : 'Comment unpinned successfully', result);
     }),
   ];
 }

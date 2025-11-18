@@ -156,6 +156,14 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [loadingSearch, setLoadingSearch] = useState(false);
   // Optimized: Single state for upload modal
   const [uploadModal, setUploadModal] = useState({ visible: false, file: null, type: null });
+  // Full-screen image viewer
+  const [showFullScreenImage, setShowFullScreenImage] = useState(false);
+  const [fullScreenImageUrl, setFullScreenImageUrl] = useState(null);
+  // Comments state for replies
+  const [replyingToCommentId, setReplyingToCommentId] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [expandedReplies, setExpandedReplies] = useState(new Set());
+  const [selectedStatusOwner, setSelectedStatusOwner] = useState(null);
 
   useEffect(() => {
     loadFeed();
@@ -560,6 +568,15 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     setSelectedStatus(statusId);
     setShowCommentsModal(true);
     setLoadingComments(true);
+    setReplyingToCommentId(null);
+    setReplyText('');
+    setExpandedReplies(new Set());
+    
+    // Find the post owner email
+    const feedItem = feed.find(item => item.statusId === statusId);
+    if (feedItem) {
+      setSelectedStatusOwner(feedItem.userEmail);
+    }
     
     try {
       const result = await feedService.getComments(statusId);
@@ -574,28 +591,137 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   };
 
   const handleAddComment = async () => {
-    if (!commentText.trim() || !selectedStatus) return;
+    if (!selectedStatus) return;
     
-    const commentToAdd = commentText.trim();
-    setCommentText('');
+    const textToAdd = replyingToCommentId ? replyText.trim() : commentText.trim();
+    if (!textToAdd) return;
+    
+    const commentToAdd = textToAdd;
+    if (replyingToCommentId) {
+      setReplyText('');
+    } else {
+      setCommentText('');
+    }
     
     try {
-      const result = await feedService.addComment(selectedStatus, commentToAdd);
+      const result = await feedService.addComment(selectedStatus, commentToAdd, replyingToCommentId);
       if (result.success) {
-        setComments(prev => [...prev, result.comment]);
-        // Update feed
-        setFeed(prev => prev.map(item => {
-          if (item.statusId === selectedStatus) {
-            return {
-              ...item,
-              commentsCount: item.commentsCount + 1,
-            };
-          }
-          return item;
-        }));
+        if (replyingToCommentId) {
+          // Update comment with new reply
+          setComments(prev => prev.map(comment => {
+            if (comment.commentId === replyingToCommentId) {
+              return {
+                ...comment,
+                replies: [...(comment.replies || []), {
+                  replyId: result.comment.replyId,
+                  userEmail: result.comment.userEmail,
+                  userName: result.comment.userName,
+                  reply: result.comment.reply,
+                  repliedAt: result.comment.repliedAt,
+                  likesCount: 0,
+                  isLiked: false,
+                  isOwnReply: result.comment.userEmail === userEmail,
+                }],
+                repliesCount: (comment.repliesCount || 0) + 1,
+              };
+            }
+            return comment;
+          }));
+          setReplyingToCommentId(null);
+          setReplyText('');
+          // Expand replies for this comment
+          const newExpanded = new Set(expandedReplies);
+          newExpanded.add(replyingToCommentId);
+          setExpandedReplies(newExpanded);
+        } else {
+          setComments(prev => [...prev, result.comment]);
+          // Update feed
+          setFeed(prev => prev.map(item => {
+            if (item.statusId === selectedStatus) {
+              return {
+                ...item,
+                commentsCount: item.commentsCount + 1,
+              };
+            }
+            return item;
+          }));
+        }
       }
     } catch (error) {
       console.error('Error adding comment:', error);
+    }
+  };
+
+  const handleReplyPress = (commentId) => {
+    setReplyingToCommentId(commentId);
+    setReplyText('');
+  };
+
+  const handleCancelReply = () => {
+    setReplyingToCommentId(null);
+    setReplyText('');
+  };
+
+  const handleToggleReplies = (commentId) => {
+    const newExpanded = new Set(expandedReplies);
+    if (newExpanded.has(commentId)) {
+      newExpanded.delete(commentId);
+    } else {
+      newExpanded.add(commentId);
+    }
+    setExpandedReplies(newExpanded);
+  };
+
+  const handleCommentLike = async (commentId, isReply = false, replyId = null) => {
+    if (!selectedStatus) return;
+    
+    try {
+      const result = await feedService.toggleCommentLike(selectedStatus, commentId, isReply, replyId);
+      if (result.success) {
+        setComments(prev => prev.map(comment => {
+          if (isReply && replyId && comment.commentId === commentId) {
+            return {
+              ...comment,
+              replies: comment.replies.map(reply => {
+                if (reply.replyId === replyId) {
+                  return {
+                    ...reply,
+                    isLiked: result.isLiked,
+                    likesCount: result.likesCount,
+                  };
+                }
+                return reply;
+              }),
+            };
+          } else if (!isReply && comment.commentId === commentId) {
+            return {
+              ...comment,
+              isLiked: result.isLiked,
+              likesCount: result.likesCount,
+            };
+          }
+          return comment;
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling comment like:', error);
+    }
+  };
+
+  const handlePinComment = async (commentId) => {
+    if (!selectedStatus) return;
+    
+    try {
+      const result = await feedService.togglePinComment(selectedStatus, commentId);
+      if (result.success) {
+        // Reload comments to get updated order
+        const commentsResult = await feedService.getComments(selectedStatus);
+        if (commentsResult.success) {
+          setComments(commentsResult.comments || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error pinning comment:', error);
     }
   };
 
@@ -718,6 +844,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     const isLiked = likedStatuses.has(item.statusId);
     const isVideo = item.statusType === 'video';
     const lastTapRef = useRef(null);
+    const tapTimeoutRef = useRef(null);
     
     // Load image URL with authentication token
     useEffect(() => {
@@ -768,11 +895,29 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       const now = Date.now();
       const DOUBLE_PRESS_DELAY = 300;
       
+      // Clear any pending timeout
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
+      
       if (lastTapRef.current && (now - lastTapRef.current) < DOUBLE_PRESS_DELAY) {
+        // Double tap detected
         handleDoubleTap(item.statusId);
         lastTapRef.current = null;
       } else {
+        // First tap - wait to see if there's a second tap
         lastTapRef.current = now;
+        // If single tap on image (not video), open full screen after delay
+        if (!isVideo && statusUrl) {
+          tapTimeoutRef.current = setTimeout(() => {
+            if (lastTapRef.current === now) {
+              setFullScreenImageUrl(statusUrl);
+              setShowFullScreenImage(true);
+            }
+            tapTimeoutRef.current = null;
+          }, DOUBLE_PRESS_DELAY);
+        }
       }
     };
 
@@ -1114,6 +1259,10 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           setShowCommentsModal(false);
           setComments([]);
           setCommentText('');
+          setReplyingToCommentId(null);
+          setReplyText('');
+          setExpandedReplies(new Set());
+          setSelectedStatusOwner(null);
         }}
       >
         <View style={styles.modalOverlay}>
@@ -1125,6 +1274,10 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                   setShowCommentsModal(false);
                   setComments([]);
                   setCommentText('');
+                  setReplyingToCommentId(null);
+                  setReplyText('');
+                  setExpandedReplies(new Set());
+                  setSelectedStatusOwner(null);
                 }}
                 style={styles.modalCloseButton}
               >
@@ -1140,26 +1293,151 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                   data={comments}
                   keyExtractor={(item, index) => `comment-${item.commentId}-${index}`}
                   style={styles.commentsList}
-                  renderItem={({ item }) => (
-                    <View style={[styles.commentItem, { borderBottomColor: colors.divider }]}>
-                      <View style={[styles.commentAvatar, { backgroundColor: colors.primary }]}>
-                        <Text style={[styles.commentAvatarText, { color: colors.white }]}>
-                          {item.userName?.charAt(0).toUpperCase() || 'U'}
-                        </Text>
+                  renderItem={({ item }) => {
+                    const isPostOwner = selectedStatusOwner === userEmail;
+                    const showReplies = expandedReplies.has(item.commentId);
+                    const hasReplies = item.replies && item.replies.length > 0;
+                    
+                    return (
+                      <View style={[styles.commentItem, { borderBottomColor: colors.divider }]}>
+                        <View style={styles.commentRow}>
+                          <View style={[styles.commentAvatar, { backgroundColor: colors.primary }]}>
+                            <Text style={[styles.commentAvatarText, { color: colors.white }]}>
+                              {item.userName?.charAt(0).toUpperCase() || 'U'}
+                            </Text>
+                          </View>
+                          <View style={styles.commentContent}>
+                            <View style={styles.commentHeader}>
+                              <Text style={[styles.commentUserName, { color: colors.text }]}>
+                                {item.userName || item.userEmail?.split('@')[0]}
+                                {item.isPinned && <Text style={{ color: colors.primary }}> 📌</Text>}
+                              </Text>
+                              {isPostOwner && (
+                                <TouchableOpacity
+                                  onPress={() => handlePinComment(item.commentId)}
+                                  style={styles.pinButton}
+                                >
+                                  <Text style={styles.pinButtonText}>
+                                    {item.isPinned ? '📌' : '📍'}
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                            <Text style={[styles.commentText, { color: colors.text }]}>
+                              {item.comment}
+                            </Text>
+                            <View style={styles.commentActions}>
+                              <TouchableOpacity
+                                onPress={() => handleCommentLike(item.commentId, false, null)}
+                                style={styles.commentActionButton}
+                              >
+                                <Text style={styles.commentActionIcon}>
+                                  {item.isLiked ? '❤️' : '🤍'}
+                                </Text>
+                                {item.likesCount > 0 && (
+                                  <Text style={[styles.commentActionCount, { color: colors.textSecondary }]}>
+                                    {item.likesCount}
+                                  </Text>
+                                )}
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => handleReplyPress(item.commentId)}
+                                style={styles.commentActionButton}
+                              >
+                                <Text style={styles.commentActionIcon}>💬</Text>
+                              </TouchableOpacity>
+                              {hasReplies && (
+                                <TouchableOpacity
+                                  onPress={() => handleToggleReplies(item.commentId)}
+                                  style={styles.commentActionButton}
+                                >
+                                  <Text style={[styles.commentActionText, { color: colors.textSecondary }]}>
+                                    {showReplies ? 'Hide' : 'View'} {item.repliesCount} {item.repliesCount === 1 ? 'reply' : 'replies'}
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                            <Text style={[styles.commentTime, { color: colors.textSecondary }]}>
+                              {new Date(item.commentedAt).toLocaleString()}
+                            </Text>
+                            
+                            {/* Replies */}
+                            {showReplies && hasReplies && (
+                              <View style={styles.repliesContainer}>
+                                {item.replies.map((reply) => (
+                                  <View key={reply.replyId} style={styles.replyItem}>
+                                    <View style={[styles.replyAvatar, { backgroundColor: colors.primary }]}>
+                                      <Text style={[styles.replyAvatarText, { color: colors.white }]}>
+                                        {reply.userName?.charAt(0).toUpperCase() || 'U'}
+                                      </Text>
+                                    </View>
+                                    <View style={styles.replyContent}>
+                                      <Text style={[styles.replyUserName, { color: colors.text }]}>
+                                        {reply.userName || reply.userEmail?.split('@')[0]}
+                                      </Text>
+                                      <Text style={[styles.replyText, { color: colors.text }]}>
+                                        {reply.reply}
+                                      </Text>
+                                      <View style={styles.replyActions}>
+                                        <TouchableOpacity
+                                          onPress={() => handleCommentLike(item.commentId, true, reply.replyId)}
+                                          style={styles.commentActionButton}
+                                        >
+                                          <Text style={styles.commentActionIcon}>
+                                            {reply.isLiked ? '❤️' : '🤍'}
+                                          </Text>
+                                          {reply.likesCount > 0 && (
+                                            <Text style={[styles.commentActionCount, { color: colors.textSecondary }]}>
+                                              {reply.likesCount}
+                                            </Text>
+                                          )}
+                                        </TouchableOpacity>
+                                        <Text style={[styles.replyTime, { color: colors.textSecondary }]}>
+                                          {new Date(reply.repliedAt).toLocaleString()}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                            
+                            {/* Reply Input */}
+                            {replyingToCommentId === item.commentId && (
+                              <View style={styles.replyInputContainer}>
+                                <TextInput
+                                  style={[styles.replyInput, { color: colors.text, backgroundColor: colors.inputBackground }]}
+                                  placeholder="Write a reply..."
+                                  placeholderTextColor={colors.textSecondary}
+                                  value={replyText}
+                                  onChangeText={setReplyText}
+                                  multiline
+                                />
+                                <View style={styles.replyInputActions}>
+                                  <TouchableOpacity
+                                    onPress={handleCancelReply}
+                                    style={styles.replyCancelButton}
+                                  >
+                                    <Text style={[styles.replyCancelText, { color: colors.textSecondary }]}>Cancel</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    onPress={handleAddComment}
+                                    disabled={!replyText.trim()}
+                                    style={[
+                                      styles.replySendButton,
+                                      { backgroundColor: replyText.trim() ? colors.primary : colors.divider },
+                                    ]}
+                                  >
+                                    <Text style={[styles.replySendText, { color: colors.white }]}>Reply</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                        </View>
                       </View>
-                      <View style={styles.commentContent}>
-                        <Text style={[styles.commentUserName, { color: colors.text }]}>
-                          {item.userName || item.userEmail?.split('@')[0]}
-                        </Text>
-                        <Text style={[styles.commentText, { color: colors.text }]}>
-                          {item.comment}
-                        </Text>
-                        <Text style={[styles.commentTime, { color: colors.textSecondary }]}>
-                          {new Date(item.commentedAt).toLocaleString()}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
+                    );
+                  }}
                   ListEmptyComponent={
                     <View style={styles.emptyComments}>
                       <Text style={[styles.emptyCommentsText, { color: colors.textSecondary }]}>
@@ -1170,29 +1448,61 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                 />
                 
                 {/* Comment Input */}
-                <View style={[styles.commentInputContainer, { borderTopColor: colors.divider }]}>
-                  <TextInput
-                    style={[styles.commentInput, { color: colors.text, backgroundColor: colors.inputBackground }]}
-                    placeholder="Add a comment..."
-                    placeholderTextColor={colors.textSecondary}
-                    value={commentText}
-                    onChangeText={setCommentText}
-                    multiline
-                  />
-                  <TouchableOpacity
-                    onPress={handleAddComment}
-                    disabled={!commentText.trim()}
-                    style={[
-                      styles.commentSendButton,
-                      { backgroundColor: commentText.trim() ? colors.primary : colors.divider },
-                    ]}
-                  >
-                    <Text style={[styles.commentSendText, { color: colors.white }]}>Post</Text>
-                  </TouchableOpacity>
-                </View>
+                {!replyingToCommentId && (
+                  <View style={[styles.commentInputContainer, { borderTopColor: colors.divider }]}>
+                    <TextInput
+                      style={[styles.commentInput, { color: colors.text, backgroundColor: colors.inputBackground }]}
+                      placeholder="Add a comment..."
+                      placeholderTextColor={colors.textSecondary}
+                      value={commentText}
+                      onChangeText={setCommentText}
+                      multiline
+                    />
+                    <TouchableOpacity
+                      onPress={handleAddComment}
+                      disabled={!commentText.trim()}
+                      style={[
+                        styles.commentSendButton,
+                        { backgroundColor: commentText.trim() ? colors.primary : colors.divider },
+                      ]}
+                    >
+                      <Text style={[styles.commentSendText, { color: colors.white }]}>Post</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </>
             )}
           </View>
+        </View>
+      </Modal>
+
+      {/* Full-Screen Image Modal */}
+      <Modal
+        visible={showFullScreenImage}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowFullScreenImage(false);
+          setFullScreenImageUrl(null);
+        }}
+      >
+        <View style={styles.fullScreenImageContainer}>
+          <TouchableOpacity
+            style={styles.fullScreenCloseButton}
+            onPress={() => {
+              setShowFullScreenImage(false);
+              setFullScreenImageUrl(null);
+            }}
+          >
+            <Text style={styles.fullScreenCloseButtonText}>✕</Text>
+          </TouchableOpacity>
+          {fullScreenImageUrl && (
+            <Image
+              source={{ uri: fullScreenImageUrl }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
         </View>
       </Modal>
 

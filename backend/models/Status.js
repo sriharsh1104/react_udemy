@@ -68,6 +68,48 @@ const StatusSchema = new mongoose.Schema({
       type: Date,
       default: Date.now,
     },
+    isPinned: {
+      type: Boolean,
+      default: false,
+    },
+    pinnedAt: {
+      type: Date,
+      default: null,
+    },
+    likes: [{
+      userEmail: {
+        type: String,
+        required: true,
+      },
+      likedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
+    replies: [{
+      userEmail: {
+        type: String,
+        required: true,
+      },
+      reply: {
+        type: String,
+        required: true,
+      },
+      repliedAt: {
+        type: Date,
+        default: Date.now,
+      },
+      likes: [{
+        userEmail: {
+          type: String,
+          required: true,
+        },
+        likedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      }],
+    }],
   }],
 });
 

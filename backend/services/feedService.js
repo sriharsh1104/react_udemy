@@ -156,7 +156,7 @@ class FeedService {
   }
 
   // Add comment to status
-  async addComment(statusId, userEmail, comment) {
+  async addComment(statusId, userEmail, comment, replyToCommentId = null) {
     try {
       if (!comment || comment.trim().length === 0) {
         throw new Error('Comment cannot be empty');
@@ -167,27 +167,69 @@ class FeedService {
         throw new Error('Status not found');
       }
 
-      // Add comment
-      status.comments.push({
-        userEmail,
-        comment: comment.trim(),
-        commentedAt: new Date(),
-      });
+      // If replying to a comment
+      if (replyToCommentId) {
+        const commentIndex = status.comments.findIndex(
+          c => c._id.toString() === replyToCommentId
+        );
+        if (commentIndex === -1) {
+          throw new Error('Comment not found');
+        }
 
-      await status.save();
-      
-      // Get user info for the comment
-      const user = await User.findOne({ email: userEmail }).lean();
-      const commentData = status.comments[status.comments.length - 1];
-      
-      return {
-        commentId: commentData._id.toString(),
-        userEmail: commentData.userEmail,
-        userName: user?.name || userEmail.split('@')[0],
-        comment: commentData.comment,
-        commentedAt: commentData.commentedAt,
-        commentsCount: status.comments.length,
-      };
+        // Add reply
+        status.comments[commentIndex].replies.push({
+          userEmail,
+          reply: comment.trim(),
+          repliedAt: new Date(),
+          likes: [],
+        });
+
+        await status.save();
+        
+        // Get user info for the reply
+        const user = await User.findOne({ email: userEmail }).lean();
+        const replyData = status.comments[commentIndex].replies[status.comments[commentIndex].replies.length - 1];
+        
+        return {
+          replyId: replyData._id.toString(),
+          commentId: replyToCommentId,
+          userEmail: replyData.userEmail,
+          userName: user?.name || userEmail.split('@')[0],
+          reply: replyData.reply,
+          repliedAt: replyData.repliedAt,
+          likesCount: 0,
+          isReply: true,
+        };
+      } else {
+        // Add new comment
+        status.comments.push({
+          userEmail,
+          comment: comment.trim(),
+          commentedAt: new Date(),
+          isPinned: false,
+          likes: [],
+          replies: [],
+        });
+
+        await status.save();
+        
+        // Get user info for the comment
+        const user = await User.findOne({ email: userEmail }).lean();
+        const commentData = status.comments[status.comments.length - 1];
+        
+        return {
+          commentId: commentData._id.toString(),
+          userEmail: commentData.userEmail,
+          userName: user?.name || userEmail.split('@')[0],
+          comment: commentData.comment,
+          commentedAt: commentData.commentedAt,
+          likesCount: 0,
+          repliesCount: 0,
+          isPinned: false,
+          commentsCount: status.comments.length,
+          isReply: false,
+        };
+      }
     } catch (error) {
       console.error('Error adding comment:', error);
       throw error;
@@ -202,27 +244,170 @@ class FeedService {
         throw new Error('Status not found');
       }
 
-      // Get user info for all commenters
-      const commenterEmails = [...new Set(status.comments.map(c => c.userEmail))];
-      const users = await User.find({ email: { $in: commenterEmails } }).lean();
+      // Get user info for all commenters and repliers
+      const allUserEmails = new Set();
+      status.comments.forEach(c => {
+        allUserEmails.add(c.userEmail);
+        if (c.replies && Array.isArray(c.replies)) {
+          c.replies.forEach(r => allUserEmails.add(r.userEmail));
+        }
+      });
+      
+      const users = await User.find({ email: { $in: Array.from(allUserEmails) } }).lean();
       const userMap = {};
       users.forEach(user => {
         userMap[user.email] = user.name || user.email.split('@')[0];
       });
 
-      // Format comments with user names
-      const comments = status.comments.map(comment => ({
-        commentId: comment._id.toString(),
-        userEmail: comment.userEmail,
-        userName: userMap[comment.userEmail] || comment.userEmail.split('@')[0],
-        comment: comment.comment,
-        commentedAt: comment.commentedAt,
-        isOwnComment: comment.userEmail === userEmail,
-      }));
+      // Format comments with user names, replies, likes, and pin status
+      const comments = status.comments.map(comment => {
+        const isLiked = comment.likes?.some(like => like.userEmail === userEmail) || false;
+        
+        const replies = (comment.replies || []).map(reply => {
+          const isReplyLiked = reply.likes?.some(like => like.userEmail === userEmail) || false;
+          return {
+            replyId: reply._id.toString(),
+            userEmail: reply.userEmail,
+            userName: userMap[reply.userEmail] || reply.userEmail.split('@')[0],
+            reply: reply.reply,
+            repliedAt: reply.repliedAt,
+            likesCount: reply.likes?.length || 0,
+            isLiked: isReplyLiked,
+            isOwnReply: reply.userEmail === userEmail,
+          };
+        });
 
-      return comments.sort((a, b) => new Date(a.commentedAt) - new Date(b.commentedAt));
+        return {
+          commentId: comment._id.toString(),
+          userEmail: comment.userEmail,
+          userName: userMap[comment.userEmail] || comment.userEmail.split('@')[0],
+          comment: comment.comment,
+          commentedAt: comment.commentedAt,
+          isOwnComment: comment.userEmail === userEmail,
+          isPinned: comment.isPinned || false,
+          pinnedAt: comment.pinnedAt || null,
+          likesCount: comment.likes?.length || 0,
+          isLiked,
+          repliesCount: replies.length,
+          replies,
+        };
+      });
+
+      // Sort: pinned first, then by date
+      const sortedComments = comments.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(a.commentedAt) - new Date(b.commentedAt);
+      });
+
+      return sortedComments;
     } catch (error) {
       console.error('Error getting comments:', error);
+      throw error;
+    }
+  }
+
+  // Toggle like on a comment or reply
+  async toggleCommentLike(statusId, commentId, userEmail, isReply = false, replyId = null) {
+    try {
+      const status = await Status.findById(statusId);
+      if (!status) {
+        throw new Error('Status not found');
+      }
+
+      const commentIndex = status.comments.findIndex(
+        c => c._id.toString() === commentId
+      );
+      if (commentIndex === -1) {
+        throw new Error('Comment not found');
+      }
+
+      if (isReply && replyId) {
+        // Toggle like on reply
+        const replyIndex = status.comments[commentIndex].replies.findIndex(
+          r => r._id.toString() === replyId
+        );
+        if (replyIndex === -1) {
+          throw new Error('Reply not found');
+        }
+
+        const reply = status.comments[commentIndex].replies[replyIndex];
+        const likeIndex = reply.likes.findIndex(like => like.userEmail === userEmail);
+        
+        if (likeIndex > -1) {
+          reply.likes.splice(likeIndex, 1);
+        } else {
+          reply.likes.push({
+            userEmail,
+            likedAt: new Date(),
+          });
+        }
+
+        await status.save();
+        
+        return {
+          isLiked: likeIndex === -1,
+          likesCount: reply.likes.length,
+        };
+      } else {
+        // Toggle like on comment
+        const comment = status.comments[commentIndex];
+        const likeIndex = comment.likes.findIndex(like => like.userEmail === userEmail);
+        
+        if (likeIndex > -1) {
+          comment.likes.splice(likeIndex, 1);
+        } else {
+          comment.likes.push({
+            userEmail,
+            likedAt: new Date(),
+          });
+        }
+
+        await status.save();
+        
+        return {
+          isLiked: likeIndex === -1,
+          likesCount: comment.likes.length,
+        };
+      }
+    } catch (error) {
+      console.error('Error toggling comment like:', error);
+      throw error;
+    }
+  }
+
+  // Pin/unpin a comment (only post owner can pin)
+  async togglePinComment(statusId, commentId, userEmail) {
+    try {
+      const status = await Status.findById(statusId);
+      if (!status) {
+        throw new Error('Status not found');
+      }
+
+      // Only post owner can pin comments
+      if (status.userEmail !== userEmail) {
+        throw new Error('Unauthorized: Only post owner can pin comments');
+      }
+
+      const commentIndex = status.comments.findIndex(
+        c => c._id.toString() === commentId
+      );
+      if (commentIndex === -1) {
+        throw new Error('Comment not found');
+      }
+
+      const comment = status.comments[commentIndex];
+      comment.isPinned = !comment.isPinned;
+      comment.pinnedAt = comment.isPinned ? new Date() : null;
+
+      await status.save();
+      
+      return {
+        isPinned: comment.isPinned,
+        pinnedAt: comment.pinnedAt,
+      };
+    } catch (error) {
+      console.error('Error toggling pin:', error);
       throw error;
     }
   }

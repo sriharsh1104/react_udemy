@@ -224,8 +224,8 @@ class FeedService {
     }
   }
 
-  // Add comment to a status
-  async addComment(statusId, comment) {
+  // Add comment to a status or reply to a comment
+  async addComment(statusId, comment, replyToCommentId = null) {
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
@@ -235,20 +235,28 @@ class FeedService {
         };
       }
 
+      const body = { statusId, comment };
+      if (replyToCommentId) {
+        body.replyToCommentId = replyToCommentId;
+      }
+
       const response = await fetch(`${API_CONFIG.API_BASE}/feed/comment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ statusId, comment }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
       if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Add Comment' });
+        showToastFromResponse(data, { errorTitle: replyToCommentId ? 'Failed to Add Reply' : 'Failed to Add Comment' });
       } else {
-        showToastFromResponse(data, { successTitle: 'Comment Added' });
+        // Don't show toast for replies (silent operation)
+        if (!replyToCommentId) {
+          showToastFromResponse(data, { successTitle: 'Comment Added' });
+        }
       }
       return data;
     } catch (error) {
@@ -329,6 +337,74 @@ class FeedService {
       return data;
     } catch (error) {
       console.error('Error updating caption:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
+  // Toggle like on a comment or reply
+  async toggleCommentLike(statusId, commentId, isReply = false, replyId = null) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+
+      const response = await fetch(`${API_CONFIG.API_BASE}/feed/comment-like`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusId, commentId, isReply, replyId }),
+      });
+
+      const data = await response.json();
+      // Don't show toast for likes (silent operation)
+      return data;
+    } catch (error) {
+      console.error('Error toggling comment like:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+    }
+  }
+
+  // Pin/unpin a comment
+  async togglePinComment(statusId, commentId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+
+      const response = await fetch(`${API_CONFIG.API_BASE}/feed/pin-comment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusId, commentId }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        showToastFromResponse(data, { errorTitle: 'Failed to Pin Comment' });
+      }
+      return data;
+    } catch (error) {
+      console.error('Error pinning comment:', error);
       const errorResponse = {
         success: false,
         message: 'Network error. Please check your connection.',
