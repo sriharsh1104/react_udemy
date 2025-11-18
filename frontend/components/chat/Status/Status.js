@@ -1,245 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Modal,
-  Dimensions,
-  Platform,
 } from 'react-native';
-import { COLORS } from '../../../constants';
 import { useTheme } from '../../../contexts/ThemeContext';
 import statusService from '../../../services/statusService';
-import fileUploadService from '../../../services/fileUploadService';
-import * as ImagePicker from 'expo-image-picker';
-import { VideoView, useVideoPlayer } from 'expo-video';
-import { API_CONFIG } from '../../../constants';
-import AlertModal from '../../common/AlertModal/AlertModal';
-import ActionModal from '../../common/ActionModal/ActionModal';
 import useAlertModal from '../../../hooks/useAlertModal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import ForwardContactModal from '../ForwardContactModal';
 import ConfirmationModal from '../../common/ConfirmationModal';
-import socketService from '../../../services/socketService';
-import encryptionService from '../../../services/encryptionService';
-import { SOCKET_EVENTS } from '../../../constants';
+import AlertModal from '../../common/AlertModal/AlertModal';
+import ActionModal from '../../common/ActionModal/ActionModal';
+import MyStatusAvatar from './components/MyStatusAvatar';
+import StatusContentView from './components/StatusContentView';
+import StatusItem from './components/StatusItem';
+import { useStatusUpload } from './hooks/useStatusUpload';
+import { useStatusHandlers } from './hooks/useStatusHandlers';
 import styles from './Status.styles';
+import { Dimensions } from 'react-native';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Calculate responsive sizes
 const getStatusItemWidth = () => {
   const padding = 16 * 2;
-  const gaps = 16 * 3; // 3 gaps between 4 items
+  const gaps = 16 * 3;
   return (SCREEN_WIDTH - padding - gaps) / 4;
-};
-
-const STATUS_AVATAR_SIZE = SCREEN_WIDTH < 360 ? 50 : 56;
-const STATUS_AVATAR_RADIUS = STATUS_AVATAR_SIZE / 2;
-
-// My Status Avatar Component
-const MyStatusAvatar = ({ fileId, statusUrl, statusCount, onAddPress }) => {
-  const { colors } = useTheme();
-  const [avatarUrl, setAvatarUrl] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadAvatarUrl = async () => {
-      setLoading(true);
-      if (fileId) {
-        try {
-          const url = await fileUploadService.getFileViewUrl(fileId);
-          if (url) {
-            setAvatarUrl(url);
-          }
-        } catch (error) {
-          console.error('Error loading my status avatar URL:', error);
-          // Fallback to statusUrl from backend
-          if (statusUrl) {
-            try {
-              const token = await AsyncStorage.getItem('authToken');
-              const baseUrl = statusUrl.startsWith('http') 
-                ? statusUrl 
-                : `${API_CONFIG.BASE_URL}${statusUrl}`;
-              const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
-              setAvatarUrl(finalUrl);
-            } catch (err) {
-              console.error('Error getting token:', err);
-            }
-          }
-        }
-      } else if (statusUrl) {
-        try {
-          const token = await AsyncStorage.getItem('authToken');
-          const baseUrl = statusUrl.startsWith('http') 
-            ? statusUrl 
-            : `${API_CONFIG.BASE_URL}${statusUrl}`;
-          const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
-          setAvatarUrl(finalUrl);
-        } catch (error) {
-          console.error('Error getting token:', error);
-        }
-      }
-      setLoading(false);
-    };
-    
-    loadAvatarUrl();
-  }, [fileId, statusUrl]);
-
-  if (loading) {
-    return (
-      <View style={[styles.myStatusAvatar, { backgroundColor: colors.divider }]}>
-        <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (avatarUrl) {
-    return (
-      <View style={styles.myStatusAvatarContainer}>
-        <Image
-          source={{ uri: avatarUrl }}
-          style={styles.myStatusAvatarImage}
-          resizeMode="cover"
-        />
-        {/* Add more status button (WhatsApp style) - always visible when status exists */}
-        <TouchableOpacity
-          style={[styles.addMoreStatusButton, { backgroundColor: colors.primary }]}
-          onPress={onAddPress}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.addMoreStatusButtonText}>➕</Text>
-        </TouchableOpacity>
-        {/* Status count badge - show on top left if multiple statuses */}
-        {statusCount > 1 && (
-          <View style={[styles.statusCountBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.statusCountText}>{statusCount}</Text>
-          </View>
-        )}
-      </View>
-    );
-  }
-  
-  return (
-    <View style={[styles.myStatusAvatar, { backgroundColor: colors.divider }]}>
-      <Text style={styles.addStatusIcon}>➕</Text>
-    </View>
-  );
-};
-
-// Status Content Viewer Component
-const StatusContentView = ({ status, onClose, onNext, onPrev, currentIndex, totalStatuses }) => {
-  const { colors } = useTheme();
-  const [statusUrl, setStatusUrl] = useState(null);
-  const isVideo = status?.statusType === 'video' && status?.statusUrl;
-  
-  // Load status URL with authentication token
-  useEffect(() => {
-    const loadStatusUrl = async () => {
-      if (!status) return;
-      
-      // If fileId is available, use fileUploadService to get URL with token
-      if (status.fileId) {
-        try {
-          const url = await fileUploadService.getFileViewUrl(status.fileId);
-          setStatusUrl(url);
-        } catch (error) {
-          console.error('Error loading status URL:', error);
-          // Fallback to statusUrl from backend
-          const fallbackUrl = status.statusUrl?.startsWith('http') 
-    ? status.statusUrl 
-            : status.statusUrl 
-      ? `${API_CONFIG.BASE_URL}${status.statusUrl}` 
-      : null;
-          setStatusUrl(fallbackUrl);
-        }
-      } else if (status.statusUrl) {
-        // Fallback: construct URL manually with token
-        const baseUrl = status.statusUrl.startsWith('http') 
-          ? status.statusUrl 
-          : `${API_CONFIG.BASE_URL}${status.statusUrl}`;
-        
-        // Add token as query param for authentication
-        try {
-          const token = await AsyncStorage.getItem('authToken');
-          const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
-          setStatusUrl(finalUrl);
-        } catch (error) {
-          console.error('Error getting token:', error);
-          setStatusUrl(baseUrl);
-        }
-      } else {
-        setStatusUrl(null);
-      }
-    };
-    
-    loadStatusUrl();
-  }, [status]);
-  
-  const player = useVideoPlayer(isVideo && statusUrl ? statusUrl : '', (player) => {
-    if (isVideo && player && statusUrl) {
-      player.loop = true;
-      player.play();
-    }
-  });
-
-  if (!status || !statusUrl) {
-    return (
-      <View style={styles.statusContentView}>
-        <Text style={{ color: COLORS.white }}>No status content</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.statusContentView}>
-      {isVideo ? (
-        <VideoView
-          player={player}
-          style={styles.statusVideo}
-          contentFit="contain"
-          nativeControls={false}
-        />
-      ) : (
-        <Image
-          source={{ uri: statusUrl }}
-          style={styles.statusImage}
-          resizeMode="contain"
-        />
-      )}
-      <View style={styles.statusViewerInfo}>
-        <Text style={styles.statusViewerName}>
-          {status.name || status.email?.split('@')[0]}
-        </Text>
-        <Text style={styles.statusViewerTime}>
-          {status.statusTime || 'Just now'}
-        </Text>
-      </View>
-      {totalStatuses > 1 && (
-        <View style={styles.statusNavigation}>
-          {currentIndex > 0 && (
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={onPrev}
-            >
-              <Text style={styles.navButtonText}>←</Text>
-            </TouchableOpacity>
-          )}
-          {currentIndex < totalStatuses - 1 && (
-            <TouchableOpacity
-              style={[styles.navButton, styles.navButtonRight]}
-              onPress={onNext}
-            >
-              <Text style={styles.navButtonText}>→</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-    </View>
-  );
 };
 
 const Status = ({ userEmail, contacts = [] }) => {
@@ -262,11 +50,8 @@ const Status = ({ userEmail, contacts = [] }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [statusToDelete, setStatusToDelete] = useState(null);
 
-  useEffect(() => {
-    loadStatuses();
-  }, [contacts, userEmail]);
-
-  const loadStatuses = async () => {
+  // Define loadStatuses first using useCallback
+  const loadStatuses = useCallback(async () => {
     setLoading(true);
     try {
       const result = await statusService.getStatusFeed();
@@ -304,215 +89,36 @@ const Status = ({ userEmail, contacts = [] }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [contacts, userEmail]);
 
-  const handleAddStatus = async () => {
-    try {
-      // Request permissions first
-      if (Platform.OS !== 'web') {
-        const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (mediaStatus !== 'granted') {
-          showAlert('Permission Denied', 'We need camera roll permissions to add status', { type: 'warning' });
-          return;
-        }
-      }
+  // Use hooks (after loadStatuses is defined)
+  const { handleAddStatus } = useStatusUpload({
+    loadStatuses,
+    showAlert,
+  });
 
-      showAction(
-        'Add Status',
-        'Choose an option',
-        [
-          { 
-            text: '📷 Gallery', 
-            onPress: () => pickFromGallery() 
-          },
-          { 
-            text: '📸 Camera', 
-            onPress: () => pickFromCamera() 
-          },
-          { 
-            text: 'Cancel', 
-            style: 'cancel' 
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Error adding status:', error);
-      showAlert('Error', 'Failed to add status', { type: 'error' });
-    }
-  };
+  const {
+    handleSaveImage,
+    handleForwardStatus,
+    handleForwardConfirm,
+    handleDeleteStatus,
+  } = useStatusHandlers({
+    userEmail,
+    showAlert,
+    loadStatuses,
+    setShowForwardModal,
+    setStatusToForward,
+    setShowDeleteConfirm,
+    setStatusToDelete,
+    setShowStatusViewer,
+    setCurrentStatuses,
+    setSelectedStatusIndex,
+  });
 
-  const pickFromGallery = async () => {
-    try {
-      if (Platform.OS === 'web') {
-        return new Promise((resolve) => {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = 'image/*,video/*';
-          input.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-              const isVideo = file.type.startsWith('video/');
-              const fileObj = {
-                uri: URL.createObjectURL(file),
-                file: file,
-                type: isVideo ? 'video' : 'image',
-                mimeType: file.type,
-                name: file.name || `status_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
-                size: file.size || 0,
-              };
-              await uploadStatus(fileObj, isVideo ? 'video' : 'image');
-            }
-            resolve();
-          };
-          input.oncancel = () => resolve();
-          input.click();
-        });
-      }
+  useEffect(() => {
+    loadStatuses();
+  }, [loadStatuses]);
 
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        showAlert('Permission Denied', 'We need camera roll permissions', { type: 'warning' });
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
-        allowsEditing: true,
-        aspect: [9, 16],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const isVideo = asset.type === 'video' || asset.mimeType?.startsWith('video/');
-        const file = {
-          uri: asset.uri,
-          type: isVideo ? 'video' : 'image',
-          mimeType: asset.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
-          name: asset.fileName || `status_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
-          size: asset.fileSize || 0,
-        };
-        await uploadStatus(file, isVideo ? 'video' : 'image');
-      }
-    } catch (error) {
-      console.error('Error opening gallery:', error);
-      showAlert('Error', 'Failed to open gallery', { type: 'error' });
-    }
-  };
-
-  const pickFromCamera = async () => {
-    try {
-      if (Platform.OS === 'web') {
-        showAlert('Not Available', 'Camera is not available on web. Please use Gallery option.', { type: 'info' });
-        return;
-      }
-
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        showAlert('Permission Denied', 'We need camera permissions', { type: 'warning' });
-        return;
-      }
-
-      showAction(
-        'Take Photo/Video',
-        'Choose media type',
-        [
-          { text: 'Photo', onPress: () => takePhoto() },
-          { text: 'Video', onPress: () => takeVideo() },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
-    } catch (error) {
-      console.error('Error opening camera:', error);
-      showAlert('Error', 'Failed to open camera', { type: 'error' });
-    }
-  };
-
-  const takePhoto = async () => {
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [9, 16],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const file = {
-          uri: asset.uri,
-          type: asset.type || 'image',
-          mimeType: asset.mimeType || 'image/jpeg',
-          name: asset.fileName || `status_${Date.now()}.jpg`,
-          size: asset.fileSize || 0,
-        };
-        await uploadStatus(file, 'image');
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-      showAlert('Error', 'Failed to take photo', { type: 'error' });
-    }
-  };
-
-  const takeVideo = async () => {
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const file = {
-          uri: asset.uri,
-          type: asset.type || 'video',
-          mimeType: asset.mimeType || 'video/mp4',
-          name: asset.fileName || `status_${Date.now()}.mp4`,
-          size: asset.fileSize || 0,
-        };
-        await uploadStatus(file, 'video');
-      }
-    } catch (error) {
-      console.error('Error taking video:', error);
-      showAlert('Error', 'Failed to take video', { type: 'error' });
-    }
-  };
-
-  const uploadStatus = async (file, type) => {
-    try {
-      const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
-      const MAX_VIDEO_SIZE = 5 * 1024 * 1024;
-      
-      const fileSize = file.size || 0;
-      
-      if (type === 'image' && fileSize > MAX_IMAGE_SIZE) {
-        showAlert('File Too Large', 'Image size must be less than 2MB', { type: 'warning' });
-        return;
-      }
-      
-      if (type === 'video' && fileSize > MAX_VIDEO_SIZE) {
-        showAlert('File Too Large', 'Video size must be less than 5MB', { type: 'warning' });
-        return;
-      }
-      
-      setLoading(true);
-      
-      // Upload status update (postType='status' for WhatsApp-style, default)
-      const result = await statusService.uploadStatus(file, type, '', [], 'status');
-      
-      if (result.success) {
-        await loadStatuses();
-      } else {
-        showAlert('Upload Failed', result.message || 'Failed to upload status', { type: 'error' });
-      }
-    } catch (error) {
-      console.error('Error uploading status:', error);
-      showAlert('Error', 'Failed to upload status. Please try again.', { type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStatusPress = async (contact) => {
     // Get all statuses for this contact (multiple statuses support)
@@ -595,215 +201,30 @@ const Status = ({ userEmail, contacts = [] }) => {
     }
   };
 
-  const handleDeleteStatus = async () => {
-    if (!statusToDelete) return;
-    
-    try {
-      const result = await statusService.deleteStatus(statusToDelete);
-      if (result.success) {
-        setShowDeleteConfirm(false);
-        setStatusToDelete(null);
-        setShowStatusViewer(false);
-        setCurrentStatuses([]);
-        setSelectedStatusIndex(0);
-        await loadStatuses();
-      } else {
-        showAlert('Error', result.message || 'Failed to delete status', { type: 'error' });
-      }
-    } catch (error) {
-      console.error('Error deleting status:', error);
-      showAlert('Error', 'Failed to delete status', { type: 'error' });
-    }
+  const handleDeleteStatusConfirm = async () => {
+    await handleDeleteStatus(statusToDelete);
   };
 
-  const handleSaveImage = async () => {
+  const handleSaveImagePress = async () => {
     if (currentStatuses.length === 0) return;
-    
     const currentStatus = currentStatuses[selectedStatusIndex];
-    if (!currentStatus || currentStatus.statusType !== 'image') {
-      showAlert('Info', 'Only images can be saved', { type: 'info' });
-      return;
-    }
-
-    try {
-      const result = await statusService.saveImage(
-        currentStatus.fileId,
-        `status_${Date.now()}.jpg`,
-        currentStatus.statusUrl
-      );
-      
-      if (result.success) {
-        showAlert('Success', 'Image saved successfully', { type: 'success' });
-      } else {
-        showAlert('Error', result.message || 'Failed to save image', { type: 'error' });
-      }
-    } catch (error) {
-      console.error('Error saving image:', error);
-      showAlert('Error', 'Failed to save image', { type: 'error' });
-    }
+    await handleSaveImage(currentStatus);
   };
 
-  const handleForwardStatus = () => {
+  const handleForwardStatusPress = () => {
     if (currentStatuses.length === 0) return;
-    
     const currentStatus = currentStatuses[selectedStatusIndex];
-    setStatusToForward(currentStatus);
-    setShowForwardModal(true);
-  };
-
-  const handleForwardConfirm = async (targets) => {
-    if (!statusToForward || !targets || targets.length === 0) return;
-    
-    try {
-      let successCount = 0;
-      let errorCount = 0;
-      
-      // Get file URL for forwarding
-      let fileUrl = null;
-      if (statusToForward.fileId) {
-        try {
-          fileUrl = await fileUploadService.getFileViewUrl(statusToForward.fileId);
-        } catch (error) {
-          console.error('Error getting file URL:', error);
-        }
-      }
-      
-      // Create message content for forwarding
-      const statusMessage = JSON.stringify({
-        type: 'file',
-        fileId: statusToForward.fileId,
-        fileName: `status_${Date.now()}.${statusToForward.statusType === 'image' ? 'jpg' : 'mp4'}`,
-        fileType: statusToForward.statusType,
-        statusForward: true, // Mark as forwarded status
-      });
-      
-      // Forward to each target
-      for (const target of targets) {
-        try {
-          if (target.type === 'private' && target.contactEmail) {
-            // Encrypt for private chat
-            const encryptedData = await encryptionService.encryptPrivateMessage(
-              statusMessage,
-              userEmail,
-              target.contactEmail
-            );
-            socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
-              message: JSON.stringify(encryptedData),
-              contactEmail: target.contactEmail,
-              senderEmail: userEmail,
-            });
-            successCount++;
-          } else if (target.type === 'group' && target.groupId) {
-            // Send to group (no encryption needed)
-            socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
-              message: statusMessage,
-              groupId: target.groupId,
-              senderEmail: userEmail,
-            });
-            successCount++;
-          }
-        } catch (error) {
-          console.error(`Error forwarding to ${target.type === 'private' ? target.contactEmail : target.groupName}:`, error);
-          errorCount++;
-        }
-      }
-      
-      setShowForwardModal(false);
-      setStatusToForward(null);
-      
-      if (errorCount === 0) {
-        showAlert('Success', `Status forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'} successfully`, { type: 'success' });
-      } else {
-        showAlert('Partial Success', `Status forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'}, ${errorCount} ${errorCount === 1 ? 'failed' : 'failed'}`, { type: 'warning' });
-      }
-    } catch (error) {
-      console.error('Error forwarding status:', error);
-      showAlert('Error', 'Failed to forward status', { type: 'error' });
-    }
-  };
-
-  // Status Item Component
-  const StatusItem = ({ item, index, onPress }) => {
-    const { colors } = useTheme();
-    const [avatarUrl, setAvatarUrl] = useState(null);
-    const hasUnviewed = item.hasUnviewedStatus;
-    const borderColor = hasUnviewed ? colors.primary : colors.divider;
-    const borderWidth = hasUnviewed ? 3 : 2;
-    const itemWidth = getStatusItemWidth();
-    const isLastInRow = (index + 1) % 4 === 0;
-
-    // Load avatar image URL with authentication token
-    useEffect(() => {
-      const loadAvatarUrl = async () => {
-        if (item.fileId) {
-          try {
-            const url = await fileUploadService.getFileViewUrl(item.fileId);
-            setAvatarUrl(url);
-          } catch (error) {
-            console.error('Error loading avatar URL:', error);
-            // Fallback to statusUrl from backend
-            if (item.statusUrl) {
-              try {
-                const token = await AsyncStorage.getItem('authToken');
-                const baseUrl = item.statusUrl.startsWith('http') 
-                  ? item.statusUrl 
-                  : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
-                const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
-                setAvatarUrl(finalUrl);
-              } catch (err) {
-                console.error('Error getting token:', err);
-                setAvatarUrl(item.statusUrl.startsWith('http') ? item.statusUrl : `${API_CONFIG.BASE_URL}${item.statusUrl}`);
-              }
-            }
-          }
-        } else if (item.statusUrl) {
-          try {
-            const token = await AsyncStorage.getItem('authToken');
-            const baseUrl = item.statusUrl.startsWith('http') 
-              ? item.statusUrl 
-              : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
-            const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
-            setAvatarUrl(finalUrl);
-          } catch (error) {
-            console.error('Error getting token:', error);
-            setAvatarUrl(item.statusUrl.startsWith('http') ? item.statusUrl : `${API_CONFIG.BASE_URL}${item.statusUrl}`);
-          }
-        }
-      };
-      
-      loadAvatarUrl();
-    }, [item.fileId, item.statusUrl]);
-
-    return (
-      <TouchableOpacity
-        style={[styles.statusItem, { width: itemWidth }, isLastInRow && styles.statusItemLast]}
-        onPress={onPress}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.statusAvatarContainer, { borderColor, borderWidth }]}>
-          {avatarUrl ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              style={styles.statusAvatarImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[styles.statusAvatar, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.statusAvatarText, { color: colors.white }]}>
-                {item.name?.charAt(0).toUpperCase() || 'U'}
-              </Text>
-            </View>
-          )}
-        </View>
-        <Text style={[styles.statusName, { color: colors.text }]} numberOfLines={1}>
-          {item.name}
-        </Text>
-      </TouchableOpacity>
-    );
+    handleForwardStatus(currentStatus);
   };
 
   const renderStatusItem = ({ item, index }) => {
-    return <StatusItem item={item} index={index} onPress={() => handleStatusPress(item)} />;
+    return (
+      <StatusItem 
+        item={item} 
+        index={index} 
+        onPress={() => handleStatusPress(item)} 
+      />
+    );
   };
 
   if (loading) {
@@ -969,7 +390,7 @@ const Status = ({ userEmail, contacts = [] }) => {
                 {currentStatuses[selectedStatusIndex]?.statusType === 'image' && (
                   <TouchableOpacity
                     style={[styles.statusActionButton, { backgroundColor: 'rgba(52, 199, 89, 0.8)' }]}
-                    onPress={handleSaveImage}
+                    onPress={handleSaveImagePress}
                   >
                     <Text style={styles.statusActionButtonText}>💾 Save</Text>
                   </TouchableOpacity>
@@ -978,7 +399,7 @@ const Status = ({ userEmail, contacts = [] }) => {
                 {/* Forward button - for all statuses */}
                 <TouchableOpacity
                   style={[styles.statusActionButton, { backgroundColor: 'rgba(0, 122, 255, 0.8)' }]}
-                  onPress={handleForwardStatus}
+                  onPress={handleForwardStatusPress}
                 >
                   <Text style={styles.statusActionButtonText}>➡️ Forward</Text>
                 </TouchableOpacity>
@@ -1080,7 +501,7 @@ const Status = ({ userEmail, contacts = [] }) => {
         message="Are you sure you want to delete this status? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
-        onConfirm={handleDeleteStatus}
+        onConfirm={handleDeleteStatusConfirm}
         onCancel={() => {
           setShowDeleteConfirm(false);
           setStatusToDelete(null);
@@ -1095,7 +516,7 @@ const Status = ({ userEmail, contacts = [] }) => {
           setShowForwardModal(false);
           setStatusToForward(null);
         }}
-        onSelectContacts={handleForwardConfirm}
+        onSelectContacts={(targets) => handleForwardConfirm(statusToForward, targets)}
         message={statusToForward ? `Forwarding ${statusToForward.statusType === 'image' ? 'image' : 'video'} status` : ''}
       />
     </View>

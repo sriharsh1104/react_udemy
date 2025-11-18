@@ -26,39 +26,25 @@ import { useClearChat } from './hooks/useClearChat';
 import { useFileUpload } from './hooks/useFileUpload';
 import { useActionBarHandlers } from './hooks/useActionBarHandlers';
 import { usePinnedMessage } from './hooks/usePinnedMessage';
-import socketService from '../../services/socketService';
-import { SOCKET_EVENTS } from '../../constants';
+import { useChatScreenSocketEvents } from './hooks/useChatScreenSocketEvents';
+import { useChatSearch } from './hooks/useChatSearch';
 import styles from './styles';
 import ChatHeader from '../../components/chat/ChatHeader';
 import MessageItem from '../../components/chat/MessageItem';
 import Sidebar, { InviteModal } from '../../components/chat/Sidebar';
 import RecentChats from '../../components/chat/RecentChats';
 import CreateGroupModal from '../../components/chat/CreateGroupModal';
-import GroupInfoModal from '../../components/chat/GroupInfoModal';
-import ContactInfoModal from '../../components/chat/ContactInfoModal';
-import MessageActionMenu from '../../components/chat/MessageActionMenu';
-import MessageInfoModal from '../../components/chat/MessageInfoModal';
-import ForwardContactModal from '../../components/chat/ForwardContactModal';
 import ChatSearchBar from '../../components/chat/ChatSearchBar';
-// GLoader removed - loader disabled
-import CallHistory from '../../components/call/CallHistory';
 import IncomingCallScreen from '../../components/call/IncomingCallScreen';
 import ActiveCallScreen from '../../components/call/ActiveCallScreen';
-import PermissionPrompt from '../../components/call/PermissionPrompt';
-import BillSplitModal from '../../components/chat/BillSplitModal';
-import BillSummaryModal from '../../components/chat/BillSummaryModal';
-import ConfirmationModal from '../../components/common/ConfirmationModal';
-import AlertModal from '../../components/common/AlertModal';
 import ChatContent from './components/ChatContent';
 import BottomTabBar from './components/BottomTabBar';
+import ChatScreenModals from './components/ChatScreenModals';
 import contactsService from '../../services/contactsService';
 import groupService from '../../services/groupService';
 import settingsService from '../../services/settingsService';
-import billSplitService from '../../services/billSplitService';
-import fileUploadService from '../../services/fileUploadService';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotifications } from '../../contexts/NotificationContext';
-import encryptionService from '../../services/encryptionService';
 import logger from '../../utils/logger';
 
 const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLogoutPress, navigation }) => {
@@ -174,94 +160,23 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const currentTypingUser = chatType === 'group' ? (typingUsers.length > 0 ? typingUsers[0] : null) : typingUser;
   const actualOnlineStatus = isConnected && !offlineMode;
 
-  // Search functionality
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setCurrentSearchIndex(0);
-      return;
-    }
-
-    const query = searchQuery.toLowerCase().trim();
-    const results = messages
-      .map((msg, index) => ({ msg, index }))
-      .filter(({ msg }) => {
-        if (msg.isDeleted) return false;
-        
-        let messageText = '';
-        if (typeof msg.message === 'string') {
-          try {
-            const parsed = JSON.parse(msg.message);
-            if (parsed && parsed.type === 'file') {
-              messageText = parsed.fileName || parsed.name || '';
-            } else {
-              messageText = msg.message;
-            }
-          } catch {
-            messageText = msg.message;
-          }
-        } else {
-          messageText = msg.message?.message || msg.message?.text || String(msg.message || '');
-        }
-        
-        return messageText.toLowerCase().includes(query);
-      });
-
-    setSearchResults(results);
-    setCurrentSearchIndex(0);
-  }, [searchQuery, messages]);
-
-  // Navigate to search result
-  const scrollToSearchResult = useCallback((index) => {
-    if (searchResults.length === 0 || index < 0 || index >= searchResults.length) return;
-    
-    const { index: messageIndex } = searchResults[index];
-    setTimeout(() => {
-      try {
-        flatListRef.current?.scrollToIndex({
-          index: messageIndex,
-          animated: true,
-          viewPosition: 0.5,
-        });
-      } catch (error) {
-        // Fallback to scrollToOffset if scrollToIndex fails
-        flatListRef.current?.scrollToOffset({
-          offset: messageIndex * 100, // Approximate height per message
-          animated: true,
-        });
-      }
-    }, 100);
-  }, [searchResults]);
-
-  const handleSearchNext = useCallback(() => {
-    if (currentSearchIndex < searchResults.length - 1) {
-      const nextIndex = currentSearchIndex + 1;
-      setCurrentSearchIndex(nextIndex);
-      scrollToSearchResult(nextIndex);
-    }
-  }, [currentSearchIndex, searchResults, scrollToSearchResult]);
-
-  const handleSearchPrevious = useCallback(() => {
-    if (currentSearchIndex > 0) {
-      const prevIndex = currentSearchIndex - 1;
-      setCurrentSearchIndex(prevIndex);
-      scrollToSearchResult(prevIndex);
-    }
-  }, [currentSearchIndex, scrollToSearchResult]);
-
-  const handleSearchChange = useCallback((text) => {
-    setSearchQuery(text);
-    if (text.trim()) {
-      setShowSearchBar(true);
-    }
-  }, []);
-
-  const handleSearchClose = useCallback(() => {
-    setSearchQuery('');
-    setShowSearchBar(false);
-    setSearchResults([]);
-    setCurrentSearchIndex(0);
-  }, []);
+  // Search functionality - extracted to custom hook
+  const {
+    handleSearchNext,
+    handleSearchPrevious,
+    handleSearchChange,
+    handleSearchClose,
+  } = useChatSearch({
+    searchQuery,
+    messages,
+    searchResults,
+    setSearchResults,
+    setCurrentSearchIndex,
+    currentSearchIndex,
+    flatListRef,
+    setShowSearchBar,
+    setSearchQuery,
+  });
 
   // Load contacts and groups
   const loadContacts = useCallback(async (showLoading = false) => {
@@ -497,264 +412,26 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
   }, [contactEmail, contacts, setContactOnlineStatus]);
 
-  // Socket event listeners
-  useEffect(() => {
-    if (!socket || !userEmail) return;
-
-    const handleAnyPrivateMessage = async (data) => {
-      if (data.senderEmail && data.senderEmail !== userEmail) {
-        const isViewingThisChat = contactEmail === data.senderEmail && chatType === 'private';
-        const senderContact = contacts.find(c => c.email === data.senderEmail);
-        const isArchived = senderContact?.isArchived === true;
-        
-        if (!isViewingThisChat && !isArchived) {
-          let messageText = data.message;
-          try {
-            const parsed = JSON.parse(data.message);
-            if (parsed && parsed.encrypted && parsed.iv) {
-              messageText = await encryptionService.decryptPrivateMessage(parsed, userEmail, data.senderEmail);
-            }
-          } catch (error) {
-            logger.log('Message not encrypted or parse error:', error);
-          }
-
-          let senderName = senderContact?.name || data.senderEmail?.split('@')[0] || 'Unknown';
-          const notificationSenderEmail = data.senderEmail;
-          
-          addNotification({
-            senderEmail: notificationSenderEmail,
-            senderName: senderName,
-            message: messageText,
-            timestamp: data.timestamp || new Date(),
-            type: 'private',
-            onPress: () => {
-              setContactEmail(notificationSenderEmail);
-              setChatType('private');
-              setContactName(senderName);
-              clearNotification(notificationSenderEmail);
-            },
-            onMarkAsRead: async () => {
-              await contactsService.markMessagesAsRead(notificationSenderEmail);
-              // Immediately reload contacts to update unread count
-              loadContacts(false);
-            },
-            onReply: async (replyMessage) => {
-              if (replyMessage && replyMessage.trim()) {
-                try {
-                  const messageText = replyMessage.trim();
-                  const currentSocket = socketService.getSocket();
-                  if (!currentSocket || !currentSocket.connected) {
-                    showAlert('Connection Error', 'Not connected to server. Please check your connection.', 'error');
-                    return;
-                  }
-                  
-                  socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
-                  socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
-                    userEmail: userEmail,
-                    contactEmail: notificationSenderEmail,
-                  });
-                  
-                  await new Promise(resolve => setTimeout(resolve, 300));
-                  
-                  const isViewingThisChat = contactEmail === notificationSenderEmail && chatType === 'private';
-                  
-                  if (isViewingThisChat) {
-                    await sendPrivateMessage(messageText);
-                  } else {
-                    const encryptedData = await encryptionService.encryptPrivateMessage(
-                      messageText,
-                      userEmail,
-                      notificationSenderEmail
-                    );
-                    const encryptedMessage = JSON.stringify(encryptedData);
-                    
-                    if (!currentSocket || !currentSocket.connected) {
-                      throw new Error('Socket disconnected before sending message');
-                    }
-                    
-                    socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
-                      message: encryptedMessage,
-                      contactEmail: notificationSenderEmail,
-                      senderEmail: userEmail,
-                    });
-                    
-                    socketService.emit(SOCKET_EVENTS.TYPING, {
-                      contactEmail: notificationSenderEmail,
-                      isTyping: false,
-                    });
-                  }
-                  
-                  clearNotification(notificationSenderEmail);
-                } catch (error) {
-                  logger.error('Error sending reply:', error);
-                  showAlert('Error', `Failed to send message: ${error.message || 'Please try again.'}`, 'error');
-                }
-              }
-            },
-          });
-        }
-      }
-    };
-
-    socket.on('privateMessage', handleAnyPrivateMessage);
-    return () => {
-      socket.off('privateMessage', handleAnyPrivateMessage);
-    };
-  }, [socket, userEmail, contactEmail, chatType, contacts, addNotification, clearNotification, sendPrivateMessage, setContactEmail, setChatType, setContactName, loadContacts]);
-
-  // Socket events for contacts/groups updates
-  useEffect(() => {
-    if (!socket || !userEmail) return;
-
-    const handleContactsUpdated = (data) => {
-      // Optimize: Only make API call for actions that require full data refresh
-      // For message_sent/message_received, update local state instead
-      if (data && data.action) {
-        const action = data.action;
-        
-        if (action === 'message_sent' || action === 'message_received') {
-          // Optimize: Update local state instead of API call
-          // Move contact to top and update last message timestamp
-          if (data.contactEmail) {
-            setContacts((prev) => {
-              const contactIndex = prev.findIndex(c => c.email === data.contactEmail);
-              
-              if (contactIndex === -1) {
-                // Contact not in list - might be new, need full refresh
-                loadContacts(false);
-                return prev;
-              }
-              
-              // Move contact to top
-              const updatedContacts = [...prev];
-              const contact = updatedContacts[contactIndex];
-              updatedContacts.splice(contactIndex, 1);
-              
-              // Update last message timestamp to move to top
-              const updatedContact = {
-                ...contact,
-                lastMessageTimestamp: new Date().toISOString(),
-              };
-              
-              // Insert at beginning (most recent)
-              updatedContacts.unshift(updatedContact);
-              
-              return updatedContacts;
-            });
-          }
-          return; // Don't make API call for message_sent/received
-        }
-        
-        // For contact_unarchived: Check if contact already exists and is active
-        // If yes, treat it like message_sent (just update locally)
-        if (action === 'contact_unarchived' && data.contactEmail) {
-          // Check current state to see if contact exists and is active
-          const contactExists = contacts.find(c => c.email === data.contactEmail);
-          const wasArchived = contactExists?.isArchived === true;
-          
-          // If contact already exists and was NOT archived, just update locally (no API call)
-          if (contactExists && !wasArchived) {
-            setContacts((prev) => {
-              const contactIndex = prev.findIndex(c => c.email === data.contactEmail);
-              
-              if (contactIndex === -1) {
-                return prev; // Shouldn't happen, but safety check
-              }
-              
-              // Contact already active - just move to top (like message_sent)
-              const updatedContacts = [...prev];
-              const contact = updatedContacts[contactIndex];
-              updatedContacts.splice(contactIndex, 1);
-              
-              const updatedContact = {
-                ...contact,
-                lastMessageTimestamp: new Date().toISOString(),
-                isArchived: false, // Ensure it's not archived
-              };
-              
-              updatedContacts.unshift(updatedContact);
-              return updatedContacts;
-            });
-            return; // No API call needed
-          }
-          
-          // Contact doesn't exist or was archived - need full refresh
-          loadContacts(false);
-          return;
-        }
-        
-        // Actions that require full API refresh (contact added/deleted/archived, etc.)
-        const requiresFullRefresh = [
-          'added',
-          'deleted',
-          'archived',
-          'unarchived',
-        ];
-        
-        if (requiresFullRefresh.includes(action)) {
-          // Full refresh needed - make API call
-          loadContacts(false);
-        } else {
-          // Unknown action - make API call to be safe
-          loadContacts(false);
-        }
-      } else {
-        // No action specified - make API call to be safe
-        loadContacts(false);
-      }
-    };
-
-    const handleGroupsUpdated = () => {
-      loadContacts(false);
-    };
-
-    const handleContactOnlineStatus = (data) => {
-      if (data && data.contactEmail) {
-        setContacts((prev) =>
-          prev.map((contact) =>
-            contact.email === data.contactEmail
-              ? { ...contact, isOnline: data.isOnline }
-              : contact
-          )
-        );
-      }
-    };
-
-    socket.on(SOCKET_EVENTS.CONTACTS_UPDATED, handleContactsUpdated);
-    socket.on(SOCKET_EVENTS.GROUPS_UPDATED, handleGroupsUpdated);
-    socket.on(SOCKET_EVENTS.CONTACT_ONLINE_STATUS, handleContactOnlineStatus);
-    
-    return () => {
-      socket.off(SOCKET_EVENTS.CONTACTS_UPDATED, handleContactsUpdated);
-      socket.off(SOCKET_EVENTS.GROUPS_UPDATED, handleGroupsUpdated);
-      socket.off(SOCKET_EVENTS.CONTACT_ONLINE_STATUS, handleContactOnlineStatus);
-    };
-  }, [socket, userEmail, loadContacts, setContacts]);
-
-  // Pinned message socket events
-  useEffect(() => {
-    if (!socket || chatType !== 'group' || !groupId) return;
-
-    const handleMessagePinned = async (data) => {
-      if (data.groupId === groupId) {
-        await loadPinnedMessage();
-      }
-    };
-
-    const handleMessageUnpinned = (data) => {
-      if (data.groupId === groupId) {
-        setPinnedMessage(null);
-      }
-    };
-
-    socket.on('messagePinned', handleMessagePinned);
-    socket.on('messageUnpinned', handleMessageUnpinned);
-
-    return () => {
-      socket.off('messagePinned', handleMessagePinned);
-      socket.off('messageUnpinned', handleMessageUnpinned);
-    };
-  }, [socket, chatType, groupId, loadPinnedMessage, setPinnedMessage]);
+  // Socket event handlers - extracted to custom hook
+  useChatScreenSocketEvents({
+    socket,
+    userEmail,
+    contactEmail,
+    chatType,
+    contacts,
+    groupId,
+    setContactEmail,
+    setChatType,
+    setContactName,
+    setContacts,
+    setPinnedMessage,
+    addNotification,
+    clearNotification,
+    sendPrivateMessage,
+    loadContacts,
+    loadPinnedMessage,
+    showAlert,
+  });
     
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -1155,362 +832,57 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         </Text>
       </View>
 
-      <ConfirmationModal
-        visible={showClearChatModal}
-        title="Clear Chat"
-        message="Are you sure you want to clear all messages in this chat? This action cannot be undone."
-        confirmText="Clear"
-        cancelText="Cancel"
-        onConfirm={handleClearChatConfirm}
-          onCancel={() => setShowClearChatModal(false)}
-        confirmButtonStyle="destructive"
-      />
-
-      <ConfirmationModal
-        visible={showDeleteMessageModal}
-        title={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
-          ? "Undo Message" 
-          : "Delete Message"}
-        message={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
-          ? "This message hasn't been sent to the server yet. Remove it?"
-          : "Are you sure you want to delete this message? This will show 'This message is deleted' to all users."}
-        confirmText={messageToDelete && messageToDelete.isSent && !messageToDelete.messageId
-          ? "Undo"
-          : "Delete"}
-        cancelText="Cancel"
-          onConfirm={chatHandlers.handleDeleteMessageConfirm}
-          onCancel={chatHandlers.handleDeleteMessageCancel}
-        confirmButtonStyle="destructive"
-      />
-
-      <CallHistory
-        visible={showCallHistory}
-        onClose={() => setShowCallHistory(false)}
-        userEmail={userEmail}
+      <ChatScreenModals
+        showClearChatModal={showClearChatModal}
+        showDeleteMessageModal={showDeleteMessageModal}
+        showCallHistory={showCallHistory}
+        showPermissionPrompt={showPermissionPrompt}
+        showBillSplitModal={showBillSplitModal}
+        showBillSummaryModal={showBillSummaryModal}
+        showGroupInfoModal={showGroupInfoModal}
+        showContactInfoModal={showContactInfoModal}
+        showMessageMenu={showMessageMenu}
+        showMessageInfoModal={showMessageInfoModal}
+        showForwardModal={showForwardModal}
+        alertModal={alertModal}
+        messageToDelete={messageToDelete}
+        forwardMessage={forwardMessage}
+        messageInfoMessageId={messageInfoMessageId}
+        selectedMessage={selectedMessage}
+        currentGroup={currentGroup}
+        chatType={chatType}
         contactEmail={contactEmail}
         groupId={groupId}
-        isGroup={chatType === 'group'}
-          onCallPress={callHandlers.handleCallFromHistory}
+        userEmail={userEmail}
+        contactName={contactName}
+        privateMessages={privateMessages}
+        handleClearChatConfirm={handleClearChatConfirm}
+        setShowClearChatModal={setShowClearChatModal}
+        chatHandlers={chatHandlers}
+        callHandlers={callHandlers}
+        contactHandlers={contactHandlers}
+        handleClearChat={handleClearChat}
+        setShowCallHistory={setShowCallHistory}
+        handlePermissionRetry={handlePermissionRetry}
+        handlePermissionCancel={handlePermissionCancel}
+        permissionDeviceType={permissionDeviceType}
+        setShowBillSplitModal={setShowBillSplitModal}
+        setShowBillSummaryModal={setShowBillSummaryModal}
+        setShowGroupInfoModal={setShowGroupInfoModal}
+        setShowContactInfoModal={setShowContactInfoModal}
+        setShowMessageMenu={setShowMessageMenu}
+        setSelectedMessage={setSelectedMessage}
+        setShowMessageInfoModal={setShowMessageInfoModal}
+        setMessageInfoMessageId={setMessageInfoMessageId}
+        setShowForwardModal={setShowForwardModal}
+        setForwardMessage={setForwardMessage}
+        loadMessageInfo={loadMessageInfo}
+        showAlert={showAlert}
+        hideAlert={hideAlert}
       />
-
-      <PermissionPrompt
-        visible={showPermissionPrompt}
-        deviceType={permissionDeviceType}
-        onRetry={handlePermissionRetry}
-        onCancel={handlePermissionCancel}
-      />
-
-      {chatType && (
-        <BillSplitModal
-          visible={showBillSplitModal}
-          onClose={() => setShowBillSplitModal(false)}
-          onCreateBill={async (billData) => {
-            try {
-              const result = await billSplitService.createBillSplit({
-                ...billData,
-                contactEmail: chatType === 'private' ? contactEmail : null,
-                groupId: chatType === 'group' ? groupId : null,
-              });
-              
-              if (result.success) {
-                setShowBillSplitModal(false);
-              }
-            } catch (error) {
-                logger.error('Error creating bill split:', error);
-              showAlert('Error', 'Failed to create bill split', 'error');
-            }
-          }}
-          userEmail={userEmail}
-          contactEmail={contactEmail}
-          groupId={groupId}
-          groupMembers={currentGroup?.members || []}
-        />
-      )}
-
-      {chatType && (
-        <BillSummaryModal
-          visible={showBillSummaryModal}
-          onClose={() => setShowBillSummaryModal(false)}
-          userEmail={userEmail}
-          contactEmail={contactEmail}
-          groupId={groupId}
-          roomId={chatType === 'group' 
-            ? `group_${groupId}` 
-            : (() => {
-                const sorted = [userEmail, contactEmail].sort();
-                return `chat_${sorted[0]}_${sorted[1]}`;
-              })()}
-          groupMembers={currentGroup?.members || []}
-        />
-      )}
-
-        {currentGroup && (
-          <GroupInfoModal
-            visible={showGroupInfoModal}
-            onClose={() => setShowGroupInfoModal(false)}
-            group={currentGroup}
-            userEmail={userEmail}
-            onGroupUpdated={contactHandlers.handleGroupUpdated}
-            onExitGroup={contactHandlers.handleExitGroup}
-            onClearChat={handleClearChat}
-          />
-        )}
-
-        {chatType === 'private' && contactEmail && (
-          <ContactInfoModal
-            visible={showContactInfoModal}
-            onClose={() => setShowContactInfoModal(false)}
-            contactEmail={contactEmail}
-            userEmail={userEmail}
-            contactName={contactName}
-            onSelectGroup={contactHandlers.handleSelectGroup}
-            messages={privateMessages}
-            onClearChat={handleClearChat}
-          />
-        )}
-
-        <MessageActionMenu
-          visible={showMessageMenu}
-          onClose={() => {
-            setShowMessageMenu(false);
-            setSelectedMessage(null);
-          }}
-          message={selectedMessage?.message || ''}
-          messageId={selectedMessage?.messageId || null}
-          isSent={selectedMessage?.isSent || false}
-          isPinned={selectedMessage?.isPinned || false}
-          isCreator={selectedMessage?.isCreator || false}
-          isGroup={selectedMessage?.isGroup || false}
-          onDelete={chatHandlers.handleDeleteMessage}
-          onForward={() => {
-            setForwardMessage(selectedMessage);
-            setShowForwardModal(true);
-            setShowMessageMenu(false);
-          }}
-          onReply={chatHandlers.handleReplyMessage}
-          onPin={() => selectedMessage?.messageId && chatHandlers.handlePinMessage(selectedMessage.messageId)}
-          onUnpin={() => selectedMessage?.messageId && chatHandlers.handleUnpinMessage(selectedMessage.messageId)}
-          onCopy={chatHandlers.handleCopyMessage}
-          onInfo={chatHandlers.handleInfoMessage}
-          onEdit={chatHandlers.handleEditMessage}
-          canEdit={selectedMessage && (() => {
-            const msg = selectedMessage;
-            if (!msg.isSent) return false;
-            if (msg.isDeleted) return false;
-            
-            // Check if message is a file message - file messages cannot be edited
-            try {
-              const messageStr = typeof msg.message === 'string' 
-                ? msg.message 
-                : (msg.message?.message || msg.message?.text || String(msg.message || ''));
-              const parsed = JSON.parse(messageStr);
-              if (parsed && parsed.type === 'file') {
-                return false; // File messages cannot be edited
-              }
-            } catch {
-              // Not a JSON message, proceed with normal check
-            }
-            
-            if (chatType === 'private') {
-              return msg.status !== 'read';
-            }
-            if (chatType === 'group' && currentGroup) {
-              if (msg.status === 'read') return false;
-              const readByOthers = (msg.readBy || []).filter(email => email !== userEmail);
-              return readByOthers.length === 0;
-            }
-            return false;
-          })()}
-        />
-
-        <MessageInfoModal
-          visible={showMessageInfoModal}
-          onClose={() => {
-            setShowMessageInfoModal(false);
-            setMessageInfoMessageId(null);
-          }}
-          messageId={messageInfoMessageId}
-          chatType={chatType}
-          userEmail={userEmail}
-          onLoadMessageInfo={loadMessageInfo}
-        />
-
-        <ForwardContactModal
-          visible={showForwardModal}
-          onClose={() => {
-            setShowForwardModal(false);
-            setForwardMessage(null);
-          }}
-          onSelectContacts={async (targets) => {
-            if (!forwardMessage || !targets || targets.length === 0) return;
-            
-            try {
-              const messageToForward = forwardMessage.message;
-              let successCount = 0;
-              let errorCount = 0;
-              
-              // Helper function to forward message to a single target
-              const forwardToTarget = async (target) => {
-                try {
-                  // Check if it's a file message
-                  try {
-                    const parsed = JSON.parse(messageToForward);
-                    if (parsed && parsed.type === 'file') {
-                      // Check if file exists locally
-                      const localUri = await fileUploadService.getLocalFileUri(parsed.fileId, parsed.fileName);
-                      
-                      if (localUri) {
-                        // File exists locally, re-upload from cache
-                        const uploadResult = await fileUploadService.uploadFileFromLocal(
-                          localUri,
-                          parsed.fileName,
-                          parsed.fileType,
-                          userEmail
-                        );
-                        
-                        if (uploadResult.success && uploadResult.fileId) {
-                          const fileMessage = JSON.stringify({
-                            type: 'file',
-                            fileId: uploadResult.fileId,
-                            fileName: uploadResult.fileName || parsed.fileName,
-                            fileType: uploadResult.fileType || parsed.fileType,
-                            fileSize: uploadResult.fileSize || parsed.fileSize || 0,
-                            localUri: uploadResult.localUri || null,
-                          });
-                          
-                          // Send to selected contact/group
-                          if (target.type === 'private' && target.contactEmail) {
-                            const encryptedData = await encryptionService.encryptPrivateMessage(
-                              fileMessage,
-                              userEmail,
-                              target.contactEmail
-                            );
-                            socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
-                              message: JSON.stringify(encryptedData),
-                              contactEmail: target.contactEmail,
-                              senderEmail: userEmail,
-                            });
-                            successCount++;
-                          } else if (target.type === 'group' && target.groupId) {
-                            socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
-                              message: fileMessage,
-                              groupId: target.groupId,
-                              senderEmail: userEmail,
-                            });
-                            successCount++;
-                          }
-                        } else {
-                          errorCount++;
-                        }
-                      } else {
-                        // File doesn't exist locally, forward the fileId (receiver will download)
-                        if (target.type === 'private' && target.contactEmail) {
-                          const encryptedData = await encryptionService.encryptPrivateMessage(
-                            messageToForward,
-                            userEmail,
-                            target.contactEmail
-                          );
-                          socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
-                            message: JSON.stringify(encryptedData),
-                            contactEmail: target.contactEmail,
-                            senderEmail: userEmail,
-                          });
-                          successCount++;
-                        } else if (target.type === 'group' && target.groupId) {
-                          socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
-                            message: messageToForward,
-                            groupId: target.groupId,
-                            senderEmail: userEmail,
-                          });
-                          successCount++;
-                        }
-                      }
-                    } else {
-                      // Regular text message
-                      if (target.type === 'private' && target.contactEmail) {
-                        const encryptedData = await encryptionService.encryptPrivateMessage(
-                          messageToForward,
-                          userEmail,
-                          target.contactEmail
-                        );
-                        socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
-                          message: JSON.stringify(encryptedData),
-                          contactEmail: target.contactEmail,
-                          senderEmail: userEmail,
-                        });
-                        successCount++;
-                      } else if (target.type === 'group' && target.groupId) {
-                        socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
-                          message: messageToForward,
-                          groupId: target.groupId,
-                          senderEmail: userEmail,
-                        });
-                        successCount++;
-                      }
-                    }
-                  } catch {
-                    // Not JSON, treat as regular text
-                    if (target.type === 'private' && target.contactEmail) {
-                      const encryptedData = await encryptionService.encryptPrivateMessage(
-                        messageToForward,
-                        userEmail,
-                        target.contactEmail
-                      );
-                      socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
-                        message: JSON.stringify(encryptedData),
-                        contactEmail: target.contactEmail,
-                        senderEmail: userEmail,
-                      });
-                      successCount++;
-                    } else if (target.type === 'group' && target.groupId) {
-                      socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
-                        message: messageToForward,
-                        groupId: target.groupId,
-                        senderEmail: userEmail,
-                      });
-                      successCount++;
-                    }
-                  }
-                } catch (error) {
-                  logger.error(`Error forwarding to ${target.type === 'private' ? target.contactEmail : target.groupName}:`, error);
-                  errorCount++;
-                }
-              };
-              
-              // Forward to all selected targets
-              await Promise.all(targets.map(target => forwardToTarget(target)));
-              
-              setShowForwardModal(false);
-              setForwardMessage(null);
-              
-              if (errorCount === 0) {
-                showAlert('Success', `Message forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'} successfully`, 'success');
-              } else {
-                showAlert(
-                  'Partial Success', 
-                  `Message forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'}, ${errorCount} ${errorCount === 1 ? 'failed' : 'failed'}`,
-                  'warning'
-                );
-              }
-            } catch (error) {
-              logger.error('Error forwarding message:', error);
-              showAlert('Error', 'Failed to forward message', 'error');
-            }
-          }}
-          message={forwardMessage?.message || ''}
-        />
       </KeyboardAvoidingView>
       
       {renderCallScreens()}
-      
-      {/* Alert Modal */}
-      <AlertModal
-        visible={alertModal.visible}
-        title={alertModal.title}
-        message={alertModal.message}
-        type={alertModal.type}
-        onClose={hideAlert}
-      />
       </SafeAreaView>
   );
 };
