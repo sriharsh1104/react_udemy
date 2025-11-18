@@ -211,6 +211,43 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     });
   };
 
+  // Set browser title to always show "onlygossips247" on web
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      // Set initial title
+      document.title = 'onlygossips247';
+      
+      // Watch for title changes and reset it back
+      const titleObserver = new MutationObserver(() => {
+        if (document.title !== 'onlygossips247') {
+          document.title = 'onlygossips247';
+        }
+      });
+      
+      // Observe title element changes
+      const titleElement = document.querySelector('title');
+      if (titleElement) {
+        titleObserver.observe(titleElement, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+      }
+      
+      // Also periodically check and reset (fallback)
+      const titleCheckInterval = setInterval(() => {
+        if (document.title !== 'onlygossips247') {
+          document.title = 'onlygossips247';
+        }
+      }, 100);
+      
+      return () => {
+        titleObserver.disconnect();
+        clearInterval(titleCheckInterval);
+      };
+    }
+  }, []);
+
   // Use ref to prevent double calls in React 18 dev mode
   const hasInitialized = useRef(false);
   useEffect(() => {
@@ -476,6 +513,12 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       <NavigationContainer 
         ref={navigationRef}
         linking={linking}
+        onStateChange={() => {
+          // Reset browser title to "onlygossips247" on every navigation change (web only)
+          if (Platform.OS === 'web' && typeof document !== 'undefined') {
+            document.title = 'onlygossips247';
+          }
+        }}
       >
         <View style={styles.container}>
           <Stack.Navigator
