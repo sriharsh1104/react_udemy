@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, Platform } from 'react-native';
+import { StyleSheet, View, Text, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -88,6 +88,7 @@ const StatusScreen = lazy(() => import('./screens/StatusScreen/StatusScreen'));
 const CallScreen = lazy(() => import('./screens/CallScreen/CallScreen'));
 const LogoutModal = lazy(() => import('./components/common/LogoutModal'));
 const NotificationContainer = lazy(() => import('./components/common/Notification'));
+const BiometricLockScreen = lazy(() => import('./components/common/BiometricLockScreen'));
 
 const Stack = createNativeStackNavigator();
 
@@ -162,7 +163,10 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
   const [userEmail, setUserEmail] = useState(null);
   const [profile, setProfile] = useState(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showBiometricLock, setShowBiometricLock] = useState(false);
+  const [isCheckingBiometric, setIsCheckingBiometric] = useState(false);
   const navigationRef = externalNavRef || useRef(null);
+  const appState = useRef(AppState.currentState);
 
   // Handle automatic logout on invalid token
   const handleInvalidTokenLogout = async () => {
@@ -187,11 +191,16 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     await AsyncStorage.removeItem('authToken');
     await AsyncStorage.removeItem('userEmail');
     
+    // Clear biometric authentication state
+    const biometricService = (await import('./services/biometricService')).default;
+    await biometricService.clearAuthenticationState();
+    
     // Update state
     setIsLoggedIn(false);
     setUserEmail(null);
     setProfile(null);
     setShowLogoutModal(false);
+    setShowBiometricLock(false);
     
     // Navigate to login
     if (navigationRef.current) {
@@ -282,13 +291,34 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     // Listen for deep links
     const subscription = Linking.addEventListener('url', handleDeepLink);
     
+    // Setup app state listener for biometric lock
+    const handleAppStateChange = async (nextAppState) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active' &&
+        isLoggedIn
+      ) {
+        // App came to foreground and user is logged in - check biometric lock
+        const biometricService = (await import('./services/biometricService')).default;
+        const isRequired = await biometricService.isAuthenticationRequired(0);
+        
+        if (isRequired) {
+          setShowBiometricLock(true);
+        }
+      }
+      appState.current = nextAppState;
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+    
     return () => {
       subscription?.remove();
+      appStateSubscription?.remove();
       // Clear global logout handler on unmount
       setGlobalLogoutHandler(null);
     };
     }
-  }, []);
+  }, [isLoggedIn]);
   
   const handleInitialURL = async () => {
     try {
@@ -366,6 +396,26 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
     }
   };
 
+  const checkBiometricLock = async () => {
+    try {
+      const biometricService = (await import('./services/biometricService')).default;
+      const isRequired = await biometricService.isAuthenticationRequired(0);
+      
+      if (isRequired) {
+        setShowBiometricLock(true);
+        return false; // Authentication required
+      }
+      return true; // No authentication required
+    } catch (error) {
+      logger.error('Error checking biometric lock:', error);
+      return true; // On error, allow access
+    }
+  };
+
+  const handleBiometricAuthenticated = () => {
+    setShowBiometricLock(false);
+  };
+
   const checkAuthStatus = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
@@ -374,6 +424,14 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       if (token && email) {
         setUserEmail(email);
         setIsLoggedIn(true);
+        
+        // Check if biometric lock is enabled and required
+        const biometricPassed = await checkBiometricLock();
+        if (!biometricPassed) {
+          // Biometric lock screen will be shown
+          return;
+        }
+        
         // Navigate to Chat - profile will be loaded when needed
         // Use requestAnimationFrame for smoother transition (prevents flicker)
         requestAnimationFrame(() => {
@@ -397,6 +455,13 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       ? { ...loginProfile, isProfileComplete: isProfileComplete ?? loginProfile.isProfileComplete }
       : null;
     setProfile(profileWithComplete);
+    
+    // Check biometric lock after login
+    const biometricPassed = await checkBiometricLock();
+    if (!biometricPassed) {
+      // Biometric lock screen will be shown
+      return;
+    }
     
     // Navigate based on profile completeness - ONLY navigate to Profile if incomplete
     setTimeout(() => {
@@ -433,10 +498,16 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       // Clear local storage
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userEmail');
+      
+      // Clear biometric authentication state
+      const biometricService = (await import('./services/biometricService')).default;
+      await biometricService.clearAuthenticationState();
+      
       setIsLoggedIn(false);
       setUserEmail(null);
       setProfile(null);
       setShowLogoutModal(false);
+      setShowBiometricLock(false);
       
       // Navigate to login
       if (navigationRef.current) {
@@ -460,12 +531,19 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       } catch (e) {
         logger.error('Error clearing chat storage:', e);
       }
+      try {
+        const biometricService = (await import('./services/biometricService')).default;
+        await biometricService.clearAuthenticationState();
+      } catch (e) {
+        logger.error('Error clearing biometric state:', e);
+      }
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userEmail');
       setIsLoggedIn(false);
       setUserEmail(null);
       setProfile(null);
       setShowLogoutModal(false);
+      setShowBiometricLock(false);
       if (navigationRef.current) {
         navigationRef.current.reset({
           index: 0,
@@ -633,6 +711,14 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             onCancel={() => setShowLogoutModal(false)}
           />
           </Suspense>
+          
+          {showBiometricLock && (
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
+              <Suspense fallback={null}>
+                <BiometricLockScreen onAuthenticated={handleBiometricAuthenticated} />
+              </Suspense>
+            </View>
+          )}
           
           <StatusBar style={isDark ? "light" : "dark"} />
           <Toast 

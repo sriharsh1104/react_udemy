@@ -14,6 +14,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import Button from '../../components/common/Button';
 import PasswordInput from '../../components/common/PasswordInput';
 import settingsService from '../../services/settingsService';
+import biometricService from '../../services/biometricService';
 import { showToastFromResponse } from '../../utils/toast';
 import styles from './styles';
 
@@ -24,6 +25,10 @@ const SettingsScreen = ({ navigation, onBack }) => {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
   const [offlineModeLoading, setOfflineModeLoading] = useState(false);
+  const [biometricLockEnabled, setBiometricLockEnabled] = useState(false);
+  const [biometricLockLoading, setBiometricLockLoading] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState('');
   
   // Password states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -49,6 +54,16 @@ const SettingsScreen = ({ navigation, onBack }) => {
       if (offlineModeStatus.success) {
         setOfflineMode(offlineModeStatus.offlineMode);
       }
+
+      // Check biometric availability and status
+      const availability = await biometricService.isBiometricAvailable();
+      setBiometricAvailable(availability.available);
+      if (availability.available) {
+        setBiometricType(biometricService.getBiometricTypeName(availability.types));
+      }
+      
+      const biometricEnabled = await biometricService.isBiometricLockEnabled();
+      setBiometricLockEnabled(biometricEnabled);
     } catch (error) {
       console.error('Error loading settings:', error);
     } finally {
@@ -139,6 +154,54 @@ const SettingsScreen = ({ navigation, onBack }) => {
       console.error('Error toggling offline mode:', error);
     } finally {
       setOfflineModeLoading(false);
+    }
+  };
+
+  const handleToggleBiometricLock = async (enabled) => {
+    setBiometricLockLoading(true);
+    try {
+      if (enabled) {
+        // Enable biometric lock
+        const result = await biometricService.enableBiometricLock();
+        if (result.success) {
+          setBiometricLockEnabled(true);
+          if (result.biometricType) {
+            setBiometricType(result.biometricType);
+          }
+          showToastFromResponse({
+            success: true,
+            message: `${result.biometricType || 'Biometric'} lock enabled successfully`,
+          }, { successTitle: 'Biometric Lock Enabled' });
+        } else {
+          showToastFromResponse({
+            success: false,
+            message: result.message || 'Failed to enable biometric lock',
+          }, { errorTitle: 'Failed to Enable' });
+        }
+      } else {
+        // Disable biometric lock
+        const result = await biometricService.disableBiometricLock();
+        if (result.success) {
+          setBiometricLockEnabled(false);
+          showToastFromResponse({
+            success: true,
+            message: 'Biometric lock disabled successfully',
+          }, { successTitle: 'Biometric Lock Disabled' });
+        } else {
+          showToastFromResponse({
+            success: false,
+            message: result.message || 'Failed to disable biometric lock',
+          }, { errorTitle: 'Failed to Disable' });
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling biometric lock:', error);
+      showToastFromResponse({
+        success: false,
+        message: 'An error occurred while toggling biometric lock',
+      }, { errorTitle: 'Error' });
+    } finally {
+      setBiometricLockLoading(false);
     }
   };
 
@@ -388,6 +451,49 @@ const SettingsScreen = ({ navigation, onBack }) => {
               ]} />
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Biometric Lock Section */}
+        <View style={[styles.section, { backgroundColor: colors.receivedMessage }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>🔐 Biometric Lock</Text>
+          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+            {biometricAvailable 
+              ? `Secure your app with ${biometricType || 'biometric'} authentication. When enabled, you'll need to authenticate every time you open the app.`
+              : 'Biometric authentication is not available on this device. Please set up fingerprint or face ID in your device settings.'}
+          </Text>
+          
+          {biometricAvailable && (
+            <View style={styles.toggleContainer}>
+              <View style={styles.toggleInfo}>
+                <Text style={[styles.toggleLabel, { color: colors.text }]}>
+                  {biometricType || 'Biometric'} Lock
+                </Text>
+                <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
+                  {biometricLockEnabled 
+                    ? `App is locked with ${biometricType || 'biometric'} authentication. You'll need to authenticate when opening the app.` 
+                    : 'App is not locked. Enable to require authentication when opening the app.'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.toggleSwitch,
+                  biometricLockEnabled && styles.toggleSwitchActive,
+                  { backgroundColor: biometricLockEnabled ? colors.primary : colors.divider }
+                ]}
+                onPress={() => handleToggleBiometricLock(!biometricLockEnabled)}
+                disabled={biometricLockLoading}
+                activeOpacity={0.7}
+              >
+                <View style={[
+                  styles.toggleThumb,
+                  { 
+                    backgroundColor: colors.white,
+                    alignSelf: biometricLockEnabled ? 'flex-end' : 'flex-start'
+                  }
+                ]} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
       </ScrollView>
