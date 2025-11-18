@@ -28,6 +28,13 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
   
   // Check if message is a file message
   useEffect(() => {
+    // Reset state when message changes or when message is deleted
+    if (isDeleted) {
+      setFileData(null);
+      setLocalFileUri(null);
+      return;
+    }
+    
     // Reset state when message changes
     setFileData(null);
     setLocalFileUri(null);
@@ -55,6 +62,11 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
             .then(url => {
               if (url) {
                 setLocalFileUri(url);
+              } else {
+                // If URL is null (token missing/invalid), use localUri if available
+                if (isMyMessage && parsed.localUri && !localFileUri) {
+                  setLocalFileUri(parsed.localUri);
+                }
               }
             })
             .catch(error => {
@@ -72,7 +84,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
     } catch {
       // Not a JSON message, treat as regular text
     }
-  }, [message, isMyMessage]);
+  }, [message, isMyMessage, isDeleted]);
   
   const checkLocalFile = async (fileId, fileName) => {
     // Skip file system check on web - expo-file-system is not available on web
@@ -293,11 +305,24 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
                     resizeMode="cover" 
                     onError={(error) => {
                       console.error('Image load error:', error);
-                      // Retry with server URL
+                      // Don't retry if message is deleted
+                      if (isDeleted) return;
+                      
+                      // Only retry if we have fileId and error is not unauthorized
                       if (fileData.fileId) {
+                        // Check if error is unauthorized (401) - don't retry in that case
+                        const errorDetails = error?.nativeEvent || {};
+                        const isUnauthorized = errorDetails.statusCode === 401 || 
+                                              errorDetails.error?.includes('Unauthorized') ||
+                                              errorDetails.error?.includes('unauthorized');
+                        
+                        if (!isUnauthorized) {
                         fileUploadService.getFileViewUrl(fileData.fileId).then(url => {
                           if (url) setLocalFileUri(url);
                         });
+                        } else {
+                          console.warn('Unauthorized access to file, skipping retry');
+                        }
                       }
                     }}
                   />

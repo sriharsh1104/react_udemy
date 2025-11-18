@@ -31,11 +31,13 @@ export const useChatHandlers = ({
   sendGroupMessage,
   removePrivatePendingMessage,
   removeGroupPendingMessage,
+  updateMessage,
   userEmail,
   currentGroup,
   messages,
   setShowMessageMenu,
   setShowDeleteMessageModal,
+  messageToDelete,
   setMessageToDelete,
   setShowMessageInfoModal,
   setMessageInfoMessageId,
@@ -169,28 +171,30 @@ export const useChatHandlers = ({
     setShowMessageMenu(true);
   }, [messages, chatType, currentGroup, userEmail, setShowMessageMenu]);
 
-  const handleDeleteMessage = useCallback(() => {
-    if (!selectedMessage) return;
-    setMessageToDelete(selectedMessage);
+  const handleDeleteMessage = useCallback((message = null) => {
+    const messageToDelete = message || selectedMessage;
+    if (!messageToDelete) return;
+    setMessageToDelete(messageToDelete);
     setShowDeleteMessageModal(true);
   }, [selectedMessage, setMessageToDelete, setShowDeleteMessageModal]);
 
-  const handleDeleteMessageConfirm = useCallback(async (messageToDelete) => {
+  const handleDeleteMessageConfirm = useCallback(async () => {
     setShowDeleteMessageModal(false);
     
-    if (!messageToDelete) return;
+    const messageToDeleteValue = messageToDelete;
+    if (!messageToDeleteValue) return;
     
-    const canUndo = messageToDelete.isSent && !messageToDelete.messageId;
+    const canUndo = messageToDeleteValue.isSent && !messageToDeleteValue.messageId;
     
     if (canUndo) {
       if (chatType === 'group') {
         if (removeGroupPendingMessage) {
-          removeGroupPendingMessage(messageToDelete);
+          removeGroupPendingMessage(messageToDeleteValue);
           showSuccessToast('Message removed');
         }
       } else {
         if (removePrivatePendingMessage) {
-          removePrivatePendingMessage(messageToDelete);
+          removePrivatePendingMessage(messageToDeleteValue);
           showSuccessToast('Message removed');
         }
       }
@@ -198,35 +202,57 @@ export const useChatHandlers = ({
       setSelectedMessage(null);
       setMessageToDelete(null);
     } else {
-      if (!messageToDelete.messageId) {
+      if (!messageToDeleteValue.messageId) {
         logger.error('Cannot delete message without messageId');
         return;
       }
       
       try {
+        // Optimistically update the message immediately
+        if (updateMessage) {
+          updateMessage(messageToDeleteValue.messageId, {
+            isDeleted: true,
+            message: 'This message is deleted',
+          });
+        }
+        
         let result;
         if (chatType === 'group') {
-          result = await groupService.deleteMessage(messageToDelete.messageId);
+          result = await groupService.deleteMessage(messageToDeleteValue.messageId);
         } else {
-          result = await contactsService.deleteMessage(messageToDelete.messageId);
+          result = await contactsService.deleteMessage(messageToDeleteValue.messageId);
         }
         
         if (result.success) {
-          if (editingMessage && editingMessage.messageId === messageToDelete.messageId) {
+          if (editingMessage && editingMessage.messageId === messageToDeleteValue.messageId) {
             setEditingMessage(null);
             setInputMessage('');
           }
         } else {
+          // Revert optimistic update on failure
+          if (updateMessage) {
+            updateMessage(messageToDeleteValue.messageId, {
+              isDeleted: false,
+              message: messageToDeleteValue.message,
+            });
+          }
           logger.error('Failed to delete message:', result.message);
         }
       } catch (error) {
+        // Revert optimistic update on error
+        if (updateMessage) {
+          updateMessage(messageToDeleteValue.messageId, {
+            isDeleted: false,
+            message: messageToDeleteValue.message,
+          });
+        }
         logger.error('Error deleting message:', error);
       }
     }
     
     setSelectedMessage(null);
     setMessageToDelete(null);
-  }, [chatType, editingMessage, removeGroupPendingMessage, removePrivatePendingMessage, setEditingMessage, setInputMessage, setSelectedMessage, setMessageToDelete, setShowDeleteMessageModal]);
+  }, [chatType, editingMessage, messageToDelete, removeGroupPendingMessage, removePrivatePendingMessage, updateMessage, setEditingMessage, setInputMessage, setSelectedMessage, setMessageToDelete, setShowDeleteMessageModal]);
 
   const handleDeleteMessageCancel = useCallback(() => {
     setShowDeleteMessageModal(false);

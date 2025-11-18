@@ -134,8 +134,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   } = state;
 
   // Chat hooks - Now contactEmail and groupId are available
-  const { messages: privateMessages, typingUser, loadingMessages: loadingPrivateMessages, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage } = useChat(userEmail, contactEmail, () => {});
-  const { messages: groupMessages, typingUsers, loadingMessages: loadingGroupMessages, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping, removePendingMessage: removeGroupPendingMessage } = useGroupChat(userEmail, groupId);
+  const { messages: privateMessages, typingUser, loadingMessages: loadingPrivateMessages, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage, updateMessage: updatePrivateMessage } = useChat(userEmail, contactEmail, () => {});
+  const { messages: groupMessages, typingUsers, loadingMessages: loadingGroupMessages, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping, removePendingMessage: removeGroupPendingMessage, updateMessage: updateGroupMessage } = useGroupChat(userEmail, groupId);
   
   // Call management
   const {
@@ -165,6 +165,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const loadingMessages = chatType === 'group' ? loadingGroupMessages : loadingPrivateMessages;
   const sendMessage = chatType === 'group' ? sendGroupMessage : sendPrivateMessage;
   const sendTyping = chatType === 'group' ? sendGroupTyping : sendPrivateTyping;
+  const updateMessage = chatType === 'group' ? updateGroupMessage : updatePrivateMessage;
   const currentTypingUser = chatType === 'group' ? (typingUsers.length > 0 ? typingUsers[0] : null) : typingUser;
   const actualOnlineStatus = isConnected && !offlineMode;
 
@@ -257,11 +258,13 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     sendGroupMessage,
     removePrivatePendingMessage,
     removeGroupPendingMessage,
+    updateMessage,
     userEmail,
     currentGroup,
     messages,
     setShowMessageMenu,
     setShowDeleteMessageModal,
+    messageToDelete,
     setMessageToDelete,
     setShowMessageInfoModal,
     setMessageInfoMessageId,

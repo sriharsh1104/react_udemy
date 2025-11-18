@@ -505,6 +505,21 @@ export const useGroupChat = (userEmail, groupId) => {
     });
   };
 
+  // Function to update a specific message (for optimistic updates)
+  const updateMessage = useCallback((messageId, updates) => {
+    setMessages((prev) => {
+      return prev.map((msg) => {
+        if ((msg.messageId || msg._id) === messageId) {
+          return {
+            ...msg,
+            ...updates,
+          };
+        }
+        return msg;
+      });
+    });
+  }, []);
+
   // Memoize messages to prevent unnecessary re-renders
   const memoizedMessages = useMemo(() => {
     return messages;
@@ -517,6 +532,7 @@ export const useGroupChat = (userEmail, groupId) => {
     sendMessage,
     sendTyping,
     removePendingMessage,
+    updateMessage,
   };
 };
 

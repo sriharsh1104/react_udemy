@@ -111,7 +111,7 @@ export const useActionBarHandlers = ({
     const messageToDelete = selectedMessages[0];
     setSelectedMessage(messageToDelete);
     setSelectedMessages([]);
-    handleDeleteMessage();
+    handleDeleteMessage(messageToDelete);
   }, [selectedMessages, setSelectedMessage, setSelectedMessages, handleDeleteMessage]);
 
   const handleActionBarInfo = useCallback(() => {

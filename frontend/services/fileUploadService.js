@@ -529,15 +529,23 @@ class FileUploadService {
     
     try {
       const token = await AsyncStorage.getItem('authToken');
-      if (token) {
+      if (!token) {
+        console.warn('No auth token found, cannot load file view URL');
+        return null; // Return null instead of URL without token to prevent unauthorized errors
+      }
+      
+      // Validate token is not empty
+      if (token.trim() === '') {
+        console.warn('Empty auth token, cannot load file view URL');
+        return null;
+      }
+      
         // Add token as query param for Image component compatibility
         return `${API_CONFIG.API_BASE}/files/view/${fileId}?token=${encodeURIComponent(token)}`;
-      }
-      return `${API_CONFIG.API_BASE}/files/view/${fileId}`;
     } catch (error) {
       console.error('Error getting file view URL:', error);
-      // Return URL anyway - let Image component handle auth if needed
-      return `${API_CONFIG.API_BASE}/files/view/${fileId}`;
+      // Return null on error to prevent unauthorized API calls
+      return null;
     }
   }
 

@@ -13,6 +13,7 @@ import {
   Animated,
   ScrollView,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { COLORS, SPACING } from '../../../constants';
 import { useTheme } from '../../../contexts/ThemeContext';
 import contactsService from '../../../services/contactsService';
@@ -130,6 +131,7 @@ const StatusContentView = ({ status }) => {
 
 const StatusFeed = ({ userEmail, contacts = [] }) => {
   const { colors } = useTheme();
+  const isFocused = useIsFocused(); // Check if screen is focused
   const { showAlert, showAction, alertState, actionState, hideAlert, hideAction } = useAlertModal();
   const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -166,8 +168,11 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [selectedStatusOwner, setSelectedStatusOwner] = useState(null);
 
   useEffect(() => {
-    loadFeed();
-  }, [contacts, userEmail, feedMode]);
+    // Only load feed when screen is focused
+    if (isFocused) {
+      loadFeed();
+    }
+  }, [contacts, userEmail, feedMode, isFocused]);
 
   const loadFeed = async (pageNum = 1, append = false) => {
     if (pageNum === 1) {
