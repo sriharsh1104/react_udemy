@@ -20,6 +20,10 @@ export const useChatScreenLogic = (userEmail, socket, isConnected) => {
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [showGroupInfoModal, setShowGroupInfoModal] = useState(false);
   const [showContactInfoModal, setShowContactInfoModal] = useState(false);
+  const [showSearchBar, setShowSearchBar] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [currentGroup, setCurrentGroup] = useState(null);
   const [offlineMode, setOfflineMode] = useState(false);
   const [showCallHistory, setShowCallHistory] = useState(false);
@@ -101,6 +105,14 @@ export const useChatScreenLogic = (userEmail, socket, isConnected) => {
     setShowGroupInfoModal,
     showContactInfoModal,
     setShowContactInfoModal,
+    showSearchBar,
+    setShowSearchBar,
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    setSearchResults,
+    currentSearchIndex,
+    setCurrentSearchIndex,
     currentGroup,
     setCurrentGroup,
     offlineMode,

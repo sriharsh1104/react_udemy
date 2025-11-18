@@ -4,7 +4,7 @@
  * Uses custom hooks to separate concerns and reduce file size
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import {
   View,
@@ -39,6 +39,7 @@ import ContactInfoModal from '../../components/chat/ContactInfoModal';
 import MessageActionMenu from '../../components/chat/MessageActionMenu';
 import MessageInfoModal from '../../components/chat/MessageInfoModal';
 import ForwardContactModal from '../../components/chat/ForwardContactModal';
+import ChatSearchBar from '../../components/chat/ChatSearchBar';
 // GLoader removed - loader disabled
 import CallHistory from '../../components/call/CallHistory';
 import IncomingCallScreen from '../../components/call/IncomingCallScreen';
@@ -104,6 +105,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     showCreateGroupModal, setShowCreateGroupModal,
     showGroupInfoModal, setShowGroupInfoModal,
     showContactInfoModal, setShowContactInfoModal,
+    showSearchBar, setShowSearchBar,
+    searchQuery, setSearchQuery,
+    searchResults, setSearchResults,
+    currentSearchIndex, setCurrentSearchIndex,
     currentGroup, setCurrentGroup,
     contacts, setContacts,
     groups, setGroups,
@@ -168,6 +173,95 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const updateMessage = chatType === 'group' ? updateGroupMessage : updatePrivateMessage;
   const currentTypingUser = chatType === 'group' ? (typingUsers.length > 0 ? typingUsers[0] : null) : typingUser;
   const actualOnlineStatus = isConnected && !offlineMode;
+
+  // Search functionality
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setCurrentSearchIndex(0);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    const results = messages
+      .map((msg, index) => ({ msg, index }))
+      .filter(({ msg }) => {
+        if (msg.isDeleted) return false;
+        
+        let messageText = '';
+        if (typeof msg.message === 'string') {
+          try {
+            const parsed = JSON.parse(msg.message);
+            if (parsed && parsed.type === 'file') {
+              messageText = parsed.fileName || parsed.name || '';
+            } else {
+              messageText = msg.message;
+            }
+          } catch {
+            messageText = msg.message;
+          }
+        } else {
+          messageText = msg.message?.message || msg.message?.text || String(msg.message || '');
+        }
+        
+        return messageText.toLowerCase().includes(query);
+      });
+
+    setSearchResults(results);
+    setCurrentSearchIndex(0);
+  }, [searchQuery, messages]);
+
+  // Navigate to search result
+  const scrollToSearchResult = useCallback((index) => {
+    if (searchResults.length === 0 || index < 0 || index >= searchResults.length) return;
+    
+    const { index: messageIndex } = searchResults[index];
+    setTimeout(() => {
+      try {
+        flatListRef.current?.scrollToIndex({
+          index: messageIndex,
+          animated: true,
+          viewPosition: 0.5,
+        });
+      } catch (error) {
+        // Fallback to scrollToOffset if scrollToIndex fails
+        flatListRef.current?.scrollToOffset({
+          offset: messageIndex * 100, // Approximate height per message
+          animated: true,
+        });
+      }
+    }, 100);
+  }, [searchResults]);
+
+  const handleSearchNext = useCallback(() => {
+    if (currentSearchIndex < searchResults.length - 1) {
+      const nextIndex = currentSearchIndex + 1;
+      setCurrentSearchIndex(nextIndex);
+      scrollToSearchResult(nextIndex);
+    }
+  }, [currentSearchIndex, searchResults, scrollToSearchResult]);
+
+  const handleSearchPrevious = useCallback(() => {
+    if (currentSearchIndex > 0) {
+      const prevIndex = currentSearchIndex - 1;
+      setCurrentSearchIndex(prevIndex);
+      scrollToSearchResult(prevIndex);
+    }
+  }, [currentSearchIndex, scrollToSearchResult]);
+
+  const handleSearchChange = useCallback((text) => {
+    setSearchQuery(text);
+    if (text.trim()) {
+      setShowSearchBar(true);
+    }
+  }, []);
+
+  const handleSearchClose = useCallback(() => {
+    setSearchQuery('');
+    setShowSearchBar(false);
+    setSearchResults([]);
+    setCurrentSearchIndex(0);
+  }, []);
 
   // Load contacts and groups
   const loadContacts = useCallback(async (showLoading = false) => {
@@ -922,6 +1016,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         onGroupInfoPress={() => setShowGroupInfoModal(true)}
         onContactInfoPress={() => setShowContactInfoModal(true)}
         onClearChat={handleClearChat}
+        onSearchPress={() => setShowSearchBar(true)}
           onAudioCall={callHandlers.handleAudioCall}
           onVideoCall={callHandlers.handleVideoCall}
         onBillSummaryPress={() => setShowBillSummaryModal(true)}
@@ -929,6 +1024,19 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           setInviteEmail(null);
           setShowInviteModal(true);
         }}
+      />
+
+      {/* Search Bar */}
+      <ChatSearchBar
+        visible={showSearchBar && (chatType === 'private' || chatType === 'group')}
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        onClose={handleSearchClose}
+        currentIndex={currentSearchIndex}
+        totalResults={searchResults.length}
+        onPrevious={handleSearchPrevious}
+        onNext={handleSearchNext}
+        colors={colors}
       />
       
       <Sidebar

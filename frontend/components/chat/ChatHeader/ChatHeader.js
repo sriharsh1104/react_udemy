@@ -3,7 +3,7 @@ import { View, Text, Platform, StatusBar, TouchableOpacity, Modal } from 'react-
 import { COLORS } from '../../../constants';
 import styles from './ChatHeader.styles';
 
-const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClose, showChatOptions = false, onClearChat, onGroupInfoPress, onContactInfoPress, isGroup = false, onShowReferralLink }) => {
+const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClose, showChatOptions = false, onClearChat, onGroupInfoPress, onContactInfoPress, isGroup = false, onShowReferralLink, onSearchPress }) => {
   return (
     <Modal
       transparent={true}
@@ -42,6 +42,21 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
                 >
                   <Text style={styles.dropdownItemText}>ℹ️ Contact Info</Text>
                 </TouchableOpacity>
+              )}
+              
+              {onSearchPress && (
+                <>
+                  <View style={styles.divider} />
+                  <TouchableOpacity 
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      onClose();
+                      onSearchPress();
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>🔍 Search</Text>
+                  </TouchableOpacity>
+                </>
               )}
               
               {onClearChat && (
@@ -113,7 +128,7 @@ const ProfileDropdown = ({ onProfilePress, onSettingsPress, onLogoutPress, onClo
   );
 };
 
-const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat, hideUsername = false, onStatusToggle, onAudioCall, onVideoCall, onShowReferralLink, onBillSummaryPress }) => {
+const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress, onLogoutPress, onSidebarPress, onBackPress, showBackButton = false, isGroup = false, onGroupInfoPress, onContactInfoPress, onClearChat, hideUsername = false, onStatusToggle, onAudioCall, onVideoCall, onShowReferralLink, onBillSummaryPress, onSearchPress }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleStatusPress = () => {
@@ -232,6 +247,7 @@ const ChatHeader = ({ username, isOnline = true, onProfilePress, onSettingsPress
           onContactInfoPress={onContactInfoPress}
           isGroup={isGroup}
           onShowReferralLink={onShowReferralLink}
+          onSearchPress={onSearchPress}
         />
       )}
     </>
