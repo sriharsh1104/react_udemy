@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import socketService from '../services/socketService';
 import { SOCKET_EVENTS } from '../constants';
 import encryptionService from '../services/encryptionService';
+import chatStorageService from '../services/chatStorageService';
 
 // Constants for memory management
 const MAX_MESSAGES_IN_MEMORY = 500; // Limit messages to prevent memory leaks
@@ -85,8 +86,25 @@ export const useGroupChat = (userEmail, groupId) => {
     return sorted.slice(-MAX_MESSAGES_IN_MEMORY);
   }, []);
 
-  // Cleanup messages when groupId changes (group switch)
+  // Load messages from local storage when groupId changes (group switch)
   useEffect(() => {
+    if (!groupId) return;
+    
+    const loadCachedMessages = async () => {
+      try {
+        // Load messages from local storage first (for offline access)
+        const cachedMessages = await chatStorageService.loadGroupChatMessages(groupId);
+        
+        if (cachedMessages.length > 0) {
+          console.log(`📂 Loaded ${cachedMessages.length} cached messages for group ${groupId}`);
+          // Show cached messages immediately
+          setMessages(cachedMessages);
+        }
+      } catch (error) {
+        console.error('Error loading cached group messages:', error);
+      }
+    };
+    
     if (previousGroupId.current !== groupId && previousGroupId.current !== null) {
       // Group switched - clear messages to prevent memory leak
       console.log('🧹 Cleaning up messages for group switch:', {
@@ -94,9 +112,13 @@ export const useGroupChat = (userEmail, groupId) => {
         to: groupId
       });
       setMessages([]);
-      // Clear decryption cache for old group (optional - can keep for better performance)
-      // decryptionCache.current.clear();
+      // Load cached messages for new group
+      loadCachedMessages();
+    } else if (previousGroupId.current === null && groupId) {
+      // Initial load - load cached messages
+      loadCachedMessages();
     }
+    
     previousGroupId.current = groupId;
   }, [groupId]);
 
@@ -167,7 +189,7 @@ export const useGroupChat = (userEmail, groupId) => {
             return prev;
           }
           
-          const updatedMessages = [...prev, {
+          const newMessage = {
             senderEmail: data.senderEmail,
             message: decryptedMessage,
             timestamp: data.timestamp,
@@ -182,7 +204,14 @@ export const useGroupChat = (userEmail, groupId) => {
             status: data.status || 'sent',
             isBillSplit: data.isBillSplit || false,
             billSplitData: data.billSplitData || null,
-          }];
+          };
+          
+          const updatedMessages = [...prev, newMessage];
+          
+          // Save to local storage
+          chatStorageService.addMessage(userEmail, null, newMessage, true, groupId).catch(err => {
+            console.error('Error saving group message to storage:', err);
+          });
           
           // Cleanup old messages if threshold exceeded
           if (updatedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
@@ -230,12 +259,22 @@ export const useGroupChat = (userEmail, groupId) => {
         
         console.log(`📬 Received ${formattedMessages.length} message(s) from group chat history for ${groupId}`);
         
+        // Merge with cached messages from local storage
+        const cachedMessages = await chatStorageService.loadGroupChatMessages(groupId);
+        const mergedMessages = chatStorageService.mergeMessages(cachedMessages, formattedMessages);
+        
         // Cleanup old messages if threshold exceeded
-        if (formattedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
-          setMessages(cleanupOldMessages(formattedMessages));
+        if (mergedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
+          setMessages(cleanupOldMessages(mergedMessages));
         } else {
-          setMessages(formattedMessages);
+          setMessages(mergedMessages);
         }
+        
+        // Save merged messages to local storage
+        chatStorageService.saveGroupChatMessages(groupId, mergedMessages).catch(err => {
+          console.error('Error saving group chat history to storage:', err);
+        });
+        
         setLoadingMessages(false);
       }
     };
@@ -260,11 +299,25 @@ export const useGroupChat = (userEmail, groupId) => {
     const handleMessagePinned = (data) => {
       if (data.groupId === groupId) {
         setMessages((prev) =>
-          prev.map((msg) =>
-            (msg.messageId === data.messageId || msg._id === data.messageId)
+          prev.map((msg) => {
+            const isTargetMessage = (msg.messageId === data.messageId || msg._id === data.messageId);
+            const updatedMsg = isTargetMessage
               ? { ...msg, isPinned: true }
-              : { ...msg, isPinned: false } // Unpin all other messages
-          )
+              : { ...msg, isPinned: false }; // Unpin all other messages
+            
+            // Update in local storage
+            if (isTargetMessage && msg.messageId) {
+              chatStorageService.updateMessage(
+                userEmail,
+                null,
+                msg.messageId,
+                { isPinned: true },
+                true,
+                groupId
+              ).catch(err => console.error('Error updating pinned message in storage:', err));
+            }
+            return updatedMsg;
+          })
         );
       }
     };
@@ -273,11 +326,25 @@ export const useGroupChat = (userEmail, groupId) => {
     const handleMessageUnpinned = (data) => {
       if (data.groupId === groupId) {
         setMessages((prev) =>
-          prev.map((msg) =>
-            (msg.messageId === data.messageId || msg._id === data.messageId)
-              ? { ...msg, isPinned: false }
-              : msg
-          )
+          prev.map((msg) => {
+            const isTargetMessage = (msg.messageId === data.messageId || msg._id === data.messageId);
+            if (isTargetMessage) {
+              const updatedMsg = { ...msg, isPinned: false };
+              // Update in local storage
+              if (msg.messageId) {
+                chatStorageService.updateMessage(
+                  userEmail,
+                  null,
+                  msg.messageId,
+                  { isPinned: false },
+                  true,
+                  groupId
+                ).catch(err => console.error('Error updating unpinned message in storage:', err));
+              }
+              return updatedMsg;
+            }
+            return msg;
+          })
         );
       }
     };
@@ -289,11 +356,21 @@ export const useGroupChat = (userEmail, groupId) => {
         setMessages((prev) => {
           return prev.map((msg) => {
             if ((msg.messageId || msg._id) === data.messageId) {
-              return {
+              const updatedMsg = {
                 ...msg,
                 isDeleted: true,
                 message: 'This message is deleted',
               };
+              // Update in local storage
+              chatStorageService.updateMessage(
+                userEmail,
+                null,
+                data.messageId,
+                { isDeleted: true, message: 'This message is deleted' },
+                true,
+                groupId
+              ).catch(err => console.error('Error updating deleted group message in storage:', err));
+              return updatedMsg;
             }
             return msg;
           });
@@ -307,11 +384,21 @@ export const useGroupChat = (userEmail, groupId) => {
         setMessages((prev) => {
           return prev.map((msg) => {
             if ((msg.messageId || msg._id) === data.messageId) {
-              return {
+              const updatedMsg = {
                 ...msg,
                 message: data.newMessage,
                 editedAt: data.editedAt,
               };
+              // Update in local storage
+              chatStorageService.updateMessage(
+                userEmail,
+                null,
+                data.messageId,
+                { message: data.newMessage, editedAt: data.editedAt },
+                true,
+                groupId
+              ).catch(err => console.error('Error updating edited group message in storage:', err));
+              return updatedMsg;
             }
             return msg;
           });
@@ -325,11 +412,21 @@ export const useGroupChat = (userEmail, groupId) => {
         setMessages((prev) =>
           prev.map((msg) => {
             if ((msg.messageId || msg._id) === data.messageId) {
-              return {
+              const updatedMsg = {
                 ...msg,
                 readBy: data.readBy || [],
                 status: data.status || 'sent',
               };
+              // Update in local storage
+              chatStorageService.updateMessage(
+                userEmail,
+                null,
+                data.messageId,
+                { readBy: data.readBy || [], status: data.status || 'sent' },
+                true,
+                groupId
+              ).catch(err => console.error('Error updating group message read status in storage:', err));
+              return updatedMsg;
             }
             return msg;
           })
@@ -352,6 +449,10 @@ export const useGroupChat = (userEmail, groupId) => {
         console.log('✅ Clearing group messages for current user');
         // Clear all messages - new ones will load on next history fetch
         setMessages([]);
+        // Clear local storage
+        chatStorageService.clearGroupChat(groupId).catch(err => {
+          console.error('Error clearing group chat storage:', err);
+        });
         // Request fresh chat history (will be filtered by clearedAt on backend)
         socketService.emit(SOCKET_EVENTS.JOIN_GROUP, {
           groupId,
@@ -439,6 +540,10 @@ export const useGroupChat = (userEmail, groupId) => {
       
       setMessages((prev) => {
         const updated = [...prev, tempMessage];
+        // Save optimistic message to local storage
+        chatStorageService.addMessage(userEmail, null, tempMessage, true, groupId).catch(err => {
+          console.error('Error saving optimistic group message to storage:', err);
+        });
         // Cleanup old messages if threshold exceeded
         if (updated.length > MESSAGE_CLEANUP_THRESHOLD) {
           return cleanupOldMessages(updated);

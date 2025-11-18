@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import socketService from "../services/socketService";
 import { SOCKET_EVENTS } from "../constants";
 import encryptionService from "../services/encryptionService";
+import chatStorageService from "../services/chatStorageService";
 
 // Constants for memory management
 const MAX_MESSAGES_IN_MEMORY = 500; // Limit messages to prevent memory leaks
@@ -110,8 +111,25 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     return sorted.slice(-MAX_MESSAGES_IN_MEMORY);
   }, []);
 
-  // Cleanup messages when contactEmail changes (chat switch)
+  // Load messages from local storage when contactEmail changes (chat switch)
   useEffect(() => {
+    if (!userEmail || !contactEmail) return;
+    
+    const loadCachedMessages = async () => {
+      try {
+        // Load messages from local storage first (for offline access)
+        const cachedMessages = await chatStorageService.loadPrivateChatMessages(userEmail, contactEmail);
+        
+        if (cachedMessages.length > 0) {
+          console.log(`📂 Loaded ${cachedMessages.length} cached messages for ${contactEmail}`);
+          // Show cached messages immediately
+          setMessages(cachedMessages);
+        }
+      } catch (error) {
+        console.error('Error loading cached messages:', error);
+      }
+    };
+    
     if (previousContactEmail.current !== contactEmail && previousContactEmail.current !== null) {
       // Chat switched - clear messages to prevent memory leak
       console.log('🧹 Cleaning up messages for chat switch:', {
@@ -120,11 +138,15 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       });
       setMessages([]);
       readMessageIds.current.clear();
-      // Clear decryption cache for old chat (optional - can keep for better performance)
-      // decryptionCache.current.clear();
+      // Load cached messages for new chat
+      loadCachedMessages();
+    } else if (previousContactEmail.current === null && contactEmail) {
+      // Initial load - load cached messages
+      loadCachedMessages();
     }
+    
     previousContactEmail.current = contactEmail;
-  }, [contactEmail]);
+  }, [contactEmail, userEmail]);
 
   useEffect(() => {
     if (!socket || !userEmail) return;
@@ -257,6 +279,11 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
 
           const updatedMessages = [...prev, newMessage];
           
+          // Save to local storage
+          chatStorageService.addMessage(userEmail, contactEmail, newMessage, false, null).catch(err => {
+            console.error('Error saving message to storage:', err);
+          });
+          
           // Cleanup old messages if threshold exceeded
           if (updatedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
             return cleanupOldMessages(updatedMessages);
@@ -309,6 +336,10 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           formattedMessages = cleanupOldMessages(formattedMessages);
         }
 
+        // Merge with cached messages from local storage
+        const cachedMessages = await chatStorageService.loadPrivateChatMessages(userEmail, contactEmail);
+        const mergedMessages = chatStorageService.mergeMessages(cachedMessages, formattedMessages);
+        
         // Only replace messages if we don't have any messages yet, or if this is the initial load
         // Otherwise, merge with existing messages to avoid clearing optimistic updates
         setMessages((prev) => {
@@ -324,32 +355,32 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
 
             // Merge: keep existing messages that aren't in history (optimistic updates)
             // and add/update messages from history
-            const mergedMessages = [...prev];
+            const finalMerged = [...prev];
 
-            formattedMessages.forEach((historyMsg) => {
+            mergedMessages.forEach((historyMsg) => {
               if (historyMsg.messageId) {
-                const existingIndex = mergedMessages.findIndex(
+                const existingIndex = finalMerged.findIndex(
                   (m) => m.messageId === historyMsg.messageId
                 );
                 if (existingIndex >= 0) {
                   // Update existing message with history data (preserve status if it's more recent)
-                  mergedMessages[existingIndex] = {
-                    ...mergedMessages[existingIndex],
+                  finalMerged[existingIndex] = {
+                    ...finalMerged[existingIndex],
                     ...historyMsg,
                     // Keep the more recent status if we have one
                     status:
-                      mergedMessages[existingIndex].status === "read" ||
-                      mergedMessages[existingIndex].status === "delivered"
-                        ? mergedMessages[existingIndex].status
+                      finalMerged[existingIndex].status === "read" ||
+                      finalMerged[existingIndex].status === "delivered"
+                        ? finalMerged[existingIndex].status
                         : historyMsg.status,
                   };
                 } else {
                   // Add new message from history
-                  mergedMessages.push(historyMsg);
+                  finalMerged.push(historyMsg);
                 }
               } else {
                 // Message without ID - add it if not duplicate
-                const isDuplicate = mergedMessages.some(
+                const isDuplicate = finalMerged.some(
                   (m) =>
                     m.message === historyMsg.message &&
                     m.senderEmail === historyMsg.senderEmail &&
@@ -358,26 +389,33 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
                     ) < 1000
                 );
                 if (!isDuplicate) {
-                  mergedMessages.push(historyMsg);
+                  finalMerged.push(historyMsg);
                 }
               }
             });
 
             // Sort by timestamp
-            mergedMessages.sort(
+            finalMerged.sort(
               (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
             );
 
             // Cleanup old messages if threshold exceeded
-            if (mergedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
-              return cleanupOldMessages(mergedMessages);
+            if (finalMerged.length > MESSAGE_CLEANUP_THRESHOLD) {
+              return cleanupOldMessages(finalMerged);
             }
             
-            return mergedMessages;
+            return finalMerged;
           }
 
-          // First load - return formatted messages (already cleaned up if needed)
-          return formattedMessages;
+          // First load - return merged messages (already cleaned up if needed)
+          return mergedMessages.length > MESSAGE_CLEANUP_THRESHOLD 
+            ? cleanupOldMessages(mergedMessages)
+            : mergedMessages;
+        });
+        
+        // Save merged messages to local storage
+        chatStorageService.savePrivateChatMessages(userEmail, contactEmail, mergedMessages).catch(err => {
+          console.error('Error saving chat history to storage:', err);
         });
 
         // Send read receipts for messages from contact that haven't been read yet
@@ -418,16 +456,27 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           (msg) => data.messageId && msg.messageId === data.messageId
         );
         if (messageById) {
-          return prev.map((msg) => {
+          const updated = prev.map((msg) => {
             if (msg.messageId === data.messageId) {
-              return {
+              const updatedMsg = {
                 ...msg,
                 status: data.status,
                 deliveredAt: data.deliveredAt || msg.deliveredAt,
               };
+              // Update in local storage
+              chatStorageService.updateMessage(
+                userEmail, 
+                contactEmail, 
+                data.messageId, 
+                { status: data.status, deliveredAt: data.deliveredAt || msg.deliveredAt },
+                false,
+                null
+              ).catch(err => console.error('Error updating message in storage:', err));
+              return updatedMsg;
             }
             return msg;
           });
+          return updated;
         }
 
         // If no match by messageId, try to match the most recent 'sent' message without messageId
@@ -453,12 +502,24 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             if (matchedByTimestamp) {
               return prev.map((msg) => {
                 if (msg === matchedByTimestamp) {
-                  return {
+                  const updatedMsg = {
                     ...msg,
                     status: data.status,
                     deliveredAt: data.deliveredAt || msg.deliveredAt,
                     messageId: data.messageId || msg.messageId,
                   };
+                  // Update in local storage
+                  if (data.messageId) {
+                    chatStorageService.updateMessage(
+                      userEmail,
+                      contactEmail,
+                      data.messageId,
+                      { status: data.status, deliveredAt: data.deliveredAt || msg.deliveredAt, messageId: data.messageId },
+                      false,
+                      null
+                    ).catch(err => console.error('Error updating message status in storage:', err));
+                  }
+                  return updatedMsg;
                 }
                 return msg;
               });
@@ -469,12 +530,24 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           const mostRecent = sentMessagesWithoutId[0];
           return prev.map((msg) => {
             if (msg === mostRecent) {
-              return {
+              const updatedMsg = {
                 ...msg,
                 status: data.status,
                 deliveredAt: data.deliveredAt || msg.deliveredAt,
                 messageId: data.messageId || msg.messageId,
               };
+              // Update in local storage
+              if (data.messageId) {
+                chatStorageService.updateMessage(
+                  userEmail,
+                  contactEmail,
+                  data.messageId,
+                  { status: data.status, deliveredAt: data.deliveredAt || msg.deliveredAt, messageId: data.messageId },
+                  false,
+                  null
+                ).catch(err => console.error('Error updating message status in storage:', err));
+              }
+              return updatedMsg;
             }
             return msg;
           });
@@ -489,11 +562,21 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       setMessages((prev) => {
         return prev.map((msg) => {
           if (msg.messageId === data.messageId) {
-            return {
+            const updatedMsg = {
               ...msg,
               isDeleted: true,
               message: "This message is deleted",
             };
+            // Update in local storage
+            chatStorageService.updateMessage(
+              userEmail,
+              contactEmail,
+              data.messageId,
+              { isDeleted: true, message: "This message is deleted" },
+              false,
+              null
+            ).catch(err => console.error('Error updating deleted message in storage:', err));
+            return updatedMsg;
           }
           return msg;
         });
@@ -505,11 +588,21 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       setMessages((prev) => {
         return prev.map((msg) => {
           if (msg.messageId === data.messageId) {
-            return {
+            const updatedMsg = {
               ...msg,
               message: data.newMessage,
               editedAt: data.editedAt,
             };
+            // Update in local storage
+            chatStorageService.updateMessage(
+              userEmail,
+              contactEmail,
+              data.messageId,
+              { message: data.newMessage, editedAt: data.editedAt },
+              false,
+              null
+            ).catch(err => console.error('Error updating edited message in storage:', err));
+            return updatedMsg;
           }
           return msg;
         });
@@ -522,6 +615,10 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       if (data.clearedBy === userEmail) {
         // Clear all messages - new ones will load on next history fetch
         setMessages([]);
+        // Clear local storage
+        chatStorageService.clearPrivateChat(userEmail, contactEmail).catch(err => {
+          console.error('Error clearing chat storage:', err);
+        });
         // Request fresh chat history (will be filtered by clearedAt on backend)
         socketService.emit(SOCKET_EVENTS.JOIN_CHAT, {
           userEmail,
@@ -607,6 +704,10 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
 
       setMessages((prev) => {
         const updated = [...prev, tempMessage];
+        // Save optimistic message to local storage
+        chatStorageService.addMessage(userEmail, contactEmail, tempMessage, false, null).catch(err => {
+          console.error('Error saving optimistic message to storage:', err);
+        });
         // Cleanup old messages if threshold exceeded
         if (updated.length > MESSAGE_CLEANUP_THRESHOLD) {
           return cleanupOldMessages(updated);

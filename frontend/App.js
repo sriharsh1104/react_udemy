@@ -175,6 +175,14 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       logger.error('Error clearing encryption keys:', error);
     }
     
+    // Clear chat storage
+    try {
+      const chatStorageService = (await import('./services/chatStorageService')).default;
+      await chatStorageService.clearAllChats();
+    } catch (error) {
+      logger.error('Error clearing chat storage:', error);
+    }
+    
     // Clear local storage
     await AsyncStorage.removeItem('authToken');
     await AsyncStorage.removeItem('userEmail');
@@ -381,6 +389,10 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       const encryptionService = (await import('./services/encryptionService')).default;
       await encryptionService.clearAllKeys();
       
+      // Clear chat storage
+      const chatStorageService = (await import('./services/chatStorageService')).default;
+      await chatStorageService.clearAllChats();
+      
       // Clear local storage
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userEmail');
@@ -404,6 +416,12 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
         await encryptionService.clearAllKeys();
       } catch (e) {
         logger.error('Error clearing encryption keys:', e);
+      }
+      try {
+        const chatStorageService = (await import('./services/chatStorageService')).default;
+        await chatStorageService.clearAllChats();
+      } catch (e) {
+        logger.error('Error clearing chat storage:', e);
       }
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userEmail');

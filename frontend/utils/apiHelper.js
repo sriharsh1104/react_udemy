@@ -28,6 +28,14 @@ export const handleInvalidToken = async () => {
     logger.error('Error clearing encryption keys:', error);
   }
   
+  // Clear chat storage
+  try {
+    const chatStorageService = (await import('../services/chatStorageService')).default;
+    await chatStorageService.clearAllChats();
+  } catch (error) {
+    logger.error('Error clearing chat storage:', error);
+  }
+  
   // Call global logout handler if available
   if (globalLogoutHandler) {
     globalLogoutHandler();
@@ -89,6 +97,14 @@ export const apiFetch = async (url, options = {}, retryCount = 0) => {
         await encryptionService.clearAllKeys();
       } catch (error) {
         logger.error('Error clearing encryption keys:', error);
+      }
+      
+      // Clear chat storage
+      try {
+        const chatStorageService = (await import('../services/chatStorageService')).default;
+        await chatStorageService.clearAllChats();
+      } catch (error) {
+        logger.error('Error clearing chat storage:', error);
       }
       
       // Call global logout handler if available
