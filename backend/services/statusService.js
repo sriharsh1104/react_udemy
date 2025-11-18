@@ -64,21 +64,43 @@ class StatusService {
       // Combine status with file info and check if viewed
       const result = [];
       for (const [contactEmail, userStatuses] of Object.entries(statusesByUser)) {
-        const latestStatus = userStatuses[0]; // Most recent status
-        const file = fileMap[latestStatus.fileId];
-        const isViewed = latestStatus.viewers.some(v => v.viewerEmail === userEmail);
+        // Sort by createdAt descending (most recent first)
+        const sortedStatuses = userStatuses.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const latestStatus = sortedStatuses[0]; // Most recent status
+        
+        // Check if any status is unviewed
+        const hasUnviewed = sortedStatuses.some(status => 
+          !status.viewers.some(v => v.viewerEmail === userEmail)
+        );
+        
+        // Get all statuses with file info
+        const allStatuses = sortedStatuses.map(status => {
+          const file = fileMap[status.fileId];
+          return {
+            statusId: status._id.toString(),
+            fileId: status.fileId,
+            statusType: status.statusType,
+            statusUrl: file ? `/api/files/view/${file.fileId}` : null,
+            statusTime: this.getTimeAgo(status.createdAt),
+            viewersCount: status.viewers.length,
+            createdAt: status.createdAt,
+            isViewed: status.viewers.some(v => v.viewerEmail === userEmail),
+          };
+        });
         
         result.push({
           email: contactEmail,
           name: contactMap[contactEmail] || contactEmail.split('@')[0],
-          statusId: latestStatus._id.toString(),
-          fileId: latestStatus.fileId,
+          statusId: latestStatus._id.toString(), // Latest status ID for backward compatibility
+          fileId: latestStatus.fileId, // Latest status fileId for avatar
           statusType: latestStatus.statusType,
-          statusUrl: file ? `/api/files/view/${file.fileId}` : null, // Use view endpoint instead of download
+          statusUrl: fileMap[latestStatus.fileId] ? `/api/files/view/${fileMap[latestStatus.fileId].fileId}` : null,
           statusTime: this.getTimeAgo(latestStatus.createdAt),
-          hasUnviewedStatus: !isViewed,
+          hasUnviewedStatus: hasUnviewed,
           viewersCount: latestStatus.viewers.length,
           createdAt: latestStatus.createdAt,
+          allStatuses: allStatuses, // All statuses array
+          statusCount: allStatuses.length, // Total count
         });
       }
 
@@ -89,29 +111,46 @@ class StatusService {
     }
   }
 
-  // Get user's own status
+  // Get user's own statuses (all active statuses - multiple allowed)
   async getUserStatus(userEmail) {
     try {
-      const status = await Status.findOne({
+      const statuses = await Status.find({
         userEmail,
         expiresAt: { $gt: new Date() },
         postType: 'status', // Only show status updates, not feed posts
       })
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1 }) // Most recent first
         .lean();
 
-      if (!status) return null;
+      if (!statuses || statuses.length === 0) return null;
 
-      const file = await File.findOne({ fileId: status.fileId }).lean();
-      
+      // Get file info for all statuses
+      const fileIds = statuses.map(s => s.fileId);
+      const files = await File.find({ fileId: { $in: fileIds } }).lean();
+      const fileMap = {};
+      files.forEach(file => {
+        fileMap[file.fileId] = file;
+      });
+
+      // Return all statuses as array
+      const statusList = statuses.map(status => {
+        const file = fileMap[status.fileId];
+        return {
+          statusId: status._id.toString(),
+          fileId: status.fileId,
+          statusType: status.statusType,
+          statusUrl: file ? `/api/files/view/${file.fileId}` : null,
+          statusTime: this.getTimeAgo(status.createdAt),
+          viewersCount: status.viewers.length,
+          createdAt: status.createdAt,
+        };
+      });
+
+      // Return latest status info for backward compatibility, but include allStatuses array
       return {
-        statusId: status._id.toString(),
-        fileId: status.fileId,
-        statusType: status.statusType,
-        statusUrl: file ? `/api/files/view/${file.fileId}` : null, // Use view endpoint instead of download
-        statusTime: this.getTimeAgo(status.createdAt),
-        viewersCount: status.viewers.length,
-        createdAt: status.createdAt,
+        ...statusList[0], // Latest status for backward compatibility
+        allStatuses: statusList, // All statuses array
+        statusCount: statusList.length,
       };
     } catch (error) {
       console.error('Error getting user status:', error);

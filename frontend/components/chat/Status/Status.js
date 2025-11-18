@@ -36,7 +36,7 @@ const STATUS_AVATAR_SIZE = SCREEN_WIDTH < 360 ? 50 : 56;
 const STATUS_AVATAR_RADIUS = STATUS_AVATAR_SIZE / 2;
 
 // My Status Avatar Component
-const MyStatusAvatar = ({ fileId, statusUrl }) => {
+const MyStatusAvatar = ({ fileId, statusUrl, statusCount, onAddPress }) => {
   const { colors } = useTheme();
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -94,11 +94,27 @@ const MyStatusAvatar = ({ fileId, statusUrl }) => {
 
   if (avatarUrl) {
     return (
-      <Image
-        source={{ uri: avatarUrl }}
-        style={styles.myStatusAvatarImage}
-        resizeMode="cover"
-      />
+      <View style={styles.myStatusAvatarContainer}>
+        <Image
+          source={{ uri: avatarUrl }}
+          style={styles.myStatusAvatarImage}
+          resizeMode="cover"
+        />
+        {/* Add more status button (WhatsApp style) - always visible when status exists */}
+        <TouchableOpacity
+          style={[styles.addMoreStatusButton, { backgroundColor: colors.primary }]}
+          onPress={onAddPress}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.addMoreStatusButtonText}>➕</Text>
+        </TouchableOpacity>
+        {/* Status count badge - show on top left if multiple statuses */}
+        {statusCount > 1 && (
+          <View style={[styles.statusCountBadge, { backgroundColor: colors.primary }]}>
+            <Text style={styles.statusCountText}>{statusCount}</Text>
+          </View>
+        )}
+      </View>
     );
   }
   
@@ -460,24 +476,26 @@ const Status = ({ userEmail, contacts = [] }) => {
   };
 
   const handleStatusPress = async (contact) => {
-    // Status URL will be loaded by StatusContentView component using fileId
-    // Just pass the contact data with fileId
-    const statusData = {
+    // Get all statuses for this contact (multiple statuses support)
+    const allStatuses = contact.allStatuses || [{
       ...contact,
       email: contact.email,
       name: contact.name,
       statusTime: contact.statusTime,
-      fileId: contact.fileId, // Pass fileId so StatusContentView can load URL with auth
-    };
+      fileId: contact.fileId,
+      statusId: contact.statusId,
+      statusType: contact.statusType,
+    }];
 
-    setCurrentStatuses([statusData]);
+    // Set all statuses for viewing
+    setCurrentStatuses(allStatuses);
     setSelectedStatusIndex(0);
     setSelectedContact(contact);
     setShowStatusViewer(true);
 
-    // Mark as viewed
-    if (contact.statusId) {
-      await statusService.markAsViewed(contact.statusId);
+    // Mark first status as viewed
+    if (allStatuses.length > 0 && allStatuses[0].statusId) {
+      await statusService.markAsViewed(allStatuses[0].statusId);
       await loadStatuses();
     }
   };
@@ -488,16 +506,19 @@ const Status = ({ userEmail, contacts = [] }) => {
       return;
     }
 
-    // Status URL will be loaded by StatusContentView component using fileId
-    const statusData = {
+    // Get all statuses for current user (multiple statuses support)
+    const allStatuses = myStatus.allStatuses || [{
       ...myStatus,
       email: userEmail,
       name: userEmail.split('@')[0],
       statusTime: myStatus.statusTime,
-      fileId: myStatus.fileId, // Pass fileId so StatusContentView can load URL with auth
-    };
+      fileId: myStatus.fileId,
+      statusId: myStatus.statusId,
+      statusType: myStatus.statusType,
+    }];
 
-    setCurrentStatuses([statusData]);
+    // Set all statuses for viewing
+    setCurrentStatuses(allStatuses);
     setSelectedStatusIndex(0);
     setSelectedContact(null);
     setShowStatusViewer(true);
@@ -602,8 +623,9 @@ const Status = ({ userEmail, contacts = [] }) => {
         renderItem={renderStatusItem}
         keyExtractor={(item) => `status-${item.email}`}
         numColumns={4}
-        contentContainerStyle={styles.statusList}
+        contentContainerStyle={[styles.statusList, { alignItems: 'flex-start' }]}
         columnWrapperStyle={statuses.length > 0 ? styles.statusRow : null}
+        style={{ alignSelf: 'flex-start', width: '100%' }}
         ListHeaderComponent={
           <View style={styles.myStatusHeader}>
             <TouchableOpacity
@@ -613,7 +635,12 @@ const Status = ({ userEmail, contacts = [] }) => {
             >
               <View style={styles.myStatusContainer}>
                 {myStatus?.fileId ? (
-                  <MyStatusAvatar fileId={myStatus.fileId} statusUrl={myStatus.statusUrl} />
+                  <MyStatusAvatar 
+                    fileId={myStatus.fileId} 
+                    statusUrl={myStatus.statusUrl} 
+                    statusCount={myStatus.statusCount || (myStatus.allStatuses?.length || 1)}
+                    onAddPress={handleAddStatus}
+                  />
                 ) : (
                   <View style={[styles.myStatusAvatar, { backgroundColor: colors.divider }]}>
                     <Text style={styles.addStatusIcon}>➕</Text>
@@ -674,9 +701,21 @@ const Status = ({ userEmail, contacts = [] }) => {
                 setCurrentStatuses([]);
                 setSelectedStatusIndex(0);
               }}
-              onNext={() => {
+              onNext={async () => {
                 if (selectedStatusIndex < currentStatuses.length - 1) {
-                  setSelectedStatusIndex(selectedStatusIndex + 1);
+                  const nextIndex = selectedStatusIndex + 1;
+                  setSelectedStatusIndex(nextIndex);
+                  
+                  // Mark next status as viewed when navigating to it
+                  if (currentStatuses[nextIndex]?.statusId) {
+                    await statusService.markAsViewed(currentStatuses[nextIndex].statusId);
+                  }
+                } else {
+                  // If last status, close viewer
+                  setShowStatusViewer(false);
+                  setCurrentStatuses([]);
+                  setSelectedStatusIndex(0);
+                  await loadStatuses(); // Refresh to update viewed status
                 }
               }}
               onPrev={() => {
