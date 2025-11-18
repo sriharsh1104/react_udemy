@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform, Modal, Alert } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS, TYPOGRAPHY, BORDER_RADIUS, SPACING } from '../../constants';
 import fileUploadService from '../../services/fileUploadService';
+import EmojiPicker from './EmojiPicker';
+import GIFPicker from './GIFPicker';
 
 const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, replyingTo, onCancelReply, editingMessage, onCancelEdit, onBillSplitPress }) => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGIFPicker, setShowGIFPicker] = useState(false);
 
   const handleSend = () => {
     if (value.trim()) {
@@ -94,6 +99,58 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
     setShowAttachmentMenu(false);
     // TODO: Add contact sharing functionality
     Alert.alert('Contact', 'Contact sharing feature coming soon');
+  };
+
+  const handleEmojiSelect = (emoji) => {
+    onChangeText(value + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const handleGIFSelect = async (gifUrl) => {
+    setShowGIFPicker(false);
+    
+    try {
+      let fileUri;
+      let fileSize = 0;
+      
+      if (Platform.OS === 'web') {
+        // On web, download and create blob URL
+        const response = await fetch(gifUrl);
+        const blob = await response.blob();
+        fileUri = URL.createObjectURL(blob);
+        fileSize = blob.size || 0;
+      } else {
+        // On native, download to file system
+        const fileName = `gif_${Date.now()}.gif`;
+        const localUri = `${FileSystem.documentDirectory}${fileName}`;
+        
+        const downloadResult = await FileSystem.downloadAsync(gifUrl, localUri);
+        
+        if (downloadResult.status !== 200) {
+          throw new Error('Failed to download GIF');
+        }
+        
+        fileUri = downloadResult.uri;
+        const fileInfo = await FileSystem.getInfoAsync(fileUri);
+        fileSize = fileInfo.size || 0;
+      }
+      
+      const file = {
+        uri: fileUri,
+        type: 'image',
+        name: `gif_${Date.now()}.gif`,
+        mimeType: 'image/gif',
+        size: fileSize,
+      };
+      
+      // Use the existing file upload handler
+      if (onFileSelect) {
+        onFileSelect(file);
+      }
+    } catch (error) {
+      console.error('Error handling GIF:', error);
+      Alert.alert('Error', 'Failed to send GIF. Please try again.');
+    }
   };
 
   // Extract message text from replyingTo (handle JSON file messages)
@@ -229,6 +286,28 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
           </TouchableOpacity>
         )}
         
+        <TouchableOpacity 
+          style={styles.emojiButton}
+          onPress={() => {
+            setShowGIFPicker(false);
+            setShowEmojiPicker(!showEmojiPicker);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.emojiIcon}>😊</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.gifButton}
+          onPress={() => {
+            setShowEmojiPicker(false);
+            setShowGIFPicker(!showGIFPicker);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.gifIcon}>GIF</Text>
+        </TouchableOpacity>
+        
         <TextInput
           style={styles.input}
           placeholder="Message"
@@ -340,6 +419,20 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Emoji Picker Modal */}
+      <EmojiPicker
+        visible={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onEmojiSelect={handleEmojiSelect}
+      />
+
+      {/* GIF Picker Modal */}
+      <GIFPicker
+        visible={showGIFPicker}
+        onClose={() => setShowGIFPicker(false)}
+        onGIFSelect={handleGIFSelect}
+      />
     </View>
   );
 };
@@ -408,6 +501,32 @@ const styles = StyleSheet.create({
   billSplitIcon: {
     fontSize: 20,
     color: COLORS.text,
+  },
+  emojiButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.xs,
+  },
+  emojiIcon: {
+    fontSize: 20,
+    color: COLORS.text,
+  },
+  gifButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.xs,
+    backgroundColor: COLORS.primary + '20',
+  },
+  gifIcon: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
   input: {
     flex: 1,
