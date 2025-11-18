@@ -451,6 +451,38 @@ class FeedService {
       return errorResponse;
     }
   }
+
+  // Save/Unsave a post
+  async toggleSavePost(statusId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+
+      const response = await fetch(`${API_CONFIG.API_BASE}/feed/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusId }),
+      });
+
+      const data = await response.json();
+      // Don't show toast for save/unsave (silent operation)
+      return data;
+    } catch (error) {
+      console.error('Error toggling save post:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+    }
+  }
 }
 
 export default new FeedService();

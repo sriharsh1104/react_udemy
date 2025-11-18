@@ -396,6 +396,28 @@ class FeedController {
       }
     }),
   ];
+
+  // Save/Unsave a post
+  toggleSavePost = [
+    verifyToken,
+    asyncHandler(async (req, res) => {
+      const { statusId } = req.body;
+      
+      if (!statusId) {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
+      }
+
+      try {
+        const result = await feedService.toggleSavePost(statusId, req.userEmail);
+        return sendSuccess(res, HTTP_STATUS.OK, result.isSaved ? 'Post saved successfully' : 'Post unsaved successfully', result);
+      } catch (error) {
+        if (error.message.includes('not found')) {
+          return sendError(res, HTTP_STATUS.NOT_FOUND, error.message);
+        }
+        return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Failed to save/unsave post');
+      }
+    }),
+  ];
 }
 
 module.exports = new FeedController();

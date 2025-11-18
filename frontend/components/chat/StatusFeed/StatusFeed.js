@@ -27,10 +27,15 @@ import { API_CONFIG } from '../../../constants';
 import AlertModal from '../../common/AlertModal/AlertModal';
 import ActionModal from '../../common/ActionModal/ActionModal';
 import ConfirmationModal from '../../common/ConfirmationModal/ConfirmationModal';
+import ForwardContactModal from '../ForwardContactModal/ForwardContactModal';
 import useAlertModal from '../../../hooks/useAlertModal';
 import EmojiPicker from '../EmojiPicker';
 import GIFPicker from '../GIFPicker';
 import * as FileSystem from 'expo-file-system/legacy';
+import socketService from '../../../services/socketService';
+import encryptionService from '../../../services/encryptionService';
+import { SOCKET_EVENTS } from '../../../constants';
+import logger from '../../../utils/logger';
 import styles from './StatusFeed.styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -176,7 +181,10 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   // Post menu state
   const [showPostMenu, setShowPostMenu] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [savedPosts, setSavedPosts] = useState(new Set());
 
   useEffect(() => {
     // Only load feed when screen is focused
@@ -203,14 +211,19 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         setHasMore(result.hasMore);
         setPage(pageNum);
         
-        // Track liked statuses
+        // Track liked statuses and saved posts
         const liked = new Set();
+        const saved = new Set();
         result.feed.forEach(item => {
           if (item.isLiked) {
             liked.add(item.statusId);
           }
+          if (item.isSaved) {
+            saved.add(item.statusId);
+          }
         });
         setLikedStatuses(liked);
+        setSavedPosts(saved);
       }
     } catch (error) {
       console.error('Error loading feed:', error);
@@ -753,7 +766,9 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
 
   // Handle post menu press
   const handlePostMenuPress = (statusId) => {
+    const post = feed.find(item => item.statusId === statusId);
     setSelectedPostId(statusId);
+    setSelectedPost(post);
     setShowPostMenu(true);
   };
 
@@ -774,12 +789,70 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         setFeed(prev => prev.filter(item => item.statusId !== selectedPostId));
         setShowDeleteConfirm(false);
         setSelectedPostId(null);
+        setSelectedPost(null);
       }
     } catch (error) {
       console.error('Error deleting post:', error);
       showAlert('Error', 'Failed to delete post. Please try again.', 'error');
       setShowDeleteConfirm(false);
     }
+  };
+
+  // Handle forward post
+  const handleForwardPost = () => {
+    if (!selectedPost) return;
+    setShowPostMenu(false);
+    setShowForwardModal(true);
+  };
+
+  // Handle save post
+  const handleSavePost = async () => {
+    if (!selectedPostId) return;
+    
+    const isSaved = savedPosts.has(selectedPostId);
+    const newSavedPosts = new Set(savedPosts);
+    
+    // Optimistic update
+    if (isSaved) {
+      newSavedPosts.delete(selectedPostId);
+    } else {
+      newSavedPosts.add(selectedPostId);
+    }
+    setSavedPosts(newSavedPosts);
+    
+    // Update feed
+    setFeed(prev => prev.map(item => {
+      if (item.statusId === selectedPostId) {
+        return {
+          ...item,
+          isSaved: !isSaved,
+        };
+      }
+      return item;
+    }));
+    
+    setShowPostMenu(false);
+    
+    // API call
+    try {
+      await feedService.toggleSavePost(selectedPostId);
+    } catch (error) {
+      console.error('Error toggling save post:', error);
+      // Revert on error
+      setSavedPosts(savedPosts);
+      setFeed(prev => prev.map(item => {
+        if (item.statusId === selectedPostId) {
+          return {
+            ...item,
+            isSaved,
+          };
+        }
+        return item;
+      }));
+    }
+    
+    setSelectedPostId(null);
+    setSelectedPost(null);
   };
 
   const handleReplyPress = (commentId) => {
@@ -1086,16 +1159,14 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
               </Text>
             </View>
           </View>
-          {/* Only show delete option for own posts */}
-          {item.userEmail === userEmail && (
-            <TouchableOpacity
-              onPress={() => handlePostMenuPress(item.statusId)}
-              style={styles.feedMenuButton}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.feedMenuIcon, { color: colors.text }]}>⋯</Text>
-            </TouchableOpacity>
-          )}
+          {/* Show menu for all posts */}
+          <TouchableOpacity
+            onPress={() => handlePostMenuPress(item.statusId)}
+            style={styles.feedMenuButton}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.feedMenuIcon, { color: colors.text }]}>⋯</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Media */}
@@ -1844,6 +1915,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         onRequestClose={() => {
           setShowPostMenu(false);
           setSelectedPostId(null);
+          setSelectedPost(null);
         }}
       >
         <TouchableOpacity
@@ -1852,21 +1924,44 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           onPress={() => {
             setShowPostMenu(false);
             setSelectedPostId(null);
+            setSelectedPost(null);
           }}
         >
           <View style={[styles.postMenuContainer, { backgroundColor: colors.background }]}>
+            {/* Forward option - available for all posts */}
             <TouchableOpacity
               style={[styles.postMenuOption, { borderBottomColor: colors.divider }]}
-              onPress={handleDeletePostConfirm}
+              onPress={handleForwardPost}
               activeOpacity={0.7}
             >
-              <Text style={[styles.postMenuOptionText, { color: '#FF3B30' }]}>Delete</Text>
+              <Text style={[styles.postMenuOptionText, { color: colors.text }]}>Forward</Text>
             </TouchableOpacity>
+            {/* Save/Unsave option - available for all posts */}
+            <TouchableOpacity
+              style={[styles.postMenuOption, { borderBottomColor: colors.divider }]}
+              onPress={handleSavePost}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.postMenuOptionText, { color: colors.text }]}>
+                {selectedPost && savedPosts.has(selectedPost.statusId) ? 'Unsave' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+            {/* Delete option - only for own posts */}
+            {selectedPost && selectedPost.userEmail === userEmail && (
+              <TouchableOpacity
+                style={[styles.postMenuOption, { borderBottomColor: colors.divider }]}
+                onPress={handleDeletePostConfirm}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.postMenuOptionText, { color: '#FF3B30' }]}>Delete</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.postMenuOption}
               onPress={() => {
                 setShowPostMenu(false);
                 setSelectedPostId(null);
+                setSelectedPost(null);
               }}
               activeOpacity={0.7}
             >
@@ -1875,6 +1970,106 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Forward Modal */}
+      <ForwardContactModal
+        visible={showForwardModal}
+        onClose={() => {
+          setShowForwardModal(false);
+          setSelectedPost(null);
+        }}
+        onSelectContacts={async (targets) => {
+          if (!selectedPost || !targets || targets.length === 0) return;
+          
+          try {
+            let successCount = 0;
+            let errorCount = 0;
+            
+            // Helper function to forward post to a single target
+            const forwardToTarget = async (target) => {
+              try {
+                // Create file message from post
+                const fileMessage = JSON.stringify({
+                  type: 'file',
+                  fileId: selectedPost.fileId,
+                  fileName: selectedPost.statusType === 'video' ? 'post_video.mp4' : 'post_image.jpg',
+                  fileType: selectedPost.statusType,
+                  fileSize: 0,
+                });
+                
+                if (target.type === 'private' && target.contactEmail) {
+                  // First send the file message
+                  const encryptedData = await encryptionService.encryptPrivateMessage(
+                    fileMessage,
+                    userEmail,
+                    target.contactEmail
+                  );
+                  socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+                    message: JSON.stringify(encryptedData),
+                    contactEmail: target.contactEmail,
+                    senderEmail: userEmail,
+                  });
+                  
+                  // If there's a caption, send it as a separate text message
+                  if (selectedPost.caption && selectedPost.caption.trim()) {
+                    const captionEncrypted = await encryptionService.encryptPrivateMessage(
+                      selectedPost.caption.trim(),
+                      userEmail,
+                      target.contactEmail
+                    );
+                    socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+                      message: JSON.stringify(captionEncrypted),
+                      contactEmail: target.contactEmail,
+                      senderEmail: userEmail,
+                    });
+                  }
+                  successCount++;
+                } else if (target.type === 'group' && target.groupId) {
+                  // Send file message to group
+                  socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
+                    message: fileMessage,
+                    groupId: target.groupId,
+                    senderEmail: userEmail,
+                  });
+                  
+                  // If there's a caption, send it as a separate text message
+                  if (selectedPost.caption && selectedPost.caption.trim()) {
+                    socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
+                      message: selectedPost.caption.trim(),
+                      groupId: target.groupId,
+                      senderEmail: userEmail,
+                    });
+                  }
+                  successCount++;
+                }
+              } catch (error) {
+                logger.error(`Error forwarding post to ${target.type === 'private' ? target.contactEmail : target.groupName}:`, error);
+                errorCount++;
+              }
+            };
+            
+            // Forward to all selected targets
+            await Promise.all(targets.map(target => forwardToTarget(target)));
+            
+            setShowForwardModal(false);
+            setSelectedPost(null);
+            
+            if (errorCount === 0) {
+              showAlert('Success', `Post forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'} successfully`, { type: 'success' });
+            } else {
+              showAlert(
+                'Partial Success', 
+                `Post forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'}, ${errorCount} ${errorCount === 1 ? 'failed' : 'failed'}`,
+                { type: 'warning' }
+              );
+            }
+          } catch (error) {
+            logger.error('Error forwarding post:', error);
+            showAlert('Error', 'Failed to forward post', { type: 'error' });
+          }
+        }}
+        message={selectedPost ? `Forwarding post from ${selectedPost.userName || selectedPost.userEmail?.split('@')[0]}` : ''}
+      />
 
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
@@ -1887,6 +2082,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         onCancel={() => {
           setShowDeleteConfirm(false);
           setSelectedPostId(null);
+          setSelectedPost(null);
         }}
         confirmButtonStyle="destructive"
       />

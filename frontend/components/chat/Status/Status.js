@@ -21,6 +21,11 @@ import AlertModal from '../../common/AlertModal/AlertModal';
 import ActionModal from '../../common/ActionModal/ActionModal';
 import useAlertModal from '../../../hooks/useAlertModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ForwardContactModal from '../ForwardContactModal';
+import ConfirmationModal from '../../common/ConfirmationModal';
+import socketService from '../../../services/socketService';
+import encryptionService from '../../../services/encryptionService';
+import { SOCKET_EVENTS } from '../../../constants';
 import styles from './Status.styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -252,6 +257,10 @@ const Status = ({ userEmail, contacts = [] }) => {
   const [loadingViewers, setLoadingViewers] = useState(false);
   const [selectedStatusIdForViewers, setSelectedStatusIdForViewers] = useState(null);
   const [viewedStatusIds, setViewedStatusIds] = useState(new Set()); // Track viewed statuses in current session
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [statusToForward, setStatusToForward] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [statusToDelete, setStatusToDelete] = useState(null);
 
   useEffect(() => {
     loadStatuses();
@@ -586,6 +595,133 @@ const Status = ({ userEmail, contacts = [] }) => {
     }
   };
 
+  const handleDeleteStatus = async () => {
+    if (!statusToDelete) return;
+    
+    try {
+      const result = await statusService.deleteStatus(statusToDelete);
+      if (result.success) {
+        setShowDeleteConfirm(false);
+        setStatusToDelete(null);
+        setShowStatusViewer(false);
+        setCurrentStatuses([]);
+        setSelectedStatusIndex(0);
+        await loadStatuses();
+      } else {
+        showAlert('Error', result.message || 'Failed to delete status', { type: 'error' });
+      }
+    } catch (error) {
+      console.error('Error deleting status:', error);
+      showAlert('Error', 'Failed to delete status', { type: 'error' });
+    }
+  };
+
+  const handleSaveImage = async () => {
+    if (currentStatuses.length === 0) return;
+    
+    const currentStatus = currentStatuses[selectedStatusIndex];
+    if (!currentStatus || currentStatus.statusType !== 'image') {
+      showAlert('Info', 'Only images can be saved', { type: 'info' });
+      return;
+    }
+
+    try {
+      const result = await statusService.saveImage(
+        currentStatus.fileId,
+        `status_${Date.now()}.jpg`,
+        currentStatus.statusUrl
+      );
+      
+      if (result.success) {
+        showAlert('Success', 'Image saved successfully', { type: 'success' });
+      } else {
+        showAlert('Error', result.message || 'Failed to save image', { type: 'error' });
+      }
+    } catch (error) {
+      console.error('Error saving image:', error);
+      showAlert('Error', 'Failed to save image', { type: 'error' });
+    }
+  };
+
+  const handleForwardStatus = () => {
+    if (currentStatuses.length === 0) return;
+    
+    const currentStatus = currentStatuses[selectedStatusIndex];
+    setStatusToForward(currentStatus);
+    setShowForwardModal(true);
+  };
+
+  const handleForwardConfirm = async (targets) => {
+    if (!statusToForward || !targets || targets.length === 0) return;
+    
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      
+      // Get file URL for forwarding
+      let fileUrl = null;
+      if (statusToForward.fileId) {
+        try {
+          fileUrl = await fileUploadService.getFileViewUrl(statusToForward.fileId);
+        } catch (error) {
+          console.error('Error getting file URL:', error);
+        }
+      }
+      
+      // Create message content for forwarding
+      const statusMessage = JSON.stringify({
+        type: 'file',
+        fileId: statusToForward.fileId,
+        fileName: `status_${Date.now()}.${statusToForward.statusType === 'image' ? 'jpg' : 'mp4'}`,
+        fileType: statusToForward.statusType,
+        statusForward: true, // Mark as forwarded status
+      });
+      
+      // Forward to each target
+      for (const target of targets) {
+        try {
+          if (target.type === 'private' && target.contactEmail) {
+            // Encrypt for private chat
+            const encryptedData = await encryptionService.encryptPrivateMessage(
+              statusMessage,
+              userEmail,
+              target.contactEmail
+            );
+            socketService.emit(SOCKET_EVENTS.PRIVATE_MESSAGE, {
+              message: JSON.stringify(encryptedData),
+              contactEmail: target.contactEmail,
+              senderEmail: userEmail,
+            });
+            successCount++;
+          } else if (target.type === 'group' && target.groupId) {
+            // Send to group (no encryption needed)
+            socketService.emit(SOCKET_EVENTS.GROUP_MESSAGE, {
+              message: statusMessage,
+              groupId: target.groupId,
+              senderEmail: userEmail,
+            });
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Error forwarding to ${target.type === 'private' ? target.contactEmail : target.groupName}:`, error);
+          errorCount++;
+        }
+      }
+      
+      setShowForwardModal(false);
+      setStatusToForward(null);
+      
+      if (errorCount === 0) {
+        showAlert('Success', `Status forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'} successfully`, { type: 'success' });
+      } else {
+        showAlert('Partial Success', `Status forwarded to ${successCount} ${successCount === 1 ? 'contact' : 'contacts'}, ${errorCount} ${errorCount === 1 ? 'failed' : 'failed'}`, { type: 'warning' });
+      }
+    } catch (error) {
+      console.error('Error forwarding status:', error);
+      showAlert('Error', 'Failed to forward status', { type: 'error' });
+    }
+  };
+
   // Status Item Component
   const StatusItem = ({ item, index, onPress }) => {
     const { colors } = useTheme();
@@ -773,45 +909,81 @@ const Status = ({ userEmail, contacts = [] }) => {
           </View>
           
           {currentStatuses.length > 0 && (
-            <StatusContentView
-              status={currentStatuses[selectedStatusIndex]}
-              onClose={() => {
-                setShowStatusViewer(false);
-                setCurrentStatuses([]);
-                setSelectedStatusIndex(0);
-              }}
-              onNext={async () => {
-                if (selectedStatusIndex < currentStatuses.length - 1) {
-                  const nextIndex = selectedStatusIndex + 1;
-                  setSelectedStatusIndex(nextIndex);
-                  
-                  // Mark next status as viewed when navigating to it (only if not already viewed)
-                  const nextStatus = currentStatuses[nextIndex];
-                  if (nextStatus?.statusId) {
-                    const isAlreadyViewed = viewedStatusIds.has(nextStatus.statusId) || nextStatus.isViewed;
-                    
-                    if (!isAlreadyViewed) {
-                      await statusService.markAsViewed(nextStatus.statusId);
-                      // Track as viewed in current session
-                      setViewedStatusIds(prev => new Set(prev).add(nextStatus.statusId));
-                    }
-                  }
-                } else {
-                  // If last status, close viewer
+            <>
+              <StatusContentView
+                status={currentStatuses[selectedStatusIndex]}
+                onClose={() => {
                   setShowStatusViewer(false);
                   setCurrentStatuses([]);
                   setSelectedStatusIndex(0);
-                  await loadStatuses(); // Refresh to update viewed status
-                }
-              }}
-              onPrev={() => {
-                if (selectedStatusIndex > 0) {
-                  setSelectedStatusIndex(selectedStatusIndex - 1);
-                }
-              }}
-              currentIndex={selectedStatusIndex}
-              totalStatuses={currentStatuses.length}
-            />
+                }}
+                onNext={async () => {
+                  if (selectedStatusIndex < currentStatuses.length - 1) {
+                    const nextIndex = selectedStatusIndex + 1;
+                    setSelectedStatusIndex(nextIndex);
+                    
+                    // Mark next status as viewed when navigating to it (only if not already viewed)
+                    const nextStatus = currentStatuses[nextIndex];
+                    if (nextStatus?.statusId) {
+                      const isAlreadyViewed = viewedStatusIds.has(nextStatus.statusId) || nextStatus.isViewed;
+                      
+                      if (!isAlreadyViewed) {
+                        await statusService.markAsViewed(nextStatus.statusId);
+                        // Track as viewed in current session
+                        setViewedStatusIds(prev => new Set(prev).add(nextStatus.statusId));
+                      }
+                    }
+                  } else {
+                    // If last status, close viewer
+                    setShowStatusViewer(false);
+                    setCurrentStatuses([]);
+                    setSelectedStatusIndex(0);
+                    await loadStatuses(); // Refresh to update viewed status
+                  }
+                }}
+                onPrev={() => {
+                  if (selectedStatusIndex > 0) {
+                    setSelectedStatusIndex(selectedStatusIndex - 1);
+                  }
+                }}
+                currentIndex={selectedStatusIndex}
+                totalStatuses={currentStatuses.length}
+              />
+              
+              {/* Action Buttons - Bottom */}
+              <View style={styles.statusActionButtons}>
+                {/* Delete button - only for own status */}
+                {currentStatuses[selectedStatusIndex]?.email === userEmail && (
+                  <TouchableOpacity
+                    style={[styles.statusActionButton, { backgroundColor: 'rgba(255, 59, 48, 0.8)' }]}
+                    onPress={() => {
+                      setStatusToDelete(currentStatuses[selectedStatusIndex]?.statusId);
+                      setShowDeleteConfirm(true);
+                    }}
+                  >
+                    <Text style={styles.statusActionButtonText}>🗑️ Delete</Text>
+                  </TouchableOpacity>
+                )}
+                
+                {/* Save button - only for images */}
+                {currentStatuses[selectedStatusIndex]?.statusType === 'image' && (
+                  <TouchableOpacity
+                    style={[styles.statusActionButton, { backgroundColor: 'rgba(52, 199, 89, 0.8)' }]}
+                    onPress={handleSaveImage}
+                  >
+                    <Text style={styles.statusActionButtonText}>💾 Save</Text>
+                  </TouchableOpacity>
+                )}
+                
+                {/* Forward button - for all statuses */}
+                <TouchableOpacity
+                  style={[styles.statusActionButton, { backgroundColor: 'rgba(0, 122, 255, 0.8)' }]}
+                  onPress={handleForwardStatus}
+                >
+                  <Text style={styles.statusActionButtonText}>➡️ Forward</Text>
+                </TouchableOpacity>
+              </View>
+            </>
           )}
         </View>
       </Modal>
@@ -900,6 +1072,32 @@ const Status = ({ userEmail, contacts = [] }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteConfirm}
+        title="Delete Status"
+        message="Are you sure you want to delete this status? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteStatus}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setStatusToDelete(null);
+        }}
+        confirmButtonStyle="destructive"
+      />
+
+      {/* Forward Modal */}
+      <ForwardContactModal
+        visible={showForwardModal}
+        onClose={() => {
+          setShowForwardModal(false);
+          setStatusToForward(null);
+        }}
+        onSelectContacts={handleForwardConfirm}
+        message={statusToForward ? `Forwarding ${statusToForward.statusType === 'image' ? 'image' : 'video'} status` : ''}
+      />
     </View>
   );
 };

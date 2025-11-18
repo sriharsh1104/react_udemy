@@ -1,6 +1,7 @@
 const Status = require('../models/Status');
 const File = require('../models/File');
 const User = require('../models/User');
+const SavedPost = require('../models/SavedPost');
 const followService = require('./followService');
 
 class FeedService {
@@ -82,6 +83,14 @@ class FeedService {
         }
       }
 
+      // Get all saved posts for this user in one query
+      const statusIds = visibleStatuses.map(s => s._id);
+      const savedPosts = await SavedPost.find({
+        userEmail,
+        statusId: { $in: statusIds },
+      }).lean();
+      const savedPostIds = new Set(savedPosts.map(sp => sp.statusId.toString()));
+
       // Combine status with file info, user info, and interaction data
       const feedItems = visibleStatuses.map(status => {
         const file = fileMap[status.fileId];
@@ -92,6 +101,7 @@ class FeedService {
         
         const isLiked = status.likes.some(like => like.userEmail === userEmail);
         const isViewed = status.viewers.some(v => v.viewerEmail === userEmail);
+        const isSaved = savedPostIds.has(status._id.toString());
         
         return {
           statusId: status._id.toString(),
@@ -106,6 +116,7 @@ class FeedService {
           viewersCount: status.viewers.length,
           isLiked,
           isViewed,
+          isSaved,
           createdAt: status.createdAt,
           statusTime: this.getTimeAgo(status.createdAt),
         };
@@ -482,6 +493,51 @@ class FeedService {
     } catch (error) {
       console.error('Error deleting status:', error);
       throw error;
+    }
+  }
+
+  // Save/Unsave a post
+  async toggleSavePost(statusId, userEmail) {
+    try {
+      const status = await Status.findById(statusId);
+      if (!status) {
+        throw new Error('Status not found');
+      }
+
+      // Check if already saved
+      const existingSave = await SavedPost.findOne({ userEmail, statusId });
+      
+      if (existingSave) {
+        // Unsave
+        await SavedPost.deleteOne({ _id: existingSave._id });
+        return {
+          isSaved: false,
+        };
+      } else {
+        // Save
+        const savedPost = new SavedPost({
+          userEmail,
+          statusId,
+        });
+        await savedPost.save();
+        return {
+          isSaved: true,
+        };
+      }
+    } catch (error) {
+      console.error('Error toggling save post:', error);
+      throw error;
+    }
+  }
+
+  // Check if post is saved
+  async isPostSaved(statusId, userEmail) {
+    try {
+      const savedPost = await SavedPost.findOne({ userEmail, statusId });
+      return !!savedPost;
+    } catch (error) {
+      console.error('Error checking if post is saved:', error);
+      return false;
     }
   }
 

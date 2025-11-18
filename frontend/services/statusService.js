@@ -188,6 +188,160 @@ class StatusService {
       return errorResponse;
     }
   }
+
+  async deleteStatus(statusId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+
+      const response = await fetch(`${API_CONFIG.API_BASE}/feed/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusId }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        showToastFromResponse(data, { errorTitle: 'Failed to Delete Status' });
+      } else {
+        showToastFromResponse(data, { successTitle: 'Status Deleted Successfully' });
+      }
+      return data;
+    } catch (error) {
+      console.error('Error deleting status:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
+
+  async saveImage(fileId, fileName, statusUrl) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+
+      // Get file URL - prefer fileId, fallback to statusUrl
+      let downloadUrl = null;
+      if (fileId) {
+        try {
+          const fileUploadService = (await import('./fileUploadService')).default;
+          downloadUrl = await fileUploadService.getFileViewUrl(fileId);
+        } catch (error) {
+          console.error('Error getting file URL:', error);
+          // Fallback to statusUrl
+          downloadUrl = statusUrl?.startsWith('http') 
+            ? statusUrl 
+            : (statusUrl ? `${API_CONFIG.API_BASE}${statusUrl}` : null);
+        }
+      } else if (statusUrl) {
+        downloadUrl = statusUrl.startsWith('http') 
+          ? statusUrl 
+          : `${API_CONFIG.API_BASE}${statusUrl}`;
+      }
+
+      if (!downloadUrl) {
+        return {
+          success: false,
+          message: 'No file URL available',
+        };
+      }
+
+      // For web platform, trigger browser download
+      if (Platform.OS === 'web') {
+        try {
+          const response = await fetch(downloadUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error('Download failed');
+          }
+          
+          const blob = await response.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          
+          // Trigger browser download
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName || `status_${Date.now()}.jpg`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clean up blob URL after a delay
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+          
+          return {
+            success: true,
+            message: 'Image saved successfully',
+          };
+        } catch (error) {
+          console.error('Error saving image on web:', error);
+          return {
+            success: false,
+            message: 'Failed to save image',
+          };
+        }
+      }
+
+      // For native platforms, download to file system
+      try {
+        const fileExtension = fileName?.split('.').pop() || 'jpg';
+        const localFileName = fileName || `status_${Date.now()}.${fileExtension}`;
+        const fileUri = `${FileSystem.documentDirectory}${localFileName}`;
+        
+        const downloadResult = await FileSystem.downloadAsync(
+          downloadUrl,
+          fileUri,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          }
+        );
+        
+        if (downloadResult.status !== 200) {
+          throw new Error('Download failed');
+        }
+        
+        return {
+          success: true,
+          message: 'Image saved successfully',
+          localUri: downloadResult.uri,
+        };
+      } catch (error) {
+        console.error('Error saving image on native:', error);
+        return {
+          success: false,
+          message: 'Failed to save image',
+        };
+      }
+    } catch (error) {
+      console.error('Error saving image:', error);
+      return {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+    }
+  }
 }
 
 export default new StatusService();

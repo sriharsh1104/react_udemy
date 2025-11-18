@@ -364,6 +364,36 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     textAlign: 'center',
   },
+  statusActionButtons: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    gap: SPACING.sm,
+    zIndex: 10,
+  },
+  statusActionButton: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  statusActionButtonText: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
 });
 
 export default styles;
