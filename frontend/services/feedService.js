@@ -413,6 +413,44 @@ class FeedService {
       return errorResponse;
     }
   }
+
+  // Delete a status/post
+  async deleteStatus(statusId) {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        return {
+          success: false,
+          message: 'No token found',
+        };
+      }
+
+      const response = await fetch(`${API_CONFIG.API_BASE}/feed/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ statusId }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        showToastFromResponse(data, { errorTitle: 'Failed to Delete Post' });
+      } else {
+        showToastFromResponse(data, { successTitle: 'Post Deleted Successfully' });
+      }
+      return data;
+    } catch (error) {
+      console.error('Error deleting status:', error);
+      const errorResponse = {
+        success: false,
+        message: 'Network error. Please check your connection.',
+      };
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
 }
 
 export default new FeedService();

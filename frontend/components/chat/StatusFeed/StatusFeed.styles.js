@@ -16,7 +16,13 @@ const styles = StyleSheet.create({
   feedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: SPACING.md,
+  },
+  feedHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   feedAvatar: {
     width: 40,
@@ -40,6 +46,36 @@ const styles = StyleSheet.create({
   feedTime: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     marginTop: 2,
+  },
+  feedMenuButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SPACING.sm,
+  },
+  feedMenuIcon: {
+    fontSize: 24,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  postMenuContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    paddingBottom: SPACING.lg,
+  },
+  postMenuOption: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderBottomWidth: 1,
+  },
+  postMenuOptionText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    textAlign: 'center',
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
   fab: {
     position: 'absolute',

@@ -441,6 +441,50 @@ class FeedService {
     }
   }
 
+  // Delete a status/post
+  async deleteStatus(statusId, userEmail) {
+    try {
+      const status = await Status.findById(statusId);
+      if (!status) {
+        throw new Error('Status not found');
+      }
+
+      // Only owner can delete their own post
+      if (status.userEmail !== userEmail) {
+        throw new Error('Unauthorized - You can only delete your own posts');
+      }
+
+      // Delete the associated file
+      if (status.fileId) {
+        const file = await File.findOne({ fileId: status.fileId });
+        if (file && file.filePath) {
+          const fs = require('fs');
+          try {
+            if (fs.existsSync(file.filePath)) {
+              fs.unlinkSync(file.filePath);
+            }
+          } catch (fileError) {
+            console.error('Error deleting file:', fileError);
+            // Continue with status deletion even if file deletion fails
+          }
+        }
+        // Delete file record from database
+        await File.deleteOne({ fileId: status.fileId });
+      }
+
+      // Delete the status
+      await Status.deleteOne({ _id: statusId });
+
+      return {
+        success: true,
+        statusId: statusId.toString(),
+      };
+    } catch (error) {
+      console.error('Error deleting status:', error);
+      throw error;
+    }
+  }
+
   // Helper: Get time ago string
   getTimeAgo(date) {
     const now = new Date();

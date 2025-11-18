@@ -26,6 +26,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { API_CONFIG } from '../../../constants';
 import AlertModal from '../../common/AlertModal/AlertModal';
 import ActionModal from '../../common/ActionModal/ActionModal';
+import ConfirmationModal from '../../common/ConfirmationModal/ConfirmationModal';
 import useAlertModal from '../../../hooks/useAlertModal';
 import EmojiPicker from '../EmojiPicker';
 import GIFPicker from '../GIFPicker';
@@ -172,6 +173,10 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   // Emoji/GIF picker state for comments
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGIFPicker, setShowGIFPicker] = useState(false);
+  // Post menu state
+  const [showPostMenu, setShowPostMenu] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     // Only load feed when screen is focused
@@ -746,6 +751,37 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     }
   };
 
+  // Handle post menu press
+  const handlePostMenuPress = (statusId) => {
+    setSelectedPostId(statusId);
+    setShowPostMenu(true);
+  };
+
+  // Handle delete post confirmation
+  const handleDeletePostConfirm = () => {
+    setShowPostMenu(false);
+    setShowDeleteConfirm(true);
+  };
+
+  // Handle delete post
+  const handleDeletePost = async () => {
+    if (!selectedPostId) return;
+    
+    try {
+      const result = await feedService.deleteStatus(selectedPostId);
+      if (result.success) {
+        // Remove post from feed
+        setFeed(prev => prev.filter(item => item.statusId !== selectedPostId));
+        setShowDeleteConfirm(false);
+        setSelectedPostId(null);
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      showAlert('Error', 'Failed to delete post. Please try again.', 'error');
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const handleReplyPress = (commentId) => {
     setReplyingToCommentId(commentId);
     setReplyText('');
@@ -1030,24 +1066,36 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       <View style={[styles.feedItem, { backgroundColor: colors.background }]}>
         {/* Header */}
         <View style={styles.feedHeader}>
-          <View style={[styles.feedAvatar, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.feedAvatarText, { color: colors.white }]}>
-              {item.userName?.charAt(0).toUpperCase() || 'U'}
-            </Text>
+          <View style={styles.feedHeaderLeft}>
+            <View style={[styles.feedAvatar, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.feedAvatarText, { color: colors.white }]}>
+                {item.userName?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
+            <View style={styles.feedHeaderInfo}>
+              <TouchableOpacity
+                onPress={() => handleUserProfilePress(item.userEmail)}
+                activeOpacity={0.7}
+              >
+              <Text style={[styles.feedUserName, { color: colors.text }]}>
+                {item.userName || item.userEmail?.split('@')[0]}
+              </Text>
+              </TouchableOpacity>
+              <Text style={[styles.feedTime, { color: colors.textSecondary }]}>
+                {item.statusTime}
+              </Text>
+            </View>
           </View>
-          <View style={styles.feedHeaderInfo}>
+          {/* Only show delete option for own posts */}
+          {item.userEmail === userEmail && (
             <TouchableOpacity
-              onPress={() => handleUserProfilePress(item.userEmail)}
+              onPress={() => handlePostMenuPress(item.statusId)}
+              style={styles.feedMenuButton}
               activeOpacity={0.7}
             >
-            <Text style={[styles.feedUserName, { color: colors.text }]}>
-              {item.userName || item.userEmail?.split('@')[0]}
-            </Text>
+              <Text style={[styles.feedMenuIcon, { color: colors.text }]}>⋯</Text>
             </TouchableOpacity>
-            <Text style={[styles.feedTime, { color: colors.textSecondary }]}>
-              {item.statusTime}
-            </Text>
-          </View>
+          )}
         </View>
 
         {/* Media */}
@@ -1787,6 +1835,61 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Post Menu Modal */}
+      <Modal
+        visible={showPostMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowPostMenu(false);
+          setSelectedPostId(null);
+        }}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setShowPostMenu(false);
+            setSelectedPostId(null);
+          }}
+        >
+          <View style={[styles.postMenuContainer, { backgroundColor: colors.background }]}>
+            <TouchableOpacity
+              style={[styles.postMenuOption, { borderBottomColor: colors.divider }]}
+              onPress={handleDeletePostConfirm}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.postMenuOptionText, { color: '#FF3B30' }]}>Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.postMenuOption}
+              onPress={() => {
+                setShowPostMenu(false);
+                setSelectedPostId(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.postMenuOptionText, { color: colors.text }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteConfirm}
+        title="Delete Post"
+        message="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeletePost}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setSelectedPostId(null);
+        }}
+        confirmButtonStyle="destructive"
+      />
 
       {/* Alert Modal */}
       <AlertModal

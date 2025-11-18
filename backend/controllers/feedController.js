@@ -371,6 +371,31 @@ class FeedController {
       return sendSuccess(res, HTTP_STATUS.OK, result.isPinned ? 'Comment pinned successfully' : 'Comment unpinned successfully', result);
     }),
   ];
+
+  // Delete a status/post
+  deleteStatus = [
+    verifyToken,
+    asyncHandler(async (req, res) => {
+      const { statusId } = req.body;
+      
+      if (!statusId) {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Status ID is required');
+      }
+
+      try {
+        const result = await feedService.deleteStatus(statusId, req.userEmail);
+        return sendSuccess(res, HTTP_STATUS.OK, 'Post deleted successfully', result);
+      } catch (error) {
+        if (error.message.includes('Unauthorized')) {
+          return sendError(res, HTTP_STATUS.FORBIDDEN, error.message);
+        }
+        if (error.message.includes('not found')) {
+          return sendError(res, HTTP_STATUS.NOT_FOUND, error.message);
+        }
+        return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Failed to delete post');
+      }
+    }),
+  ];
 }
 
 module.exports = new FeedController();

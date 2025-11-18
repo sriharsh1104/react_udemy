@@ -122,6 +122,7 @@ router.get('/feed/comments/:statusId', feedController.getComments);
 router.post('/feed/comment-like', feedController.toggleCommentLike);
 router.post('/feed/pin-comment', feedController.togglePinComment);
 router.post('/feed/caption', feedController.updateCaption);
+router.post('/feed/delete', feedController.deleteStatus);
 router.get('/feed/search', feedController.searchProfiles);
 router.post('/feed/profile', feedController.getProfile);
 router.post('/feed/follow', feedController.followUser);
