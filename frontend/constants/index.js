@@ -1,6 +1,6 @@
 // API Configuration
 // Production backend URL
-const PRODUCTION_API_URL = 'http://172.16.15.87:3001';
+const PRODUCTION_API_URL = 'https://react-udemy-yaks.onrender.com';
 
 // Use environment variables if available, otherwise use defaults
 const getApiUrl = () => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -32,10 +32,14 @@ const CallHistory = ({ visible, onClose, userEmail, contactEmail, groupId, isGro
     }
   }, [contactEmail, groupId, isGroup]);
 
+  // Prevent multiple simultaneous API calls
+  const isLoadingRef = useRef(false);
   useEffect(() => {
-    if (visible) {
-      loadCallHistory();
-    }
+    if (!visible || isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    loadCallHistory().finally(() => {
+      isLoadingRef.current = false;
+    });
   }, [visible, loadCallHistory]);
 
   // Listen to socket events to refresh call history

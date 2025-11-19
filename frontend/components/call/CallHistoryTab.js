@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -48,11 +48,6 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
     }
   }, []);
 
-  useEffect(() => {
-    loadCallHistory();
-    loadContacts();
-  }, [loadCallHistory]);
-
   const loadContacts = useCallback(async () => {
     try {
       const result = await contactsService.getContacts();
@@ -63,6 +58,15 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
       console.error('Error loading contacts:', error);
     }
   }, []);
+
+  // Prevent multiple simultaneous API calls
+  const isInitialized = useRef(false);
+  useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+    loadCallHistory();
+    loadContacts();
+  }, [loadCallHistory, loadContacts]);
 
   // Listen to socket events to refresh call history
   useEffect(() => {
