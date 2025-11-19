@@ -148,13 +148,23 @@ const StatusContentView = ({ status, onClose, onNext, onPrev, currentIndex, tota
           setStatusUrl(url);
         } catch (error) {
           console.error('Error loading status URL:', error);
-          // Fallback to statusUrl from backend
-          const fallbackUrl = status.statusUrl?.startsWith('http') 
-    ? status.statusUrl 
-            : status.statusUrl 
-      ? `${API_CONFIG.BASE_URL}${status.statusUrl}` 
-      : null;
-          setStatusUrl(fallbackUrl);
+          // Fallback to statusUrl from backend with token
+          if (status.statusUrl) {
+            try {
+              const token = await AsyncStorage.getItem('authToken');
+              const baseUrl = status.statusUrl.startsWith('http') 
+                ? status.statusUrl 
+                : `${API_CONFIG.BASE_URL}${status.statusUrl}`;
+              const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+              setStatusUrl(finalUrl);
+            } catch (err) {
+              console.error('Error getting token:', err);
+              const baseUrl = status.statusUrl.startsWith('http') 
+                ? status.statusUrl 
+                : `${API_CONFIG.BASE_URL}${status.statusUrl}`;
+              setStatusUrl(baseUrl);
+            }
+          }
         }
       } else if (status.statusUrl) {
         // Fallback: construct URL manually with token

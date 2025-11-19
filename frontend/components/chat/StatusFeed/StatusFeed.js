@@ -14,6 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING } from '../../../constants';
 import { useTheme } from '../../../contexts/ThemeContext';
 import contactsService from '../../../services/contactsService';
@@ -93,16 +94,70 @@ const CaptionInputComponent = ({ onPost, onCancel, colors }) => {
 // Status Content Viewer Component
 const StatusContentView = ({ status }) => {
   const { colors } = useTheme();
+  const [statusUrl, setStatusUrl] = useState(null);
   const isVideo = status?.statusType === 'video' && status?.statusUrl;
+  
+  // Load status URL with authentication token
+  useEffect(() => {
+    const loadStatusUrl = async () => {
+      if (!status) return;
+      
+      // If fileId is available, use fileUploadService to get URL with token
+      if (status.fileId) {
+        try {
+          const url = await fileUploadService.getFileViewUrl(status.fileId);
+          setStatusUrl(url);
+        } catch (error) {
+          console.error('Error loading status URL:', error);
+          // Fallback to statusUrl from backend with token
+          if (status.statusUrl) {
+            try {
+              const token = await AsyncStorage.getItem('authToken');
+              const baseUrl = status.statusUrl.startsWith('http') 
+                ? status.statusUrl 
+                : `${API_CONFIG.BASE_URL}${status.statusUrl}`;
+              const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+              setStatusUrl(finalUrl);
+            } catch (err) {
+              console.error('Error getting token:', err);
+              const baseUrl = status.statusUrl.startsWith('http') 
+                ? status.statusUrl 
+                : `${API_CONFIG.BASE_URL}${status.statusUrl}`;
+              setStatusUrl(baseUrl);
+            }
+          }
+        }
+      } else if (status.statusUrl) {
+        // Fallback: construct URL manually with token
+        try {
+          const token = await AsyncStorage.getItem('authToken');
+          const baseUrl = status.statusUrl.startsWith('http') 
+            ? status.statusUrl 
+            : `${API_CONFIG.BASE_URL}${status.statusUrl}`;
+          const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+          setStatusUrl(finalUrl);
+        } catch (error) {
+          console.error('Error getting token:', error);
+          const baseUrl = status.statusUrl.startsWith('http') 
+            ? status.statusUrl 
+            : `${API_CONFIG.BASE_URL}${status.statusUrl}`;
+          setStatusUrl(baseUrl);
+        }
+      }
+    };
+    
+    loadStatusUrl();
+  }, [status]);
+  
   // Always call hook, but pass null if not video
-  const player = useVideoPlayer(isVideo ? status.statusUrl : '', (player) => {
-    if (isVideo && player) {
+  const player = useVideoPlayer(isVideo && statusUrl ? statusUrl : '', (player) => {
+    if (isVideo && player && statusUrl) {
       player.loop = true;
       player.play();
     }
   });
 
-  if (!status || !status.statusUrl) {
+  if (!status || !statusUrl) {
     return (
       <View style={styles.statusContentView}>
         <Text style={{ color: COLORS.white }}>No status content</Text>
@@ -121,7 +176,7 @@ const StatusContentView = ({ status }) => {
         />
       ) : (
         <Image
-          source={{ uri: status.statusUrl }}
+          source={{ uri: statusUrl }}
           style={styles.statusImage}
           resizeMode="contain"
         />
@@ -1051,33 +1106,58 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
     
     // Load image URL with authentication token
     useEffect(() => {
-      if (item.fileId && !isVideo) {
-        fileUploadService.getFileViewUrl(item.fileId).then(url => {
-          if (url) setImageUrl(url);
-        }).catch(err => {
-          console.error('Error loading image URL:', err);
+      const loadUrl = async () => {
+        if (item.fileId && !isVideo) {
+          try {
+            const url = await fileUploadService.getFileViewUrl(item.fileId);
+            if (url) {
+              setImageUrl(url);
+              return;
+            }
+          } catch (err) {
+            console.error('Error loading image URL:', err);
+          }
           // Fallback to statusUrl if available
           if (item.statusUrl) {
-            const fallbackUrl = item.statusUrl.startsWith('http') 
+            try {
+              const token = await AsyncStorage.getItem('authToken');
+              const baseUrl = item.statusUrl.startsWith('http') 
+                ? item.statusUrl 
+                : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
+              const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+              setImageUrl(finalUrl);
+            } catch (err) {
+              console.error('Error getting token:', err);
+              const baseUrl = item.statusUrl.startsWith('http') 
+                ? item.statusUrl 
+                : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
+              setImageUrl(baseUrl);
+            }
+          }
+        } else if (item.statusUrl) {
+          // For videos or if fileId is not available, use statusUrl with token
+          try {
+            const token = await AsyncStorage.getItem('authToken');
+            const baseUrl = item.statusUrl.startsWith('http') 
               ? item.statusUrl 
               : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
-            setImageUrl(fallbackUrl);
+            const finalUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+            setImageUrl(finalUrl);
+          } catch (err) {
+            console.error('Error getting token:', err);
+            const baseUrl = item.statusUrl.startsWith('http') 
+              ? item.statusUrl 
+              : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
+            setImageUrl(baseUrl);
           }
-        });
-      } else if (item.statusUrl) {
-        // For videos or if fileId is not available, use statusUrl directly
-        const url = item.statusUrl.startsWith('http') 
-          ? item.statusUrl 
-          : `${API_CONFIG.BASE_URL}${item.statusUrl}`;
-        setImageUrl(url);
-      }
+        }
+      };
+      
+      loadUrl();
     }, [item.fileId, item.statusUrl, isVideo]);
     
-    const statusUrl = imageUrl || (item.statusUrl?.startsWith('http') 
-      ? item.statusUrl 
-      : item.statusUrl 
-        ? `${API_CONFIG.BASE_URL}${item.statusUrl}` 
-        : null);
+    // Use imageUrl which is already set with token by useEffect above
+    const statusUrl = imageUrl;
     
     // Initialize animation if needed
     if (!likeAnimations.current[item.statusId]) {
