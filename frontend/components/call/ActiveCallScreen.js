@@ -10,6 +10,17 @@ import {
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../constants';
 
+// Import RTCView for mobile platforms
+let RTCView = null;
+if (Platform.OS !== 'web') {
+  try {
+    const RTCModule = require('react-native-webrtc');
+    RTCView = RTCModule.RTCView || RTCModule.default?.RTCView;
+  } catch (error) {
+    console.warn('RTCView not available:', error);
+  }
+}
+
 const ActiveCallScreen = ({
   visible,
   participantName,
@@ -184,18 +195,50 @@ const ActiveCallScreen = ({
       {/* Video View (if video call) */}
       {callType === 'video' && remoteStream && (
         <View style={styles.videoContainer} ref={remoteVideoContainerRef}>
-          <View style={styles.remoteVideoPlaceholder}>
-            <Text style={styles.videoPlaceholderText}>Remote Video</Text>
-          </View>
+          {Platform.OS === 'web' ? (
+            // Web platform - video element is attached via useEffect
+            <View style={styles.remoteVideoPlaceholder}>
+              <Text style={styles.videoPlaceholderText}>Remote Video</Text>
+            </View>
+          ) : RTCView && remoteStream && typeof remoteStream.toURL === 'function' ? (
+            // Mobile platform - use RTCView
+            <RTCView
+              streamURL={remoteStream.toURL()}
+              style={styles.remoteVideo}
+              objectFit="cover"
+              mirror={false}
+              zOrder={0}
+            />
+          ) : (
+            <View style={styles.remoteVideoPlaceholder}>
+              <Text style={styles.videoPlaceholderText}>Remote Video</Text>
+            </View>
+          )}
         </View>
       )}
 
       {/* Local video (if video call) */}
       {callType === 'video' && localStream && (
         <View style={styles.localVideoContainer} ref={localVideoContainerRef}>
-          <View style={styles.localVideoPlaceholder}>
-            <Text style={styles.videoPlaceholderText}>You</Text>
-          </View>
+          {Platform.OS === 'web' ? (
+            // Web platform - video element is attached via useEffect
+            <View style={styles.localVideoPlaceholder}>
+              <Text style={styles.videoPlaceholderText}>You</Text>
+            </View>
+          ) : RTCView && localStream && typeof localStream.toURL === 'function' ? (
+            // Mobile platform - use RTCView
+            <RTCView
+              streamURL={localStream.toURL()}
+              style={styles.localVideo}
+              objectFit="cover"
+              mirror={true}
+              zOrder={1}
+            />
+          ) : (
+            <View style={styles.localVideoPlaceholder}>
+              <Text style={styles.videoPlaceholderText}>You</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -269,6 +312,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.black,
   },
+  remoteVideo: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
   remoteVideoPlaceholder: {
     flex: 1,
     justifyContent: 'center',
@@ -290,6 +338,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.receivedMessage,
     borderWidth: 2,
     borderColor: COLORS.primary,
+  },
+  localVideo: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   localVideoPlaceholder: {
     flex: 1,

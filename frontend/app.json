@@ -14,7 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.onlygossips247.app"
+      "bundleIdentifier": "com.onlygossips247.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to your camera to make video calls.",
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone to make audio and video calls."
+      }
     },
     "android": {
       "package": "com.onlygossips247.app",

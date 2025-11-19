@@ -3,6 +3,26 @@ import { SOCKET_EVENTS } from '../constants';
 import callService from './callService';
 import { Platform, Alert } from 'react-native';
 
+// Import react-native-webrtc for mobile platforms
+let RTCModule = null;
+let RTCPeerConnectionMobile = null;
+let RTCSessionDescriptionMobile = null;
+let RTCIceCandidateMobile = null;
+let mediaDevicesMobile = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    RTCModule = require('react-native-webrtc');
+    // Extract the classes we need
+    RTCPeerConnectionMobile = RTCModule.RTCPeerConnection || RTCModule.default?.RTCPeerConnection;
+    RTCSessionDescriptionMobile = RTCModule.RTCSessionDescription || RTCModule.default?.RTCSessionDescription;
+    RTCIceCandidateMobile = RTCModule.RTCIceCandidate || RTCModule.default?.RTCIceCandidate;
+    mediaDevicesMobile = RTCModule.mediaDevices || RTCModule.default?.mediaDevices;
+  } catch (error) {
+    console.warn('react-native-webrtc not available:', error);
+  }
+}
+
 class WebRTCService {
   constructor() {
     this.peerConnections = new Map();
@@ -82,21 +102,12 @@ class WebRTCService {
         return stream;
       } else {
         // Mobile platform (iOS/Android)
-        // For React Native, we need react-native-webrtc or expo-av
-        // Check if react-native-webrtc is available
-        try {
-          // Try to use react-native-webrtc if available
-          const { mediaDevices } = require('react-native-webrtc');
-          if (mediaDevices && mediaDevices.getUserMedia) {
-            return await mediaDevices.getUserMedia(constraints);
-          }
-        } catch (rnError) {
-          // react-native-webrtc not available
-          console.warn('react-native-webrtc not found, WebRTC calls may not work on mobile');
+        // Use react-native-webrtc
+        if (!mediaDevicesMobile || !mediaDevicesMobile.getUserMedia) {
+          throw new Error('WebRTC calls require react-native-webrtc package for mobile. Please install it: npm install react-native-webrtc');
         }
         
-        // Fallback: Show helpful error
-        throw new Error('WebRTC calls require react-native-webrtc package for mobile. Please install it: npm install react-native-webrtc');
+        return await mediaDevicesMobile.getUserMedia(constraints);
       }
     } catch (error) {
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
@@ -472,13 +483,11 @@ class WebRTCService {
       // Web platform - use browser WebRTC API
       RTCPeerConnectionClass = RTCPeerConnection;
     } else {
-      // Mobile platform - try to use react-native-webrtc
-      try {
-        const { RTCPeerConnection: RTC } = require('react-native-webrtc');
-        RTCPeerConnectionClass = RTC;
-      } catch (error) {
+      // Mobile platform - use react-native-webrtc
+      if (!RTCPeerConnectionMobile) {
         throw new Error('RTCPeerConnection not available. Please install react-native-webrtc for mobile support.');
       }
+      RTCPeerConnectionClass = RTCPeerConnectionMobile;
     }
 
     const peerConnection = new RTCPeerConnectionClass(configuration);
@@ -553,7 +562,16 @@ class WebRTCService {
           return;
         }
         
-        await peerConnection.setRemoteDescription(new RTCSessionDescription({
+        // Get RTCSessionDescription class based on platform
+        const RTCSessionDescriptionClass = Platform.OS === 'web' 
+          ? RTCSessionDescription 
+          : RTCSessionDescriptionMobile;
+        
+        if (!RTCSessionDescriptionClass) {
+          throw new Error('RTCSessionDescription not available. Please install react-native-webrtc for mobile support.');
+        }
+        
+        await peerConnection.setRemoteDescription(new RTCSessionDescriptionClass({
           type: 'offer',
           sdp: normalizedSignal.sdp,
         }));
@@ -589,7 +607,16 @@ class WebRTCService {
           return;
         }
         
-        await peerConnection.setRemoteDescription(new RTCSessionDescription({
+        // Get RTCSessionDescription class based on platform
+        const RTCSessionDescriptionClass = Platform.OS === 'web' 
+          ? RTCSessionDescription 
+          : RTCSessionDescriptionMobile;
+        
+        if (!RTCSessionDescriptionClass) {
+          throw new Error('RTCSessionDescription not available. Please install react-native-webrtc for mobile support.');
+        }
+        
+        await peerConnection.setRemoteDescription(new RTCSessionDescriptionClass({
           type: 'answer',
           sdp: normalizedSignal.sdp,
         }));
@@ -660,9 +687,18 @@ class WebRTCService {
           validCandidateData.usernameFragment = candidateData.usernameFragment;
         }
         
+        // Get RTCIceCandidate class based on platform
+        const RTCIceCandidateClass = Platform.OS === 'web' 
+          ? RTCIceCandidate 
+          : RTCIceCandidateMobile;
+        
+        if (!RTCIceCandidateClass) {
+          throw new Error('RTCIceCandidate not available. Please install react-native-webrtc for mobile support.');
+        }
+        
         // Add the validated ICE candidate
         try {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(validCandidateData));
+          await peerConnection.addIceCandidate(new RTCIceCandidateClass(validCandidateData));
         } catch (iceError) {
           // If adding candidate fails, log but don't throw (candidates can arrive out of order)
           // This is common when candidates arrive before remote description is set
