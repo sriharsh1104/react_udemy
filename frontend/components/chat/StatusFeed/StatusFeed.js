@@ -13,7 +13,7 @@ import {
   Animated,
   ScrollView,
 } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING } from '../../../constants';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -196,6 +196,8 @@ const StatusContentView = ({ status }) => {
 const StatusFeed = ({ userEmail, contacts = [] }) => {
   const { colors } = useTheme();
   const isFocused = useIsFocused(); // Check if screen is focused
+  const route = useRoute(); // Get current route to verify we're on Feed screen
+  const isFeedScreen = route?.name === 'Feed'; // Only true when actually on Feed screen
   const { showAlert, showAction, alertState, actionState, hideAlert, hideAction } = useAlertModal();
   const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -242,12 +244,13 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [savedPosts, setSavedPosts] = useState(new Set());
 
   useEffect(() => {
-    // Only load feed when screen is focused
+    // Only load feed when screen is focused AND we're actually on Feed screen
+    // This prevents feed API from being called when navigating to Chat or other screens
     // Note: contacts is not needed here - it's only used for forwarding posts
-    if (isFocused) {
+    if (isFocused && isFeedScreen) {
       loadFeed();
     }
-  }, [userEmail, feedMode, isFocused]);
+  }, [userEmail, feedMode, isFocused, isFeedScreen]);
 
   const loadFeed = async (pageNum = 1, append = false) => {
     if (pageNum === 1) {
@@ -290,13 +293,17 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   };
 
   const loadMore = () => {
-    if (hasMore && !loading) {
+    // Only load more if we're on Feed screen
+    if (isFeedScreen && hasMore && !loading) {
       loadFeed(page + 1, true);
     }
   };
 
   const handleRefresh = () => {
-    loadFeed(1, false);
+    // Only refresh if we're on Feed screen
+    if (isFeedScreen) {
+      loadFeed(1, false);
+    }
   };
 
   const handleAddStatus = async () => {
