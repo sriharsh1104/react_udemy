@@ -147,11 +147,11 @@ export const useGroupChat = (userEmail, groupId) => {
     const handleGroupMessage = async (data) => {
       console.log('Received group message:', data, 'Current group:', groupId, 'User:', userEmail);
       
-      // Only handle messages from the group (not from ourselves via optimistic update)
+      // Handle messages from the group (including from ourselves for echo/confirmation)
       const isFromGroup = data.groupId === groupId;
       const isFromSelf = data.senderEmail === userEmail;
       
-      if (isFromGroup && !isFromSelf) {
+      if (isFromGroup) {
         // Ensure data.message is a string before decrypting
         const messageToDecrypt = typeof data.message === 'string' 
           ? data.message 
@@ -164,43 +164,131 @@ export const useGroupChat = (userEmail, groupId) => {
         // CRITICAL: Check by messageId first (most reliable), then by content
         setMessages((prev) => {
           let messageExists = false;
+          let existingMessageIndex = -1;
           const messageId = data._id || data.messageId;
           
           // First check by messageId (most reliable)
           if (messageId) {
-            messageExists = prev.some(
+            existingMessageIndex = prev.findIndex(
               (msg) => (msg.messageId || msg._id) === messageId
             );
+            messageExists = existingMessageIndex >= 0;
           }
           
-          // If not found by ID, check by content, sender, and timestamp
+          // If not found by ID, check by content, sender, and timestamp (for optimistic updates)
           if (!messageExists) {
-            messageExists = prev.some(
-              (msg) => {
-                // If message has ID, only match by ID
-                if (msg.messageId || msg._id) {
-                  return false; // Already checked above
-                }
-                // Otherwise, match by content, sender, and timestamp (within 2 seconds for reliability)
-                return (
-                  msg.message === decryptedMessage &&
-                  msg.senderEmail === data.senderEmail &&
-                  Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 2000
+            // For file messages, compare by fileId instead of full JSON (more reliable)
+            try {
+              const dataParsed = typeof decryptedMessage === 'string' ? JSON.parse(decryptedMessage) : decryptedMessage;
+              
+              if (dataParsed && dataParsed.type === 'file') {
+                // Match file messages by fileId
+                existingMessageIndex = prev.findIndex(
+                  (msg) => {
+                    // If message has ID, only match by ID (already checked above)
+                    if (msg.messageId || msg._id) {
+                      return false;
+                    }
+                    
+                    try {
+                      const msgParsed = typeof msg.message === 'string' ? JSON.parse(msg.message) : msg.message;
+                      if (msgParsed && msgParsed.type === 'file') {
+                        if (msgParsed.fileId && dataParsed.fileId) {
+                          return (
+                            msgParsed.fileId === dataParsed.fileId &&
+                            msg.senderEmail === data.senderEmail &&
+                            Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 5000
+                          );
+                        }
+                        // If fileId not available, match by fileName, fileType, and timestamp
+                        return (
+                          msgParsed.fileName === dataParsed.fileName &&
+                          msgParsed.fileType === dataParsed.fileType &&
+                          msg.senderEmail === data.senderEmail &&
+                          Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 5000
+                        );
+                      }
+                    } catch {
+                      return false;
+                    }
+                    return false;
+                  }
                 );
+                messageExists = existingMessageIndex >= 0;
               }
-            );
+            } catch {
+              // Not JSON, fall through to regular comparison
+            }
+            
+            // Regular text message comparison
+            if (!messageExists) {
+              existingMessageIndex = prev.findIndex(
+                (msg) => {
+                  // If message has ID, only match by ID (already checked above)
+                  if (msg.messageId || msg._id) {
+                    return false;
+                  }
+                  // Otherwise, match by content, sender, and timestamp (within 3 seconds for reliability)
+                  return (
+                    msg.message === decryptedMessage &&
+                    msg.senderEmail === data.senderEmail &&
+                    Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 3000
+                  );
+                }
+              );
+              messageExists = existingMessageIndex >= 0;
+            }
           }
           
-          if (messageExists) {
-            console.log('Duplicate group message ignored:', decryptedMessage, 'messageId:', messageId);
-            return prev;
+          // If duplicate found, UPDATE it if incoming message has messageId but existing doesn't
+          if (messageExists && existingMessageIndex >= 0) {
+            const existingMsg = prev[existingMessageIndex];
+            const hasMessageId = !!(messageId);
+            const existingHasMessageId = !!(existingMsg.messageId || existingMsg._id);
+            
+            // If incoming message has messageId but existing doesn't, UPDATE existing message (optimistic update)
+            if (hasMessageId && !existingHasMessageId) {
+              console.log("Updating optimistic group message with messageId:", messageId);
+              const updated = [...prev];
+              updated[existingMessageIndex] = {
+                ...existingMsg,
+                messageId: messageId,
+                _id: messageId,
+                status: data.status || existingMsg.status || "sent",
+                timestamp: data.timestamp || existingMsg.timestamp,
+                replyTo: data.replyTo !== undefined ? data.replyTo : existingMsg.replyTo,
+                replyToMessage: data.replyToMessage !== undefined ? data.replyToMessage : existingMsg.replyToMessage,
+                replyToSender: data.replyToSender !== undefined ? data.replyToSender : existingMsg.replyToSender,
+                readBy: data.readBy !== undefined ? data.readBy : existingMsg.readBy,
+                isPinned: data.isPinned !== undefined ? data.isPinned : existingMsg.isPinned,
+                isBillSplit: data.isBillSplit !== undefined ? data.isBillSplit : existingMsg.isBillSplit,
+                billSplitData: data.billSplitData !== undefined ? data.billSplitData : existingMsg.billSplitData,
+              };
+              
+              // Update in local storage
+              chatStorageService.updateMessage(
+                userEmail,
+                null,
+                messageId,
+                updated[existingMessageIndex],
+                true,
+                groupId
+              ).catch(err => console.error('Error updating optimistic group message in storage:', err));
+              
+              return updated;
+            } else {
+              // Both have messageId or both don't - ignore duplicate
+              console.log("Duplicate group message ignored:", decryptedMessage, "messageId:", messageId);
+              return prev;
+            }
           }
           
+          // Not a duplicate - add new message
           const newMessage = {
             senderEmail: data.senderEmail,
             message: decryptedMessage,
             timestamp: data.timestamp,
-            isSent: false, // Always false since this is from another member
+            isSent: isFromSelf, // True if from current user, false if from another member
             messageId: messageId || null,
             _id: messageId || null,
             isPinned: data.isPinned || false,
