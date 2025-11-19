@@ -396,6 +396,29 @@ class SocketService {
         // Also emit to sender to refresh their contact list (in case contact was re-added)
         const senderSocketId = await userService.getSocketByEmail(senderEmail);
         if (senderSocketId) {
+          // Send message echo back to sender so they can see it immediately with messageId
+          const senderSocket = this.io.sockets.sockets.get(senderSocketId);
+          if (senderSocket) {
+            // Ensure sender is in the room
+            if (!senderSocket.rooms.has(roomId)) {
+              senderSocket.join(roomId);
+            }
+            
+            // Send message echo to sender with messageId
+            const senderMessagePayload = {
+              ...messageData,
+              roomId,
+              contactEmail: contactEmail,
+              receiverEmail: contactEmail,
+              messageId: savedMessage._id.toString(),
+              replyTo: savedMessage.replyTo || null,
+              replyToMessage: savedMessage.replyToMessage || null,
+              replyToSender: savedMessage.replyToSender || null,
+            };
+            
+            senderSocket.emit('privateMessage', senderMessagePayload);
+          }
+          
           this.io.to(senderSocketId).emit('contactsUpdated', {
             contactEmail: contactEmail,
             action: 'message_sent',
@@ -434,6 +457,29 @@ class SocketService {
       // Emit contacts update event to sender to refresh their contact list (in case contact was re-added)
       const senderSocketId = await userService.getSocketByEmail(senderEmail);
       if (senderSocketId) {
+        // Send message echo back to sender so they can see it immediately with messageId
+        const senderSocket = this.io.sockets.sockets.get(senderSocketId);
+        if (senderSocket) {
+          // Ensure sender is in the room
+          if (!senderSocket.rooms.has(roomId)) {
+            senderSocket.join(roomId);
+          }
+          
+          // Send message echo to sender with messageId
+          const senderMessagePayload = {
+            ...messageData,
+            roomId,
+            contactEmail: contactEmail,
+            receiverEmail: contactEmail,
+            messageId: savedMessage._id.toString(),
+            replyTo: savedMessage.replyTo || null,
+            replyToMessage: savedMessage.replyToMessage || null,
+            replyToSender: savedMessage.replyToSender || null,
+          };
+          
+          senderSocket.emit('privateMessage', senderMessagePayload);
+        }
+        
         this.io.to(senderSocketId).emit('contactsUpdated', {
           contactEmail: contactEmail,
           action: 'message_sent',
