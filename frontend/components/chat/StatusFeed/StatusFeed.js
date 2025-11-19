@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   TextInput,
   Animated,
+  Image,
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -66,14 +67,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [savedPosts, setSavedPosts] = useState(new Set());
 
-  useEffect(() => {
-    // Only load feed when screen is focused
-    if (isFocused) {
-      loadFeed();
-    }
-  }, [contacts, userEmail, feedMode, isFocused]);
-
-  const loadFeed = async (pageNum = 1, append = false) => {
+  const loadFeed = useCallback(async (pageNum = 1, append = false) => {
     if (pageNum === 1) {
       setLoading(true);
     } else {
@@ -111,7 +105,14 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [feedMode]);
+
+  useEffect(() => {
+    // Only load feed when screen is focused
+    if (isFocused) {
+      loadFeed();
+    }
+  }, [userEmail, feedMode, isFocused, loadFeed]);
 
   const loadMore = () => {
     if (hasMore && !loading) {
