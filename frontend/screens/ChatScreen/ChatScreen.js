@@ -125,8 +125,8 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   } = state;
 
   // Chat hooks - Now contactEmail and groupId are available
-  const { messages: privateMessages, typingUser, loadingMessages: loadingPrivateMessages, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage, updateMessage: updatePrivateMessage } = useChat(userEmail, contactEmail, () => {});
-  const { messages: groupMessages, typingUsers, loadingMessages: loadingGroupMessages, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping, removePendingMessage: removeGroupPendingMessage, updateMessage: updateGroupMessage } = useGroupChat(userEmail, groupId);
+  const { messages: privateMessages, typingUser, loadingMessages: loadingPrivateMessages, sendMessage: sendPrivateMessage, sendTyping: sendPrivateTyping, markMessagesAsRead: markPrivateMessagesAsRead, removePendingMessage: removePrivatePendingMessage, updateMessage: updatePrivateMessage, retryMessage: retryPrivateMessage } = useChat(userEmail, contactEmail, () => {});
+  const { messages: groupMessages, typingUsers, loadingMessages: loadingGroupMessages, sendMessage: sendGroupMessage, sendTyping: sendGroupTyping, removePendingMessage: removeGroupPendingMessage, updateMessage: updateGroupMessage, retryMessage: retryGroupMessage } = useGroupChat(userEmail, groupId);
   
   // Call management
   const {
@@ -157,6 +157,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   const sendMessage = chatType === 'group' ? sendGroupMessage : sendPrivateMessage;
   const sendTyping = chatType === 'group' ? sendGroupTyping : sendPrivateTyping;
   const updateMessage = chatType === 'group' ? updateGroupMessage : updatePrivateMessage;
+  const retryMessage = chatType === 'group' ? retryGroupMessage : retryPrivateMessage;
   const currentTypingUser = chatType === 'group' ? (typingUsers.length > 0 ? typingUsers[0] : null) : typingUser;
   const actualOnlineStatus = isConnected && !offlineMode;
 
@@ -433,16 +434,36 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     showAlert,
   });
     
-  // Auto-scroll to bottom when new messages arrive
+  // Track if user is at bottom of chat (for WhatsApp-like auto-scroll behavior)
+  const isAtBottomRef = useRef(true);
+  
+  // Handle scroll position changes from ChatContent
+  const handleScrollPositionChange = useCallback((isNearBottom) => {
+    isAtBottomRef.current = isNearBottom;
+  }, []);
+  
+  // Auto-scroll to bottom when new message arrives, only if user is at bottom
   useEffect(() => {
-    if (messages.length > 0 && flatListRef.current) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: false });
-        }, 100);
-      });
+    if (messages.length > 0 && flatListRef.current && isAtBottomRef.current) {
+      // Small delay to ensure message is rendered
+      const timer = setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [messages.length, messages[messages.length - 1]?.messageId]);
+  
+  // Initial scroll to bottom when chat opens
+  useEffect(() => {
+    if (messages.length > 0 && flatListRef.current && (contactEmail || groupId)) {
+      // Scroll to bottom when chat first loads
+      const timer = setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+        isAtBottomRef.current = true;
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [contactEmail, groupId]); // Only when chat changes
 
   // Mark messages as read
   const hasMarkedAsRead = useRef(false);
@@ -548,9 +569,10 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
             logger.error('Error marking as paid:', error);
           }
         }}
+        onRetry={retryMessage ? (failedMessage) => retryMessage(failedMessage) : undefined}
       />
     );
-  }, [userEmail, chatType, currentGroup, groupId, selectedMessages, chatHandlers, getUsernameFromEmail]);
+  }, [userEmail, chatType, currentGroup, groupId, selectedMessages, chatHandlers, getUsernameFromEmail, retryMessage]);
 
   // Load message info
   const loadMessageInfo = useCallback(async (messageId) => {
@@ -648,6 +670,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         handleUnpinFromBanner={handleUnpinFromBanner}
         currentGroup={currentGroup}
         colors={colors}
+        onScrollPositionChange={handleScrollPositionChange}
       />
     );
   }, [

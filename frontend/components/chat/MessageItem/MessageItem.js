@@ -9,7 +9,7 @@ import AlertModal from '../../common/AlertModal/AlertModal';
 import useAlertModal from '../../../hooks/useAlertModal';
 import styles from './MessageItem.styles';
 
-const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt, onMenuPress, isCallMessage, callRecord, isBillSplit, billSplitData, onMarkAsPaid }) => {
+const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, status, messageId, isPinned, isCreator, onPin, onUnpin, groupId, onSelect, isSelected, isGroup, replyTo, replyToMessage, replyToSender, userEmail, isDeleted, editedAt, onMenuPress, isCallMessage, callRecord, isBillSplit, billSplitData, onMarkAsPaid, onRetry }) => {
   const { showAlert, alertState, hideAlert } = useAlertModal();
   const [fileData, setFileData] = useState(null);
   const [downloading, setDownloading] = useState(false);
@@ -435,8 +435,18 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
                 hour12: false 
               })}
             </Text>
+            {/* Show retry icon for failed messages */}
+            {isMyMessage && status === 'failed' && onRetry && (
+              <TouchableOpacity
+                onPress={() => onRetry({ message, timestamp, senderEmail: userEmail })}
+                style={styles.retryButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.retryIcon}>↻</Text>
+              </TouchableOpacity>
+            )}
             {/* Show tick marks for sent messages */}
-            {isMyMessage && (
+            {isMyMessage && status !== 'failed' && (
               <Text style={[
                 styles.tickMark,
                 status === 'read' ? styles.tickMarkRead : 
@@ -622,8 +632,18 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
               hour12: false 
             })}
           </Text>
+          {/* Show retry icon for failed messages */}
+          {isMyMessage && messageStatus === 'failed' && onRetry && (
+            <TouchableOpacity
+              onPress={() => onRetry({ message, timestamp, senderEmail: userEmail })}
+              style={styles.retryButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.retryIcon}>↻</Text>
+            </TouchableOpacity>
+          )}
           {/* Show tick marks for sent messages */}
-          {isMyMessage && (
+          {isMyMessage && messageStatus !== 'failed' && (
             <Text style={[
               styles.tickMark,
               messageStatus === 'read' ? styles.tickMarkRead : 

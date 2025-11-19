@@ -4,9 +4,7 @@ import { SOCKET_EVENTS } from "../constants";
 import encryptionService from "../services/encryptionService";
 import chatStorageService from "../services/chatStorageService";
 
-// Constants for memory management
-const MAX_MESSAGES_IN_MEMORY = 500; // Limit messages to prevent memory leaks
-const MESSAGE_CLEANUP_THRESHOLD = 600; // Cleanup when exceeding this
+// Removed message limits - WhatsApp-like behavior: all messages accessible
 
 export const useChat = (userEmail, contactEmail, onMessageReceived) => {
   const [messages, setMessages] = useState([]);
@@ -95,21 +93,7 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     }
   }, [userEmail, contactEmail]);
   
-  /**
-   * Cleanup old messages to prevent memory leaks
-   * Keeps only the most recent MAX_MESSAGES_IN_MEMORY messages
-   */
-  const cleanupOldMessages = useCallback((messageArray) => {
-    if (messageArray.length <= MAX_MESSAGES_IN_MEMORY) {
-      return messageArray;
-    }
-    
-    // Keep only the most recent messages
-    const sorted = [...messageArray].sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-    );
-    return sorted.slice(-MAX_MESSAGES_IN_MEMORY);
-  }, []);
+  // Removed cleanupOldMessages - WhatsApp shows all messages
 
   // Load messages from local storage when contactEmail changes (chat switch)
   useEffect(() => {
@@ -192,10 +176,16 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
 
     const handlePrivateMessage = async (data) => {
       // Handle messages from the contact OR call messages (which can be from either user)
-      const isFromContact =
-        data.senderEmail === contactEmail && data.senderEmail !== userEmail;
+      // Also handle messages sent by user (for echo/confirmation)
+      const isFromContact = data.senderEmail === contactEmail && data.senderEmail !== userEmail;
+      const isFromUser = data.senderEmail === userEmail;
       const isCallMessage = data.isCallMessage === true;
-      const isRelevantMessage = isFromContact || (isCallMessage && data.receiverEmail === contactEmail);
+      // Check if message is relevant to this chat (either sender or receiver matches)
+      // This handles both: messages FROM contact TO user, and messages FROM user TO contact (echo)
+      const isRelevantToChat = 
+        (data.senderEmail === contactEmail || data.senderEmail === userEmail) &&
+        (data.receiverEmail === contactEmail || data.receiverEmail === userEmail || !data.receiverEmail);
+      const isRelevantMessage = isRelevantToChat || isCallMessage;
 
       if (isRelevantMessage) {
         // For call messages, don't decrypt (they're plain text system messages)
@@ -218,31 +208,119 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           : await decryptMessageIfNeeded(messageToDecrypt, data.senderEmail);
 
         // Check if message already exists (prevent duplicates)
-        // For call messages, check by messageId or sessionId to be more reliable
+        // CRITICAL: Check by messageId first (most reliable), then by content
+        // If duplicate found but incoming has messageId and existing doesn't, UPDATE existing
         setMessages((prev) => {
           let messageExists = false;
+          let existingMessageIndex = -1;
+          const messageId = data.messageId || data._id;
           
-          if (isCallMessage && data.callRecord?.sessionId) {
-            // For call messages, check by sessionId in callRecord
-            messageExists = prev.some(
-              (msg) =>
-                msg.isCallMessage &&
-                msg.callRecord?.sessionId === data.callRecord.sessionId
+          // First check by messageId (most reliable)
+          if (messageId) {
+            existingMessageIndex = prev.findIndex(
+              (msg) => (msg.messageId || msg._id) === messageId
             );
-          } else {
-            // For regular messages, check by content and timestamp
-            messageExists = prev.some(
-            (msg) =>
-              msg.message === decryptedMessage &&
-              msg.senderEmail === data.senderEmail &&
-              Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) <
-                1000 // Within 1 second
-          );
+            messageExists = existingMessageIndex >= 0;
+          }
+          
+          // If not found by ID, check by other criteria (for optimistic updates)
+          if (!messageExists) {
+            if (isCallMessage && data.callRecord?.sessionId) {
+              // For call messages, check by sessionId in callRecord
+              existingMessageIndex = prev.findIndex(
+                (msg) =>
+                  msg.isCallMessage &&
+                  msg.callRecord?.sessionId === data.callRecord.sessionId
+              );
+              messageExists = existingMessageIndex >= 0;
+            } else {
+              // For regular messages, check by content, sender, and timestamp
+              // This helps match optimistic messages (without messageId) with server confirmations (with messageId)
+              existingMessageIndex = prev.findIndex(
+                (msg) => {
+                  // If message has ID, only match by ID (already checked above)
+                  if (msg.messageId || msg._id) {
+                    return false;
+                  }
+                  
+                  // For file messages, compare by fileId instead of full JSON (more reliable)
+                  try {
+                    const msgParsed = typeof msg.message === 'string' ? JSON.parse(msg.message) : msg.message;
+                    const dataParsed = typeof decryptedMessage === 'string' ? JSON.parse(decryptedMessage) : decryptedMessage;
+                    
+                    if (msgParsed && msgParsed.type === 'file' && dataParsed && dataParsed.type === 'file') {
+                      // Match file messages by fileId (most reliable)
+                      if (msgParsed.fileId && dataParsed.fileId) {
+                        return (
+                          msgParsed.fileId === dataParsed.fileId &&
+                          msg.senderEmail === data.senderEmail &&
+                          Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 5000 // 5 seconds for file uploads
+                        );
+                      }
+                      // If fileId not available, match by fileName, fileType, and timestamp
+                      return (
+                        msgParsed.fileName === dataParsed.fileName &&
+                        msgParsed.fileType === dataParsed.fileType &&
+                        msg.senderEmail === data.senderEmail &&
+                        Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 5000
+                      );
+                    }
+                  } catch {
+                    // Not JSON, fall through to regular comparison
+                  }
+                  
+                  // Regular text message comparison
+                  return (
+                    msg.message === decryptedMessage &&
+                    msg.senderEmail === data.senderEmail &&
+                    Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 3000
+                  );
+                }
+              );
+              messageExists = existingMessageIndex >= 0;
+            }
           }
 
-          if (messageExists) {
-            console.log("Duplicate message ignored:", decryptedMessage);
-            return prev;
+          // If duplicate found, UPDATE it if incoming message has messageId but existing doesn't
+          if (messageExists && existingMessageIndex >= 0) {
+            const existingMsg = prev[existingMessageIndex];
+            const hasMessageId = !!(messageId);
+            const existingHasMessageId = !!(existingMsg.messageId || existingMsg._id);
+            
+            // If incoming message has messageId but existing doesn't, UPDATE existing message
+            if (hasMessageId && !existingHasMessageId) {
+              console.log("Updating optimistic message with messageId:", messageId);
+              const updated = [...prev];
+              updated[existingMessageIndex] = {
+                ...existingMsg,
+                messageId: messageId,
+                _id: messageId,
+                status: data.status || existingMsg.status || "sent", // Use server status if available
+                timestamp: data.timestamp || existingMsg.timestamp, // Use server timestamp
+                // Update other fields from server if available
+                replyTo: data.replyTo !== undefined ? data.replyTo : existingMsg.replyTo,
+                replyToMessage: data.replyToMessage !== undefined ? data.replyToMessage : existingMsg.replyToMessage,
+                replyToSender: data.replyToSender !== undefined ? data.replyToSender : existingMsg.replyToSender,
+                isDeleted: data.isDeleted !== undefined ? data.isDeleted : existingMsg.isDeleted,
+                editedAt: data.editedAt !== undefined ? data.editedAt : existingMsg.editedAt,
+              };
+              
+              // Update in local storage
+              chatStorageService.updateMessage(
+                userEmail,
+                contactEmail,
+                messageId,
+                updated[existingMessageIndex],
+                false,
+                null
+              ).catch(err => console.error('Error updating optimistic message in storage:', err));
+              
+              return updated;
+            } else {
+              // Both have messageId or both don't - ignore duplicate
+              console.log("Duplicate message ignored:", decryptedMessage, "messageId:", messageId);
+              return prev;
+            }
           }
 
           // Notify parent component that a new message was received (to refresh contacts)
@@ -255,8 +333,8 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             message: decryptedMessage,
             timestamp: data.timestamp,
             isSent: data.senderEmail === userEmail, // True if from current user, false if from contact
-            messageId: data.messageId || data._id || null,
-            status: data.senderEmail === userEmail ? "sent" : "delivered", // Sent if from us, delivered if from contact
+            messageId: messageId || null,
+            status: data.senderEmail === userEmail ? (data.status || "sent") : "delivered", // Use status from server if available
             replyTo: data.replyTo || null,
             replyToMessage: data.replyToMessage || null,
             replyToSender: data.replyToSender || null,
@@ -268,15 +346,6 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             billSplitData: data.billSplitData || null,
           };
 
-          // Send read receipt immediately if we have messageId (only for messages from contact, not our own)
-          if (data.messageId && !readMessageIds.current.has(data.messageId) && data.senderEmail !== userEmail) {
-            readMessageIds.current.add(data.messageId);
-            socketService.emit(SOCKET_EVENTS.MESSAGE_READ, {
-              messageId: data.messageId,
-              senderEmail: data.senderEmail,
-            });
-          }
-
           const updatedMessages = [...prev, newMessage];
           
           // Save to local storage
@@ -284,9 +353,17 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             console.error('Error saving message to storage:', err);
           });
           
-          // Cleanup old messages if threshold exceeded
-          if (updatedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
-            return cleanupOldMessages(updatedMessages);
+          // Send read receipt AFTER message is added to state (only for messages from contact, not our own)
+          // Use setTimeout to ensure state update completes first
+          if (messageId && !readMessageIds.current.has(messageId) && data.senderEmail !== userEmail) {
+            readMessageIds.current.add(messageId);
+            // Delay read receipt slightly to ensure message is displayed
+            setTimeout(() => {
+              socketService.emit(SOCKET_EVENTS.MESSAGE_READ, {
+                messageId: messageId,
+                senderEmail: data.senderEmail,
+              });
+            }, 100);
           }
           
           return updatedMessages;
@@ -331,10 +408,7 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           })
         );
 
-        // Cleanup old messages if threshold exceeded before merging
-        if (formattedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
-          formattedMessages = cleanupOldMessages(formattedMessages);
-        }
+        // No cleanup - keep all messages
 
         // Merge with cached messages from local storage
         const cachedMessages = await chatStorageService.loadPrivateChatMessages(userEmail, contactEmail);
@@ -347,33 +421,37 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           if (prev.length > 0) {
             // Create a map of existing messages by messageId for quick lookup
             const existingMessagesMap = new Map();
+            const messagesWithoutId = [];
             prev.forEach((msg) => {
-              if (msg.messageId) {
-                existingMessagesMap.set(msg.messageId, msg);
+              if (msg.messageId || msg._id) {
+                existingMessagesMap.set(msg.messageId || msg._id, msg);
+              } else {
+                messagesWithoutId.push(msg);
               }
             });
 
             // Merge: keep existing messages that aren't in history (optimistic updates)
             // and add/update messages from history
-            const finalMerged = [...prev];
+            const finalMerged = [];
 
+            // First, add all history messages (they're already sorted)
             mergedMessages.forEach((historyMsg) => {
-              if (historyMsg.messageId) {
-                const existingIndex = finalMerged.findIndex(
-                  (m) => m.messageId === historyMsg.messageId
-                );
-                if (existingIndex >= 0) {
+              const historyMsgId = historyMsg.messageId || historyMsg._id;
+              if (historyMsgId) {
+                const existingMsg = existingMessagesMap.get(historyMsgId);
+                if (existingMsg) {
                   // Update existing message with history data (preserve status if it's more recent)
-                  finalMerged[existingIndex] = {
-                    ...finalMerged[existingIndex],
+                  finalMerged.push({
+                    ...existingMsg,
                     ...historyMsg,
                     // Keep the more recent status if we have one
                     status:
-                      finalMerged[existingIndex].status === "read" ||
-                      finalMerged[existingIndex].status === "delivered"
-                        ? finalMerged[existingIndex].status
+                      existingMsg.status === "read" ||
+                      existingMsg.status === "delivered"
+                        ? existingMsg.status
                         : historyMsg.status,
-                  };
+                  });
+                  existingMessagesMap.delete(historyMsgId); // Remove from map to track what's left
                 } else {
                   // Add new message from history
                   finalMerged.push(historyMsg);
@@ -386,10 +464,40 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
                     m.senderEmail === historyMsg.senderEmail &&
                     Math.abs(
                       new Date(m.timestamp) - new Date(historyMsg.timestamp)
-                    ) < 1000
+                    ) < 2000
                 );
                 if (!isDuplicate) {
                   finalMerged.push(historyMsg);
+                }
+              }
+            });
+
+            // Add remaining existing messages that weren't in history (optimistic updates)
+            // These are messages that were added optimistically but haven't been confirmed by server yet
+            existingMessagesMap.forEach((msg) => {
+              // Only add if it's recent (within last 5 minutes) to avoid adding very old optimistic messages
+              const msgAge = Date.now() - new Date(msg.timestamp).getTime();
+              if (msgAge < 5 * 60 * 1000) {
+                finalMerged.push(msg);
+              }
+            });
+
+            // Add messages without IDs that weren't duplicates
+            messagesWithoutId.forEach((msg) => {
+              const isDuplicate = finalMerged.some(
+                (m) =>
+                  (!m.messageId && !m._id) &&
+                  m.message === msg.message &&
+                  m.senderEmail === msg.senderEmail &&
+                  Math.abs(
+                    new Date(m.timestamp) - new Date(msg.timestamp)
+                  ) < 2000
+              );
+              if (!isDuplicate) {
+                const msgAge = Date.now() - new Date(msg.timestamp).getTime();
+                // Only add recent optimistic messages
+                if (msgAge < 5 * 60 * 1000) {
+                  finalMerged.push(msg);
                 }
               }
             });
@@ -399,18 +507,11 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
               (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
             );
 
-            // Cleanup old messages if threshold exceeded
-            if (finalMerged.length > MESSAGE_CLEANUP_THRESHOLD) {
-              return cleanupOldMessages(finalMerged);
-            }
-            
             return finalMerged;
           }
 
-          // First load - return merged messages (already cleaned up if needed)
-          return mergedMessages.length > MESSAGE_CLEANUP_THRESHOLD 
-            ? cleanupOldMessages(mergedMessages)
-            : mergedMessages;
+          // First load - return all merged messages
+          return mergedMessages;
         });
         
         // Save merged messages to local storage
@@ -419,20 +520,23 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         });
 
         // Send read receipts for messages from contact that haven't been read yet
-        formattedMessages.forEach((msg) => {
-          if (
-            !msg.isSent &&
-            msg.messageId &&
-            !readMessageIds.current.has(msg.messageId)
-          ) {
-            // Mark as read and send receipt
-            readMessageIds.current.add(msg.messageId);
-            socketService.emit(SOCKET_EVENTS.MESSAGE_READ, {
-              messageId: msg.messageId,
-              senderEmail: msg.senderEmail,
-            });
-          }
-        });
+        // Only send after a delay to ensure messages are displayed first
+        setTimeout(() => {
+          formattedMessages.forEach((msg) => {
+            if (
+              !msg.isSent &&
+              msg.messageId &&
+              !readMessageIds.current.has(msg.messageId)
+            ) {
+              // Mark as read and send receipt
+              readMessageIds.current.add(msg.messageId);
+              socketService.emit(SOCKET_EVENTS.MESSAGE_READ, {
+                messageId: msg.messageId,
+                senderEmail: msg.senderEmail,
+              });
+            }
+          });
+        }, 500); // Delay to ensure messages are displayed
         setLoadingMessages(false);
       }
     };
@@ -671,7 +775,7 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
       // Optionally clear decryption cache on unmount
       // decryptionCache.current.clear();
     };
-  }, [socket, userEmail, contactEmail, cleanupOldMessages, decryptMessageIfNeeded]);
+  }, [socket, userEmail, contactEmail, decryptMessageIfNeeded]);
 
   const sendMessage = async (message, replyInfo = null) => {
     if (message.trim() && socket && contactEmail && userEmail) {
@@ -708,10 +812,6 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         chatStorageService.addMessage(userEmail, contactEmail, tempMessage, false, null).catch(err => {
           console.error('Error saving optimistic message to storage:', err);
         });
-        // Cleanup old messages if threshold exceeded
-        if (updated.length > MESSAGE_CLEANUP_THRESHOLD) {
-          return cleanupOldMessages(updated);
-        }
         return updated;
       });
 
@@ -801,20 +901,59 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           socketExists: !!socketService.getSocket(),
         });
 
-        // Remove optimistic message on error
+        // Mark optimistic message as failed instead of removing it
+        // For file messages, need to parse JSON to match properly
         setMessages((prev) =>
-          prev.filter(
-            (msg) =>
-              !(
-                msg.message === displayMessage &&
-                msg.senderEmail === userEmail &&
-                msg.isSent
-              )
-          )
+          prev.map((msg) => {
+            // Check if it's a file message
+            try {
+              const msgParsed = typeof msg.message === 'string' ? JSON.parse(msg.message) : msg.message;
+              const displayParsed = typeof displayMessage === 'string' ? JSON.parse(displayMessage) : displayMessage;
+              
+              if (msgParsed && msgParsed.type === 'file' && displayParsed && displayParsed.type === 'file') {
+                // Match file messages by fileId
+                if (msgParsed.fileId && displayParsed.fileId) {
+                  if (
+                    msgParsed.fileId === displayParsed.fileId &&
+                    msg.senderEmail === userEmail &&
+                    msg.isSent &&
+                    !msg.messageId // Only mark optimistic messages as failed
+                  ) {
+                    return { ...msg, status: 'failed' };
+                  }
+                } else {
+                  // Match by fileName and fileType if fileId not available
+                  if (
+                    msgParsed.fileName === displayParsed.fileName &&
+                    msgParsed.fileType === displayParsed.fileType &&
+                    msg.senderEmail === userEmail &&
+                    msg.isSent &&
+                    !msg.messageId
+                  ) {
+                    return { ...msg, status: 'failed' };
+                  }
+                }
+              }
+            } catch {
+              // Not JSON, fall through to regular comparison
+            }
+            
+            // Regular text message comparison
+            if (
+              msg.message === displayMessage &&
+              msg.senderEmail === userEmail &&
+              msg.isSent &&
+              !msg.messageId // Only mark optimistic messages as failed
+            ) {
+              return { ...msg, status: 'failed' };
+            }
+            
+            return msg;
+          })
         );
 
-        // Show user-friendly error (optional - you can add toast here if needed)
-        // For now, just log it - the UI will show the message was removed
+        // Show user-friendly error
+        console.error("❌ Message send failed, marked as failed for retry");
       }
     }
   };
@@ -883,6 +1022,52 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     });
   }, []);
 
+  // Function to retry sending a failed message
+  const retryMessage = useCallback(async (failedMessage) => {
+    if (!failedMessage || !socket || !contactEmail || !userEmail) return;
+    
+    // Find the failed message in the list
+    const messageToRetry = messages.find(
+      (msg) =>
+        msg.status === 'failed' &&
+        msg.message === failedMessage.message &&
+        msg.senderEmail === userEmail &&
+        msg.timestamp === failedMessage.timestamp
+    );
+    
+    if (!messageToRetry) {
+      console.error('Failed message not found for retry');
+      return;
+    }
+    
+    // Extract reply info if present
+    const replyInfo = messageToRetry.replyTo ? {
+      replyTo: messageToRetry.replyTo,
+      replyToMessage: messageToRetry.replyToMessage,
+      replyToSender: messageToRetry.replyToSender,
+    } : null;
+    
+    // Change status to 'sending' while retrying
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg === messageToRetry ? { ...msg, status: 'sent' } : msg
+      )
+    );
+    
+    // Retry sending the message
+    try {
+      await sendMessage(messageToRetry.message, replyInfo);
+    } catch (error) {
+      console.error('Retry failed:', error);
+      // Mark as failed again if retry fails
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg === messageToRetry ? { ...msg, status: 'failed' } : msg
+        )
+      );
+    }
+  }, [messages, socket, contactEmail, userEmail, sendMessage]);
+
   // Memoize messages to prevent unnecessary re-renders
   const memoizedMessages = useMemo(() => {
     return messages;
@@ -897,5 +1082,6 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     markMessagesAsRead,
     removePendingMessage,
     updateMessage,
+    retryMessage,
   };
 };

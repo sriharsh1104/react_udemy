@@ -172,6 +172,17 @@ const styles = StyleSheet.create({
     color: '#4FC3F7', // Light blue color for read messages (WhatsApp style)
     opacity: 1,
   },
+  retryButton: {
+    marginLeft: SPACING.xs,
+    padding: SPACING.xs / 2,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  retryIcon: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.white,
+    fontWeight: 'bold',
+  },
   pinnedBubble: {
     borderWidth: 1,
     borderColor: COLORS.primary,

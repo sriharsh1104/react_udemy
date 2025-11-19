@@ -4,9 +4,7 @@ import { SOCKET_EVENTS } from '../constants';
 import encryptionService from '../services/encryptionService';
 import chatStorageService from '../services/chatStorageService';
 
-// Constants for memory management
-const MAX_MESSAGES_IN_MEMORY = 500; // Limit messages to prevent memory leaks
-const MESSAGE_CLEANUP_THRESHOLD = 600; // Cleanup when exceeding this
+// Removed message limits - WhatsApp-like behavior: all messages accessible
 
 export const useGroupChat = (userEmail, groupId) => {
   const [messages, setMessages] = useState([]);
@@ -70,21 +68,7 @@ export const useGroupChat = (userEmail, groupId) => {
     }
   }, [groupId]);
   
-  /**
-   * Cleanup old messages to prevent memory leaks
-   * Keeps only the most recent MAX_MESSAGES_IN_MEMORY messages
-   */
-  const cleanupOldMessages = useCallback((messageArray) => {
-    if (messageArray.length <= MAX_MESSAGES_IN_MEMORY) {
-      return messageArray;
-    }
-    
-    // Keep only the most recent messages
-    const sorted = [...messageArray].sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-    );
-    return sorted.slice(-MAX_MESSAGES_IN_MEMORY);
-  }, []);
+  // Removed cleanupOldMessages - WhatsApp shows all messages
 
   // Load messages from local storage when groupId changes (group switch)
   useEffect(() => {
@@ -177,15 +161,38 @@ export const useGroupChat = (userEmail, groupId) => {
         const decryptedMessage = await decryptMessageIfNeeded(messageToDecrypt);
         
         // Check if message already exists (prevent duplicates)
+        // CRITICAL: Check by messageId first (most reliable), then by content
         setMessages((prev) => {
-          const messageExists = prev.some(
-            msg => msg.message === decryptedMessage && 
-                   msg.senderEmail === data.senderEmail && 
-                   Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 1000 // Within 1 second
-          );
+          let messageExists = false;
+          const messageId = data._id || data.messageId;
+          
+          // First check by messageId (most reliable)
+          if (messageId) {
+            messageExists = prev.some(
+              (msg) => (msg.messageId || msg._id) === messageId
+            );
+          }
+          
+          // If not found by ID, check by content, sender, and timestamp
+          if (!messageExists) {
+            messageExists = prev.some(
+              (msg) => {
+                // If message has ID, only match by ID
+                if (msg.messageId || msg._id) {
+                  return false; // Already checked above
+                }
+                // Otherwise, match by content, sender, and timestamp (within 2 seconds for reliability)
+                return (
+                  msg.message === decryptedMessage &&
+                  msg.senderEmail === data.senderEmail &&
+                  Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 2000
+                );
+              }
+            );
+          }
           
           if (messageExists) {
-            console.log('Duplicate group message ignored:', decryptedMessage);
+            console.log('Duplicate group message ignored:', decryptedMessage, 'messageId:', messageId);
             return prev;
           }
           
@@ -194,8 +201,8 @@ export const useGroupChat = (userEmail, groupId) => {
             message: decryptedMessage,
             timestamp: data.timestamp,
             isSent: false, // Always false since this is from another member
-            messageId: data._id || data.messageId,
-            _id: data._id || data.messageId,
+            messageId: messageId || null,
+            _id: messageId || null,
             isPinned: data.isPinned || false,
             replyTo: data.replyTo || null,
             replyToMessage: data.replyToMessage || null,
@@ -212,11 +219,6 @@ export const useGroupChat = (userEmail, groupId) => {
           chatStorageService.addMessage(userEmail, null, newMessage, true, groupId).catch(err => {
             console.error('Error saving group message to storage:', err);
           });
-          
-          // Cleanup old messages if threshold exceeded
-          if (updatedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
-            return cleanupOldMessages(updatedMessages);
-          }
           
           return updatedMessages;
         });
@@ -263,12 +265,8 @@ export const useGroupChat = (userEmail, groupId) => {
         const cachedMessages = await chatStorageService.loadGroupChatMessages(groupId);
         const mergedMessages = chatStorageService.mergeMessages(cachedMessages, formattedMessages);
         
-        // Cleanup old messages if threshold exceeded
-        if (mergedMessages.length > MESSAGE_CLEANUP_THRESHOLD) {
-          setMessages(cleanupOldMessages(mergedMessages));
-        } else {
-          setMessages(mergedMessages);
-        }
+        // No cleanup - keep all messages
+        setMessages(mergedMessages);
         
         // Save merged messages to local storage
         chatStorageService.saveGroupChatMessages(groupId, mergedMessages).catch(err => {
@@ -508,7 +506,7 @@ export const useGroupChat = (userEmail, groupId) => {
       // Optionally clear decryption cache on unmount
       // decryptionCache.current.clear();
     };
-  }, [socket, userEmail, groupId, cleanupOldMessages, decryptMessageIfNeeded]);
+  }, [socket, userEmail, groupId, decryptMessageIfNeeded]);
 
   const sendMessage = async (message, replyInfo = null) => {
     if (message.trim() && socket && groupId && userEmail) {
@@ -544,10 +542,6 @@ export const useGroupChat = (userEmail, groupId) => {
         chatStorageService.addMessage(userEmail, null, tempMessage, true, groupId).catch(err => {
           console.error('Error saving optimistic group message to storage:', err);
         });
-        // Cleanup old messages if threshold exceeded
-        if (updated.length > MESSAGE_CLEANUP_THRESHOLD) {
-          return cleanupOldMessages(updated);
-        }
         return updated;
       });
       
@@ -577,10 +571,55 @@ export const useGroupChat = (userEmail, groupId) => {
       });
       } catch (error) {
         console.error('Error encrypting group message:', error);
-        // Remove optimistic message on error
-        setMessages((prev) => prev.filter(msg => 
-          !(msg.message === displayMessage && msg.senderEmail === userEmail && msg.isSent)
-        ));
+        // Mark optimistic message as failed instead of removing it
+        setMessages((prev) =>
+          prev.map((msg) => {
+            // Check if it's a file message
+            try {
+              const msgParsed = typeof msg.message === 'string' ? JSON.parse(msg.message) : msg.message;
+              const displayParsed = typeof displayMessage === 'string' ? JSON.parse(displayMessage) : displayMessage;
+              
+              if (msgParsed && msgParsed.type === 'file' && displayParsed && displayParsed.type === 'file') {
+                // Match file messages by fileId
+                if (msgParsed.fileId && displayParsed.fileId) {
+                  if (
+                    msgParsed.fileId === displayParsed.fileId &&
+                    msg.senderEmail === userEmail &&
+                    msg.isSent &&
+                    !msg.messageId
+                  ) {
+                    return { ...msg, status: 'failed' };
+                  }
+                } else {
+                  // Match by fileName and fileType if fileId not available
+                  if (
+                    msgParsed.fileName === displayParsed.fileName &&
+                    msgParsed.fileType === displayParsed.fileType &&
+                    msg.senderEmail === userEmail &&
+                    msg.isSent &&
+                    !msg.messageId
+                  ) {
+                    return { ...msg, status: 'failed' };
+                  }
+                }
+              }
+            } catch {
+              // Not JSON, fall through to regular comparison
+            }
+            
+            // Regular text message comparison
+            if (
+              msg.message === displayMessage &&
+              msg.senderEmail === userEmail &&
+              msg.isSent &&
+              !msg.messageId
+            ) {
+              return { ...msg, status: 'failed' };
+            }
+            
+            return msg;
+          })
+        );
       }
     }
   };
@@ -625,6 +664,52 @@ export const useGroupChat = (userEmail, groupId) => {
     });
   }, []);
 
+  // Function to retry sending a failed message
+  const retryMessage = useCallback(async (failedMessage) => {
+    if (!failedMessage || !socket || !groupId || !userEmail) return;
+    
+    // Find the failed message in the list
+    const messageToRetry = messages.find(
+      (msg) =>
+        msg.status === 'failed' &&
+        msg.message === failedMessage.message &&
+        msg.senderEmail === userEmail &&
+        msg.timestamp === failedMessage.timestamp
+    );
+    
+    if (!messageToRetry) {
+      console.error('Failed message not found for retry');
+      return;
+    }
+    
+    // Extract reply info if present
+    const replyInfo = messageToRetry.replyTo ? {
+      replyTo: messageToRetry.replyTo,
+      replyToMessage: messageToRetry.replyToMessage,
+      replyToSender: messageToRetry.replyToSender,
+    } : null;
+    
+    // Change status to 'sent' while retrying
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg === messageToRetry ? { ...msg, status: 'sent' } : msg
+      )
+    );
+    
+    // Retry sending the message
+    try {
+      await sendMessage(messageToRetry.message, replyInfo);
+    } catch (error) {
+      console.error('Retry failed:', error);
+      // Mark as failed again if retry fails
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg === messageToRetry ? { ...msg, status: 'failed' } : msg
+        )
+      );
+    }
+  }, [messages, socket, groupId, userEmail, sendMessage]);
+
   // Memoize messages to prevent unnecessary re-renders
   const memoizedMessages = useMemo(() => {
     return messages;
@@ -638,6 +723,7 @@ export const useGroupChat = (userEmail, groupId) => {
     sendTyping,
     removePendingMessage,
     updateMessage,
+    retryMessage,
   };
 };
 

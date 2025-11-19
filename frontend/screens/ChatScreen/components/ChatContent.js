@@ -3,7 +3,7 @@
  * Renders the main chat interface (messages, input, etc.)
  */
 
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { View, FlatList, Text } from 'react-native';
 import MessageItem from '../../../components/chat/MessageItem';
@@ -53,7 +53,41 @@ const ChatContent = ({
   handleUnpinFromBanner,
   currentGroup,
   colors,
+  onScrollPositionChange,
 }) => {
+  const contentHeightRef = useRef(0);
+  const scrollOffsetRef = useRef(0);
+  
+  // Track scroll position to determine if user is at bottom (WhatsApp-like behavior)
+  const handleScroll = useCallback((event) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    scrollOffsetRef.current = contentOffset.y;
+    contentHeightRef.current = contentSize.height;
+    
+    // Check if user is near bottom (within 100px)
+    const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
+    const isNearBottom = distanceFromBottom < 100;
+    
+    if (onScrollPositionChange) {
+      onScrollPositionChange(isNearBottom);
+    }
+  }, [onScrollPositionChange]);
+  
+  // Auto-scroll to bottom when content size changes (new message) only if user is at bottom
+  const handleContentSizeChange = useCallback((contentWidth, contentHeight) => {
+    const previousHeight = contentHeightRef.current;
+    const heightDiff = contentHeight - previousHeight;
+    contentHeightRef.current = contentHeight;
+    
+    // Only auto-scroll if:
+    // 1. New content was added (height increased)
+    // 2. User is near bottom (within 100px)
+    if (heightDiff > 0 && scrollOffsetRef.current + 100 >= previousHeight - 100) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+    }
+  }, [flatListRef]);
   return (
     <>
       {/* Message Action Bar */}
@@ -108,20 +142,22 @@ const ChatContent = ({
             }}
             style={styles.messagesList}
             contentContainerStyle={styles.messagesContent}
-            onContentSizeChange={() => {
-              requestAnimationFrame(() => {
-                setTimeout(() => {
-                  flatListRef.current?.scrollToEnd({ animated: false });
-                }, 100);
-              });
-            }}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
             inverted={false}
-            removeClippedSubviews={false}
-            maxToRenderPerBatch={15}
-            updateCellsBatchingPeriod={50}
-            initialNumToRender={15}
-            windowSize={10}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={20}
+            updateCellsBatchingPeriod={100}
+            initialNumToRender={20}
+            windowSize={21}
+            onScroll={handleScroll}
+            scrollEventThrottle={200}
+            onContentSizeChange={handleContentSizeChange}
+            onScrollToIndexFailed={(info) => {
+              // Fallback for scroll failures
+              setTimeout(() => {
+                flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
+              }, 100);
+            }}
           />
         )}
       </View>
@@ -193,6 +229,7 @@ ChatContent.propTypes = {
   handleUnpinFromBanner: PropTypes.func.isRequired,
   currentGroup: PropTypes.object,
   colors: PropTypes.object.isRequired,
+  onScrollPositionChange: PropTypes.func,
 };
 
 export default ChatContent;
