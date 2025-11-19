@@ -1,7 +1,7 @@
 import { API_CONFIG } from '../constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastFromResponse } from '../utils/toast';
-import { handleInvalidToken } from '../utils/apiHelper';
+import { handleInvalidToken, apiFetch } from '../utils/apiHelper';
 
 class ContactsService {
   async searchUsers(query) {
@@ -14,12 +14,9 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/search?query=${encodeURIComponent(query)}`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/search?query=${encodeURIComponent(query)}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        showLoader: false, // Don't show loader for search (usually fast)
       });
 
       const data = await response.json();
@@ -52,13 +49,10 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/check`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ email }),
+        showLoader: false, // Don't show loader for quick checks
       });
 
       const data = await response.json();
@@ -91,23 +85,10 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        loadingMessage: 'Loading contacts...',
       });
-
-      // Check for 401 Unauthorized (invalid token)
-      if (response.status === 401) {
-        await handleInvalidToken();
-        return {
-          success: false,
-          contacts: [],
-          message: 'Session expired. Please login again.',
-        };
-      }
 
       const data = await response.json();
       // Don't show toast for getContacts (silent operation)
@@ -139,22 +120,10 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/recent-chats`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/recent-chats`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        loadingMessage: 'Loading recent chats...',
       });
-
-      // Check for 401 Unauthorized (invalid token)
-      if (response.status === 401) {
-        await handleInvalidToken();
-        return {
-          success: false,
-          message: 'Session expired. Please login again.',
-        };
-      }
 
       const data = await response.json();
       // Don't show toast for getRecentChats (silent operation)
@@ -186,15 +155,12 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           contactEmail,
         }),
+        loadingMessage: 'Adding contact...',
       });
 
       const data = await response.json();
@@ -224,15 +190,12 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           contactEmail,
         }),
+        loadingMessage: 'Removing contact...',
       });
 
       const data = await response.json();
@@ -262,15 +225,12 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/mark-read`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/mark-read`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           contactEmail,
         }),
+        showLoader: false, // Don't show loader for silent operations
       });
 
       const data = await response.json();
@@ -303,12 +263,9 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check-phone?phone=${encodeURIComponent(phone)}`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/check-phone?phone=${encodeURIComponent(phone)}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        showLoader: false, // Don't show loader for quick checks
       });
 
       const data = await response.json();
@@ -341,15 +298,12 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check-phones-batch`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/check-phones-batch`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           phones,
         }),
+        loadingMessage: 'Checking contacts...',
       });
 
       const data = await response.json();
@@ -382,12 +336,9 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/invite-link`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/invite-link`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        loadingMessage: 'Loading invite link...',
       });
 
       const data = await response.json();
@@ -420,15 +371,12 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-favorite`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/toggle-favorite`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           contactEmail,
         }),
+        showLoader: false, // Don't show loader for quick actions
       });
 
       const data = await response.json();
@@ -461,15 +409,12 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/delete-message`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/delete-message`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           messageId,
         }),
+        loadingMessage: 'Deleting message...',
       });
 
       const data = await response.json();
@@ -499,16 +444,13 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/edit-message`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/edit-message`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           messageId,
           newMessage,
         }),
+        loadingMessage: 'Editing message...',
       });
 
       const data = await response.json();
@@ -538,15 +480,12 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/clear-chat`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/clear-chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           contactEmail,
         }),
+        loadingMessage: 'Clearing chat...',
       });
 
       const data = await response.json();
@@ -576,15 +515,12 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/delete-chat`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/delete-chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           contactEmail,
         }),
+        loadingMessage: 'Deleting chat...',
       });
 
       const data = await response.json();
@@ -614,12 +550,9 @@ class ContactsService {
         };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/message-info/${messageId}`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/message-info/${messageId}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        loadingMessage: 'Loading message info...',
       });
 
       const data = await response.json();
@@ -648,13 +581,10 @@ class ContactsService {
         return { success: false, message: 'No token found' };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-pin`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/toggle-pin`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ contactEmail }),
+        showLoader: false, // Don't show loader for quick actions
       });
 
       const data = await response.json();
@@ -675,13 +605,10 @@ class ContactsService {
         return { success: false, message: 'No token found' };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-archive`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/toggle-archive`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ contactEmail }),
+        showLoader: false, // Don't show loader for quick actions
       });
 
       const data = await response.json();
@@ -702,13 +629,10 @@ class ContactsService {
         return { success: false, message: 'No token found' };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-mute`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/toggle-mute`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ contactEmail, mutedUntil }),
+        showLoader: false, // Don't show loader for quick actions
       });
 
       const data = await response.json();
@@ -729,13 +653,10 @@ class ContactsService {
         return { success: false, message: 'No token found' };
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/delete`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/contacts/delete`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ contactEmail }),
+        loadingMessage: 'Deleting contact...',
       });
 
       const data = await response.json();

@@ -2,16 +2,15 @@ import { API_CONFIG } from '../constants';
 import { showToastFromResponse } from '../utils/toast';
 import logger from '../utils/logger';
 import { handleApiError } from '../utils/errorHandler';
+import { apiFetch } from '../utils/apiHelper';
 
 class AuthService {
   async sendOTP(email, phone) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/send-otp`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/auth/send-otp`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email, phone }),
+        loadingMessage: 'Sending OTP...',
       });
 
       const data = await response.json();
@@ -30,12 +29,10 @@ class AuthService {
 
   async verifyOTP(email, otp, phone) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/verify-otp`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/auth/verify-otp`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email, otp, phone }),
+        loadingMessage: 'Verifying OTP...',
       });
 
       const data = await response.json();
@@ -58,12 +55,10 @@ class AuthService {
 
   async loginWithPassword(email, phone, password) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/login-password`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/auth/login-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email, phone, password }),
+        loadingMessage: 'Logging in...',
       });
 
       const data = await response.json();
@@ -85,12 +80,10 @@ class AuthService {
 
   async forgetPassword(email, phone) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/forget-password`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/auth/forget-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email, phone }),
+        loadingMessage: 'Sending reset OTP...',
       });
 
       const data = await response.json();
@@ -109,12 +102,10 @@ class AuthService {
 
   async resetPassword(email, phone, otp, newPassword) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/reset-password`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/auth/reset-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email, phone, otp, newPassword }),
+        loadingMessage: 'Resetting password...',
       });
 
       const data = await response.json();
@@ -133,12 +124,10 @@ class AuthService {
 
   async register(email, password) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/register`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/auth/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email, password }),
+        loadingMessage: 'Registering...',
       });
 
       const data = await response.json();
@@ -161,13 +150,13 @@ class AuthService {
 
   async logout(token) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/logout`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/auth/logout`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({}),
+        loadingMessage: 'Logging out...',
       });
 
       const data = await response.json();

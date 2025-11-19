@@ -1,6 +1,7 @@
 import { API_CONFIG } from '../constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastFromResponse } from '../utils/toast';
+import { apiFetch } from '../utils/apiHelper';
 
 class FeedService {
   // Get Instagram-like feed
@@ -14,14 +15,11 @@ class FeedService {
         };
       }
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_CONFIG.API_BASE}/feed?page=${page}&limit=${limit}&feedMode=${feedMode}`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
+          loadingMessage: 'Loading feed...',
         }
       );
 
@@ -52,14 +50,12 @@ class FeedService {
         };
       }
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_CONFIG.API_BASE}/feed/search?query=${encodeURIComponent(query)}`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
+          loadingMessage: 'Searching...',
+          showLoader: false, // Don't show loader for search as it's usually fast
         }
       );
 
@@ -90,15 +86,12 @@ class FeedService {
         };
       }
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_CONFIG.API_BASE}/feed/profile`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
           body: JSON.stringify({ email }),
+          loadingMessage: 'Loading profile...',
         }
       );
 
@@ -129,13 +122,11 @@ class FeedService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/follow`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/feed/follow`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ followingEmail }),
+        loadingMessage: 'Following...',
+        showLoader: false, // Don't show loader for quick actions
       });
 
       const data = await response.json();
@@ -166,13 +157,11 @@ class FeedService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/unfollow`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/feed/unfollow`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ followingEmail }),
+        loadingMessage: 'Unfollowing...',
+        showLoader: false, // Don't show loader for quick actions
       });
 
       const data = await response.json();
@@ -203,13 +192,10 @@ class FeedService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/like`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/feed/like`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ statusId }),
+        showLoader: false, // Don't show loader for likes (silent operation)
       });
 
       const data = await response.json();
@@ -240,13 +226,11 @@ class FeedService {
         body.replyToCommentId = replyToCommentId;
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/comment`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/feed/comment`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify(body),
+        loadingMessage: 'Adding comment...',
+        showLoader: false, // Don't show loader for comments (usually fast)
       });
 
       const data = await response.json();
@@ -281,14 +265,11 @@ class FeedService {
         };
       }
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_CONFIG.API_BASE}/feed/comments/${statusId}`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
+          loadingMessage: 'Loading comments...',
         }
       );
 
@@ -319,13 +300,10 @@ class FeedService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/caption`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/feed/caption`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ statusId, caption }),
+        loadingMessage: 'Updating caption...',
       });
 
       const data = await response.json();
@@ -357,13 +335,10 @@ class FeedService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/comment-like`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/feed/comment-like`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ statusId, commentId, isReply, replyId }),
+        showLoader: false, // Don't show loader for likes (silent operation)
       });
 
       const data = await response.json();
@@ -389,13 +364,11 @@ class FeedService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/pin-comment`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/feed/pin-comment`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ statusId, commentId }),
+        loadingMessage: 'Pinning comment...',
+        showLoader: false, // Don't show loader for quick actions
       });
 
       const data = await response.json();
@@ -425,13 +398,10 @@ class FeedService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/delete`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/feed/delete`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ statusId }),
+        loadingMessage: 'Deleting post...',
       });
 
       const data = await response.json();
@@ -463,13 +433,10 @@ class FeedService {
         };
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/save`, {
+      const response = await apiFetch(`${API_CONFIG.API_BASE}/feed/save`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({ statusId }),
+        showLoader: false, // Don't show loader for save/unsave (silent operation)
       });
 
       const data = await response.json();

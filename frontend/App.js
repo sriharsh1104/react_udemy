@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
+import { LoadingProvider, useLoading } from './contexts/LoadingContext';
 import logger from './utils/logger';
 import profileService from './services/profileService';
 import { setGlobalLogoutHandler } from './utils/apiHelper';
@@ -31,6 +32,7 @@ const CallScreen = lazy(() => import('./screens/CallScreen/CallScreen'));
 const LogoutModal = lazy(() => import('./components/common/LogoutModal'));
 const NotificationContainer = lazy(() => import('./components/common/Notification'));
 const BiometricLockScreen = lazy(() => import('./components/common/BiometricLockScreen'));
+const GLoader = lazy(() => import('./components/common/GLoader'));
 
 const Stack = createNativeStackNavigator();
 
@@ -100,6 +102,7 @@ const AppContentWithNotifications = () => {
 
 const AppContent = ({ navigationRef: externalNavRef }) => {
   const { colors, isDark } = useTheme();
+  const { isLoading, loadingMessage } = useLoading();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showBiometricLock, setShowBiometricLock] = useState(false);
   const navigationRef = externalNavRef || useRef(null);
@@ -334,9 +337,13 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
             topOffset={60}
             config={toastConfig}
           />
+          
+          {/* Global loader for all API calls */}
+          <Suspense fallback={null}>
+            <GLoader visible={isLoading} message={loadingMessage} />
+          </Suspense>
         </View>
       </NavigationContainer>
-      {/* Initial loader disabled - removed to prevent stuck loader */}
     </>
   );
 };
@@ -350,9 +357,11 @@ const styles = StyleSheet.create({
 export default function App() {
   return (
     <ThemeProvider>
-      <NotificationProvider>
-        <AppContentWithNotifications />
-      </NotificationProvider>
+      <LoadingProvider>
+        <NotificationProvider>
+          <AppContentWithNotifications />
+        </NotificationProvider>
+      </LoadingProvider>
     </ThemeProvider>
   );
 }
