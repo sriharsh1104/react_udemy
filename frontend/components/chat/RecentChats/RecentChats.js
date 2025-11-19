@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -242,7 +242,6 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
           // For groups, we need to implement deleteChat similar to contacts
           // For now, use clearChat (delete all messages)
           const result = await groupService.clearChat(chat.id);
-          console.log('🗑️ Clear group chat result:', result);
           
           if (!result.success) {
             console.error('Failed to clear group chat:', chat.id, result.message);
@@ -254,7 +253,6 @@ const RecentChats = ({ contacts, groups = [], onSelectContact, onSelectGroup, on
             setSelectedChats([]);
       
       // Force refresh contacts and groups lists
-      console.log('🔄 Refreshing contacts and groups lists...');
       if (onContactsUpdate) {
         await onContactsUpdate();
       }

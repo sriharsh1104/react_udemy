@@ -46,22 +46,18 @@ const CallHistory = ({ visible, onClose, userEmail, contactEmail, groupId, isGro
     if (!socket) return;
 
     const handleCallEnded = () => {
-      console.log('📞 CallHistory: Call ended, refreshing history...');
       loadCallHistory();
     };
 
     const handleCallInitiated = () => {
-      console.log('📞 CallHistory: Call initiated, refreshing history...');
       loadCallHistory();
     };
 
     const handleCallMissed = () => {
-      console.log('📞 CallHistory: Call missed, refreshing history...');
       loadCallHistory();
     };
 
     const handleCallFailed = () => {
-      console.log('📞 CallHistory: Call failed, refreshing history...');
       loadCallHistory();
     };
 

@@ -70,22 +70,18 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
     if (!socket) return;
 
     const handleCallEnded = () => {
-      console.log('📞 CallHistoryTab: Call ended, refreshing history...');
       loadCallHistory();
     };
 
     const handleCallInitiated = () => {
-      console.log('📞 CallHistoryTab: Call initiated, refreshing history...');
       loadCallHistory();
     };
 
     const handleCallMissed = () => {
-      console.log('📞 CallHistoryTab: Call missed, refreshing history...');
       loadCallHistory();
     };
 
     const handleCallFailed = () => {
-      console.log('📞 CallHistoryTab: Call failed, refreshing history...');
       loadCallHistory();
     };
 

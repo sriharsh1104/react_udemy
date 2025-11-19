@@ -121,7 +121,6 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         const cachedMessages = await chatStorageService.loadPrivateChatMessages(userEmail, contactEmail);
         
         if (cachedMessages.length > 0) {
-          console.log(`📂 Loaded ${cachedMessages.length} cached messages for ${contactEmail}`);
           // Show cached messages immediately
           setMessages(cachedMessages);
         }
@@ -132,10 +131,6 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     
     if (previousContactEmail.current !== contactEmail && previousContactEmail.current !== null) {
       // Chat switched - clear messages to prevent memory leak
-      console.log('🧹 Cleaning up messages for chat switch:', {
-        from: previousContactEmail.current,
-        to: contactEmail
-      });
       setMessages([]);
       readMessageIds.current.clear();
       // Load cached messages for new chat
@@ -241,7 +236,6 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           }
 
           if (messageExists) {
-            console.log("Duplicate message ignored:", decryptedMessage);
             return prev;
           }
 
@@ -756,7 +750,6 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
             // Re-check socket
             const updatedSocket = socketService.getSocket();
             if (updatedSocket && updatedSocket.connected) {
-              console.log("✅ Socket reconnected after", retries, "retries");
               break;
             }
           }

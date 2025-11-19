@@ -45,8 +45,6 @@ export const useCall = (userEmail) => {
 
   // Event handlers (defined before useEffect that uses them)
   const handleIncomingCall = useCallback((data) => {
-    console.log('📞 useCall: Incoming call handler called:', data);
-    console.log('📞 useCall: Setting callState to ringing, direction to incoming');
     setCallState('ringing');
     setCallData({
       sessionId: data.sessionId,

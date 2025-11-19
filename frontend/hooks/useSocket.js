@@ -17,18 +17,14 @@ export const useSocket = (userEmail = null) => {
 
     const handleConnect = () => {
       setIsConnected(true);
-      console.log('✅ Connected to server');
-      
       // Re-login if we have userEmail
       if (userEmail) {
-        console.log('🔐 Logging in after connection:', userEmail);
         socketService.emit(SOCKET_EVENTS.LOGIN, { email: userEmail });
       }
     };
 
     const handleDisconnect = (reason) => {
       setIsConnected(false);
-      console.log('❌ Disconnected from server:', reason);
     };
 
     const handleConnectError = (error) => {

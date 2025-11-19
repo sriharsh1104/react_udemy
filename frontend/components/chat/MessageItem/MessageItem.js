@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Platform, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS } from '../../../constants';
 import fileUploadService from '../../../services/fileUploadService';
 import FullScreenImageViewer from '../FullScreenImageViewer';
@@ -15,8 +14,7 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
   const [downloading, setDownloading] = useState(false);
   const [localFileUri, setLocalFileUri] = useState(null);
   const [showFullScreen, setShowFullScreen] = useState(false);
-  const autoDownloadAttempted = useRef(false); // Track if auto-download was attempted
-  
+
   // Determine if message is sent by current user (for WhatsApp-like alignment)
   const isMyMessage = isSent !== undefined ? isSent : false;
   
@@ -85,53 +83,6 @@ const MessageItem = ({ message, username, timestamp, isSystemMessage, isSent, st
       // Not a JSON message, treat as regular text
     }
   }, [message, isMyMessage, isDeleted]);
-  
-  const checkLocalFile = async (fileId, fileName) => {
-    // Skip file system check on web - expo-file-system is not available on web
-    if (Platform.OS === 'web') {
-      return;
-    }
-    
-    try {
-      const localUri = `${FileSystem.documentDirectory}${fileId}_${fileName}`;
-      const fileInfo = await FileSystem.getInfoAsync(localUri);
-      if (fileInfo.exists) {
-        setLocalFileUri(localUri);
-      }
-    } catch (error) {
-      console.error('Error checking local file:', error);
-    }
-  };
-
-  const autoDownloadFile = async (fileId, fileName, fileType) => {
-    // Skip auto-download if already downloading
-    if (downloading) return;
-    
-    // Check if already downloaded (for native platforms)
-    if (Platform.OS !== 'web') {
-      try {
-        const localUri = `${FileSystem.documentDirectory}${fileId}_${fileName}`;
-        const fileInfo = await FileSystem.getInfoAsync(localUri);
-        if (fileInfo.exists) {
-          setLocalFileUri(localUri);
-          return;
-        }
-      } catch (error) {
-        // Continue to download
-      }
-    }
-    
-    // Download the file (works for both web and native)
-    setDownloading(true);
-    try {
-      const result = await fileUploadService.downloadFile(fileId, fileName, fileType);
-      setLocalFileUri(result.localUri);
-    } catch (error) {
-      console.error('Error auto-downloading file:', error);
-    } finally {
-      setDownloading(false);
-    }
-  };
   
   const handleDownload = async () => {
     if (!fileData || downloading) return;
