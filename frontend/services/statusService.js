@@ -1,19 +1,12 @@
-import { API_CONFIG } from '../constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastFromResponse } from '../utils/toast';
+import apiService from './apiService';
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { API_CONFIG } from '../constants';
 
 class StatusService {
   async uploadStatus(file, type, caption = '', tags = [], postType = 'status') {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
       // Create form data
       const formData = new FormData();
       
@@ -62,23 +55,15 @@ class StatusService {
       }
       formData.append('postType', postType || 'status');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/status/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type for FormData, let browser set it with boundary
-        },
-        body: formData,
-      });
-
-      const data = await response.json();
+      // Use apiService.uploadFile - loader and auth guard handled automatically
+      const result = await apiService.uploadFile('/status/upload', formData, {}, 'Uploading Status...');
       
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Upload Failed' });
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Upload Failed' });
       } else {
-        showToastFromResponse(data, { successTitle: 'Status Uploaded' });
+        showToastFromResponse(result, { successTitle: 'Status Uploaded' });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error uploading status:', error);
       const errorResponse = {
@@ -92,27 +77,13 @@ class StatusService {
 
   async getStatusFeed() {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get('/status/feed', {}, false);
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Failed to Load Status', showSuccess: false });
       }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/status/feed`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Load Status', showSuccess: false });
-      }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting status feed:', error);
       const errorResponse = {
@@ -126,26 +97,10 @@ class StatusService {
 
   async markAsViewed(statusId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/status/view`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statusId }),
-      });
-
-      const data = await response.json();
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/status/view', { statusId }, {}, false);
       // Don't show toast for view tracking (silent operation)
-      return data;
+      return result;
     } catch (error) {
       console.error('Error marking status as viewed:', error);
       return {
@@ -157,27 +112,13 @@ class StatusService {
 
   async getViewers(statusId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(`/status/${statusId}/viewers`, {}, false);
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Failed to Load Viewers', showSuccess: false });
       }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/status/${statusId}/viewers`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Load Viewers', showSuccess: false });
-      }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting viewers:', error);
       const errorResponse = {
@@ -191,30 +132,15 @@ class StatusService {
 
   async deleteStatus(statusId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/delete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statusId }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Delete Status' });
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/feed/delete', { statusId }, {}, 'Deleting Status...');
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Failed to Delete Status' });
       } else {
-        showToastFromResponse(data, { successTitle: 'Status Deleted Successfully' });
+        showToastFromResponse(result, { successTitle: 'Status Deleted Successfully' });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error deleting status:', error);
       const errorResponse = {
@@ -228,14 +154,6 @@ class StatusService {
 
   async saveImage(fileId, fileName, statusUrl) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
       // Get file URL - prefer fileId, fallback to statusUrl
       let downloadUrl = null;
       if (fileId) {
@@ -265,34 +183,30 @@ class StatusService {
       // For web platform, trigger browser download
       if (Platform.OS === 'web') {
         try {
-          const response = await fetch(downloadUrl, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          });
+          // Use apiService.downloadFile for web
+          const result = await apiService.downloadFile(downloadUrl, {}, 'Downloading...');
           
-          if (!response.ok) {
-            throw new Error('Download failed');
+          if (result.success) {
+            const blob = result.data; // blob from downloadFile
+            const blobUrl = window.URL.createObjectURL(blob);
+            
+            // Trigger browser download
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName || `status_${Date.now()}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up blob URL after a delay
+            setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+            
+            return {
+              success: true,
+              message: 'Image saved successfully',
+            };
           }
-          
-          const blob = await response.blob();
-          const blobUrl = window.URL.createObjectURL(blob);
-          
-          // Trigger browser download
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = fileName || `status_${Date.now()}.jpg`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          // Clean up blob URL after a delay
-          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
-          
-          return {
-            success: true,
-            message: 'Image saved successfully',
-          };
+          return result;
         } catch (error) {
           console.error('Error saving image on web:', error);
           return {
@@ -313,7 +227,7 @@ class StatusService {
           fileUri,
           {
             headers: {
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${await (await import('@react-native-async-storage/async-storage')).default.getItem('authToken')}`,
             },
           }
         );
@@ -345,4 +259,3 @@ class StatusService {
 }
 
 export default new StatusService();
-

@@ -1,36 +1,17 @@
-import { API_CONFIG } from '../constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastFromResponse } from '../utils/toast';
+import apiService from './apiService';
 
 class GroupService {
   async createGroup(name, members) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups', { name, members }, {}, 'Creating Group...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name,
-          members,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Group Created',
         errorTitle: 'Failed to Create Group',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error creating group:', error);
       const errorResponse = {
@@ -44,30 +25,16 @@ class GroupService {
 
   async getGroups() {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get('/groups', {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Load Groups',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting groups:', error);
       const errorResponse = {
@@ -81,30 +48,16 @@ class GroupService {
 
   async getGroup(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(`/groups/${groupId}`, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/${groupId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Load Group',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting group:', error);
       const errorResponse = {
@@ -118,32 +71,14 @@ class GroupService {
 
   async addMembers(groupId, members) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups/add-members', { groupId, members }, {}, 'Adding Members...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/add-members`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupId,
-          members,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Members Added',
         errorTitle: 'Failed to Add Members',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error adding members:', error);
       const errorResponse = {
@@ -157,32 +92,14 @@ class GroupService {
 
   async removeMember(groupId, memberEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups/remove-member', { groupId, memberEmail }, {}, 'Removing Member...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/remove-member`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupId,
-          memberEmail,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Member Removed',
         errorTitle: 'Failed to Remove Member',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error removing member:', error);
       const errorResponse = {
@@ -196,32 +113,14 @@ class GroupService {
 
   async updateGroupName(groupId, name) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.put - loader and auth guard handled automatically
+      const result = await apiService.put('/groups/update-name', { groupId, name }, {}, 'Updating Group Name...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/update-name`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupId,
-          name,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Group Name Updated',
         errorTitle: 'Failed to Update Group Name',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error updating group name:', error);
       const errorResponse = {
@@ -235,31 +134,14 @@ class GroupService {
 
   async deleteGroup(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.delete - loader and auth guard handled automatically
+      const result = await apiService.delete('/groups', { body: JSON.stringify({ groupId }) }, 'Deleting Group...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupId,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Group Deleted',
         errorTitle: 'Failed to Delete Group',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error deleting group:', error);
       const errorResponse = {
@@ -273,35 +155,18 @@ class GroupService {
 
   async toggleFavorite(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/groups/toggle-favorite', { groupId }, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/toggle-favorite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupId,
-        }),
-      });
-
-      const data = await response.json();
       // Don't show toast for favorite toggle (to avoid too many notifications)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           successTitle: 'Favorite Updated',
           errorTitle: 'Failed to Update Favorite',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error toggling group favorite:', error);
       const errorResponse = {
@@ -315,33 +180,16 @@ class GroupService {
 
   async markMessagesAsRead(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/groups/mark-read', { groupId }, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/mark-read`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupId,
-        }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Mark Messages as Read',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error marking group messages as read:', error);
       const errorResponse = {
@@ -355,33 +203,16 @@ class GroupService {
 
   async generateInviteLink(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/groups/generate-invite-link', { groupId }, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/generate-invite-link`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupId,
-        }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Generate Invite Link',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error generating invite link:', error);
       const errorResponse = {
@@ -395,31 +226,14 @@ class GroupService {
 
   async resetInviteLink(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups/reset-invite-link', { groupId }, {}, 'Resetting Invite Link...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/reset-invite-link`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupId,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Invite Link Reset',
         errorTitle: 'Failed to Reset Invite Link',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error resetting invite link:', error);
       const errorResponse = {
@@ -433,31 +247,14 @@ class GroupService {
 
   async joinGroupViaLink(inviteToken) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups/join-via-link', { inviteToken }, {}, 'Joining Group...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/join-via-link`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          inviteToken,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Joined Group',
         errorTitle: 'Failed to Join Group',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error joining group via link:', error);
       const errorResponse = {
@@ -471,32 +268,14 @@ class GroupService {
 
   async pinMessage(messageId, groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups/pin-message', { messageId, groupId }, {}, 'Pinning Message...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/pin-message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          messageId,
-          groupId,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Message Pinned',
         errorTitle: 'Failed to Pin Message',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error pinning message:', error);
       const errorResponse = {
@@ -510,32 +289,14 @@ class GroupService {
 
   async unpinMessage(messageId, groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups/unpin-message', { messageId, groupId }, {}, 'Unpinning Message...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/unpin-message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          messageId,
-          groupId,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Message Unpinned',
         errorTitle: 'Failed to Unpin Message',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error unpinning message:', error);
       const errorResponse = {
@@ -549,30 +310,16 @@ class GroupService {
 
   async getPinnedMessages(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(`/groups/${groupId}/pinned-messages`, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/${groupId}/pinned-messages`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Load Pinned Messages',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting pinned messages:', error);
       const errorResponse = {
@@ -586,31 +333,14 @@ class GroupService {
 
   async deleteMessage(messageId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups/delete-message', { messageId }, {}, 'Deleting Message...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/delete-message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          messageId,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Message Deleted',
         errorTitle: 'Failed to Delete Message',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error deleting message:', error);
       const errorResponse = {
@@ -624,32 +354,14 @@ class GroupService {
 
   async editMessage(messageId, newMessage) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups/edit-message', { messageId, newMessage }, {}, 'Editing Message...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/edit-message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          messageId,
-          newMessage,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Message Edited',
         errorTitle: 'Failed to Edit Message',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error editing message:', error);
       const errorResponse = {
@@ -663,31 +375,14 @@ class GroupService {
 
   async clearChat(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/groups/clear-chat', { groupId }, {}, 'Clearing Chat...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/clear-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          groupId,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Chat Cleared',
         errorTitle: 'Failed to Clear Chat',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error clearing chat:', error);
       const errorResponse = {
@@ -701,30 +396,16 @@ class GroupService {
 
   async getMessageInfo(messageId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(`/groups/message-info/${messageId}`, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/message-info/${messageId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Load Message Info',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting message info:', error);
       const errorResponse = {
@@ -738,23 +419,10 @@ class GroupService {
 
   async togglePin(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return { success: false, message: 'No token found' };
-      }
-      
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/toggle-pin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ groupId }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data);
-      return data;
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/groups/toggle-pin', { groupId }, {}, false);
+      showToastFromResponse(result);
+      return result;
     } catch (error) {
       console.error('Error toggling pin:', error);
       const errorResponse = { success: false, message: 'Network error' };
@@ -765,23 +433,10 @@ class GroupService {
 
   async toggleArchive(groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return { success: false, message: 'No token found' };
-      }
-      
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/toggle-archive`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ groupId }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data);
-      return data;
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/groups/toggle-archive', { groupId }, {}, false);
+      showToastFromResponse(result);
+      return result;
     } catch (error) {
       console.error('Error toggling archive:', error);
       const errorResponse = { success: false, message: 'Network error' };
@@ -792,23 +447,10 @@ class GroupService {
 
   async toggleMute(groupId, mutedUntil = null) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return { success: false, message: 'No token found' };
-      }
-      
-      const response = await fetch(`${API_CONFIG.API_BASE}/groups/toggle-mute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ groupId, mutedUntil }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data);
-      return data;
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/groups/toggle-mute', { groupId, mutedUntil }, {}, false);
+      showToastFromResponse(result);
+      return result;
     } catch (error) {
       console.error('Error toggling mute:', error);
       const errorResponse = { success: false, message: 'Network error' };
@@ -819,4 +461,3 @@ class GroupService {
 }
 
 export default new GroupService();
-

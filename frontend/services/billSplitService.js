@@ -1,33 +1,17 @@
-import { API_CONFIG } from '../constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastFromResponse } from '../utils/toast';
+import apiService from './apiService';
 
 class BillSplitService {
   async createBillSplit(billData) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/bills/create', billData, {}, 'Creating Bill...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/bills/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(billData),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, {
+      showToastFromResponse(result, {
         successTitle: 'Bill Created',
         errorTitle: 'Failed to Create Bill',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error creating bill split:', error);
       const errorResponse = {
@@ -41,29 +25,14 @@ class BillSplitService {
 
   async getBillSplits(roomId, groupId = null) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-      
       const params = new URLSearchParams({ roomId });
       if (groupId) {
         params.append('groupId', groupId);
       }
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/bills?${params.toString()}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      return data;
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(`/bills?${params.toString()}`, {}, false);
+      return result;
     } catch (error) {
       console.error('Error getting bill splits:', error);
       return {
@@ -75,29 +44,14 @@ class BillSplitService {
 
   async markAsPaid(billSplitId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/bills/mark-paid', { billSplitId }, {}, 'Marking as Paid...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/bills/mark-paid`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ billSplitId }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, {
+      showToastFromResponse(result, {
         successTitle: 'Marked as Paid',
         errorTitle: 'Failed to Mark as Paid',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error marking as paid:', error);
       const errorResponse = {
@@ -111,29 +65,14 @@ class BillSplitService {
 
   async sendReminder(roomId, contactEmail, groupId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/bills/send-reminder', { roomId, contactEmail, groupId }, {}, 'Sending Reminder...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/bills/send-reminder`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ roomId, contactEmail, groupId }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, {
+      showToastFromResponse(result, {
         successTitle: 'Reminder Sent',
         errorTitle: 'Failed to Send Reminder',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error sending reminder:', error);
       const errorResponse = {
@@ -147,4 +86,3 @@ class BillSplitService {
 }
 
 export default new BillSplitService();
-

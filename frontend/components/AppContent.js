@@ -4,20 +4,24 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLoader } from '../contexts/LoaderContext';
 import logger from '../utils/logger';
 import { setGlobalLogoutHandler } from '../utils/apiHelper';
+import { setGlobalLoaderHandlers } from '../services/apiService';
 import { setupBrowserTitle } from '../utils/browserTitle';
 import { toastConfig } from '../config/toast';
 import { useAuth } from '../hooks/useAuth';
 import { useBiometric } from '../hooks/useBiometric';
 import { useDeepLink } from '../hooks/useDeepLink';
 import AppNavigator from './AppNavigator';
+import GLoader from './common/GLoader';
 
 /**
  * Main app content component that manages app state and lifecycle
  */
 const AppContent = ({ navigationRef: externalNavRef }) => {
   const { isDark } = useTheme();
+  const { loading, loadingMessage, showLoader, hideLoader } = useLoader();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showBiometricLock, setShowBiometricLock] = useState(false);
   const navigationRef = externalNavRef || useRef(null);
@@ -59,6 +63,9 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
       
       // Set global logout handler for invalid token
       setGlobalLogoutHandler(handleInvalidTokenLogout);
+      
+      // Set global loader handlers for API service
+      setGlobalLoaderHandlers(showLoader, hideLoader);
       
       // One-time migration: Clear old random salts to use new deterministic salts
       const migrateEncryptionSalts = async () => {
@@ -140,6 +147,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
         topOffset={60}
         config={toastConfig}
       />
+      <GLoader visible={loading} message={loadingMessage} />
     </>
   );
 };

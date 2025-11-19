@@ -1,35 +1,21 @@
-import { API_CONFIG } from '../constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastFromResponse } from '../utils/toast';
+import apiService from './apiService';
 
 class FeedService {
   // Get Instagram-like feed
   async getFeed(page = 1, limit = 10, feedMode = 'public') {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(
-        `${API_CONFIG.API_BASE}/feed?page=${page}&limit=${limit}&feedMode=${feedMode}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(
+        `/feed?page=${page}&limit=${limit}&feedMode=${feedMode}`,
+        {},
+        false
       );
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Load Feed', showSuccess: false });
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Failed to Load Feed', showSuccess: false });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting feed:', error);
       const errorResponse = {
@@ -44,30 +30,17 @@ class FeedService {
   // Search profiles
   async searchProfiles(query) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(
-        `${API_CONFIG.API_BASE}/feed/search?query=${encodeURIComponent(query)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(
+        `/feed/search?query=${encodeURIComponent(query)}`,
+        {},
+        false
       );
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Search Failed', showSuccess: false });
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Search Failed', showSuccess: false });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error searching profiles:', error);
       const errorResponse = {
@@ -82,31 +55,13 @@ class FeedService {
   // Get user profile
   async getProfile(email) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/feed/profile', { email }, {}, false);
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Failed to Load Profile', showSuccess: false });
       }
-
-      const response = await fetch(
-        `${API_CONFIG.API_BASE}/feed/profile`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ email }),
-        }
-      );
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Load Profile', showSuccess: false });
-      }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting profile:', error);
       const errorResponse = {
@@ -121,29 +76,14 @@ class FeedService {
   // Follow a user
   async followUser(followingEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/follow`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ followingEmail }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, {
-        successTitle: data.status === 'pending' ? 'Follow Request Sent' : 'Followed Successfully',
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/feed/follow', { followingEmail }, {}, 'Following...');
+      
+      showToastFromResponse(result, {
+        successTitle: result.status === 'pending' ? 'Follow Request Sent' : 'Followed Successfully',
         errorTitle: 'Failed to Follow',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error following user:', error);
       const errorResponse = {
@@ -158,29 +98,14 @@ class FeedService {
   // Unfollow a user
   async unfollowUser(followingEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/unfollow`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ followingEmail }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, {
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/feed/unfollow', { followingEmail }, {}, 'Unfollowing...');
+      
+      showToastFromResponse(result, {
         successTitle: 'Unfollowed Successfully',
         errorTitle: 'Failed to Unfollow',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error unfollowing user:', error);
       const errorResponse = {
@@ -195,26 +120,10 @@ class FeedService {
   // Toggle like on a status
   async toggleLike(statusId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/like`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statusId }),
-      });
-
-      const data = await response.json();
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/feed/like', { statusId }, {}, false);
       // Don't show toast for likes (silent operation)
-      return data;
+      return result;
     } catch (error) {
       console.error('Error toggling like:', error);
       return {
@@ -227,38 +136,23 @@ class FeedService {
   // Add comment to a status or reply to a comment
   async addComment(statusId, comment, replyToCommentId = null) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
       const body = { statusId, comment };
       if (replyToCommentId) {
         body.replyToCommentId = replyToCommentId;
       }
 
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/comment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: replyToCommentId ? 'Failed to Add Reply' : 'Failed to Add Comment' });
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/feed/comment', body, {}, false);
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: replyToCommentId ? 'Failed to Add Reply' : 'Failed to Add Comment' });
       } else {
         // Don't show toast for replies (silent operation)
         if (!replyToCommentId) {
-          showToastFromResponse(data, { successTitle: 'Comment Added' });
+          showToastFromResponse(result, { successTitle: 'Comment Added' });
         }
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error adding comment:', error);
       const errorResponse = {
@@ -273,30 +167,13 @@ class FeedService {
   // Get comments for a status
   async getComments(statusId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(`/feed/comments/${statusId}`, {}, false);
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Failed to Load Comments', showSuccess: false });
       }
-
-      const response = await fetch(
-        `${API_CONFIG.API_BASE}/feed/comments/${statusId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Load Comments', showSuccess: false });
-      }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting comments:', error);
       const errorResponse = {
@@ -311,30 +188,15 @@ class FeedService {
   // Update caption
   async updateCaption(statusId, caption) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/caption`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statusId, caption }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Update Caption' });
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/feed/caption', { statusId, caption }, {}, 'Updating Caption...');
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Failed to Update Caption' });
       } else {
-        showToastFromResponse(data, { successTitle: 'Caption Updated' });
+        showToastFromResponse(result, { successTitle: 'Caption Updated' });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error updating caption:', error);
       const errorResponse = {
@@ -349,26 +211,15 @@ class FeedService {
   // Toggle like on a comment or reply
   async toggleCommentLike(statusId, commentId, isReply = false, replyId = null) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/comment-like`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statusId, commentId, isReply, replyId }),
-      });
-
-      const data = await response.json();
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post(
+        '/feed/comment-like',
+        { statusId, commentId, isReply, replyId },
+        {},
+        false
+      );
       // Don't show toast for likes (silent operation)
-      return data;
+      return result;
     } catch (error) {
       console.error('Error toggling comment like:', error);
       return {
@@ -381,28 +232,13 @@ class FeedService {
   // Pin/unpin a comment
   async togglePinComment(statusId, commentId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/feed/pin-comment', { statusId, commentId }, {}, false);
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Failed to Pin Comment' });
       }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/pin-comment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statusId, commentId }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Pin Comment' });
-      }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error pinning comment:', error);
       const errorResponse = {
@@ -417,30 +253,15 @@ class FeedService {
   // Delete a status/post
   async deleteStatus(statusId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/delete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statusId }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { errorTitle: 'Failed to Delete Post' });
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/feed/delete', { statusId }, {}, 'Deleting Post...');
+      
+      if (!result.success) {
+        showToastFromResponse(result, { errorTitle: 'Failed to Delete Post' });
       } else {
-        showToastFromResponse(data, { successTitle: 'Post Deleted Successfully' });
+        showToastFromResponse(result, { successTitle: 'Post Deleted Successfully' });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error deleting status:', error);
       const errorResponse = {
@@ -455,26 +276,10 @@ class FeedService {
   // Save/Unsave a post
   async toggleSavePost(statusId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
-
-      const response = await fetch(`${API_CONFIG.API_BASE}/feed/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ statusId }),
-      });
-
-      const data = await response.json();
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/feed/save', { statusId }, {}, false);
       // Don't show toast for save/unsave (silent operation)
-      return data;
+      return result;
     } catch (error) {
       console.error('Error toggling save post:', error);
       return {

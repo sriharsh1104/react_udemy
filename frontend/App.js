@@ -1,6 +1,7 @@
 import React from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { LoaderProvider } from './contexts/LoaderContext';
 import { applyWebPatches } from './utils/webPatches';
 import AppContentWithNotifications from './components/AppContentWithNotifications';
 
@@ -10,9 +11,11 @@ applyWebPatches();
 export default function App() {
   return (
     <ThemeProvider>
-      <NotificationProvider>
-        <AppContentWithNotifications />
-      </NotificationProvider>
+      <LoaderProvider>
+        <NotificationProvider>
+          <AppContentWithNotifications />
+        </NotificationProvider>
+      </LoaderProvider>
     </ThemeProvider>
   );
 }

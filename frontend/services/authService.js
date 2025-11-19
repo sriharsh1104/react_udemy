@@ -1,25 +1,19 @@
-import { API_CONFIG } from '../constants';
 import { showToastFromResponse } from '../utils/toast';
 import logger from '../utils/logger';
 import { handleApiError } from '../utils/errorHandler';
+import apiService from './apiService';
 
 class AuthService {
   async sendOTP(email, phone) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/send-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, phone }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      // Use apiService.post - auth endpoints don't require token, loader enabled
+      const result = await apiService.post('/auth/send-otp', { email, phone }, {}, 'Sending OTP...');
+      
+      showToastFromResponse(result, { 
         successTitle: 'OTP Sent',
         errorTitle: 'Failed to Send OTP',
       });
-      return data;
+      return result;
     } catch (error) {
       logger.error('Error sending OTP:', error);
       const errorResponse = handleApiError(error, 'Failed to send OTP');
@@ -30,24 +24,18 @@ class AuthService {
 
   async verifyOTP(email, otp, phone) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/verify-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, otp, phone }),
-      });
-
-      const data = await response.json();
+      // Use apiService.post - auth endpoints don't require token, loader enabled
+      const result = await apiService.post('/auth/verify-otp', { email, otp, phone }, {}, 'Verifying OTP...');
+      
       // Don't show toast for verify OTP success (handled in LoginScreen)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           successTitle: 'Login Successful',
           errorTitle: 'Invalid OTP',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       logger.error('Error verifying OTP:', error);
       const errorResponse = handleApiError(error, 'Failed to verify OTP');
@@ -58,23 +46,17 @@ class AuthService {
 
   async loginWithPassword(email, phone, password) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/login-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, phone, password }),
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      // Use apiService.post - auth endpoints don't require token, loader enabled
+      const result = await apiService.post('/auth/login-password', { email, phone, password }, {}, 'Logging in...');
+      
+      if (!result.success) {
+        showToastFromResponse(result, { 
           successTitle: 'Login Successful',
           errorTitle: 'Login Failed',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       logger.error('Error logging in with password:', error);
       const errorResponse = handleApiError(error, 'Failed to login');
@@ -85,20 +67,14 @@ class AuthService {
 
   async forgetPassword(email, phone) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/forget-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, phone }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      // Use apiService.post - auth endpoints don't require token, loader enabled
+      const result = await apiService.post('/auth/forget-password', { email, phone }, {}, 'Sending Reset OTP...');
+      
+      showToastFromResponse(result, { 
         successTitle: 'OTP Sent',
         errorTitle: 'Failed to Send OTP',
       });
-      return data;
+      return result;
     } catch (error) {
       logger.error('Error sending forget password OTP:', error);
       const errorResponse = handleApiError(error, 'Failed to send password reset OTP');
@@ -109,20 +85,14 @@ class AuthService {
 
   async resetPassword(email, phone, otp, newPassword) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, phone, otp, newPassword }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      // Use apiService.post - auth endpoints don't require token, loader enabled
+      const result = await apiService.post('/auth/reset-password', { email, phone, otp, newPassword }, {}, 'Resetting Password...');
+      
+      showToastFromResponse(result, { 
         successTitle: 'Password Reset',
         errorTitle: 'Failed to Reset Password',
       });
-      return data;
+      return result;
     } catch (error) {
       logger.error('Error resetting password:', error);
       const errorResponse = handleApiError(error, 'Failed to reset password');
@@ -133,24 +103,18 @@ class AuthService {
 
   async register(email, password) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
+      // Use apiService.post - auth endpoints don't require token, loader enabled
+      const result = await apiService.post('/auth/register', { email, password }, {}, 'Registering...');
+      
       // Don't show toast for register success (handled in LoginScreen)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           successTitle: 'Registration Successful',
           errorTitle: 'Registration Failed',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       logger.error('Error registering:', error);
       const errorResponse = handleApiError(error, 'Failed to register');
@@ -161,21 +125,15 @@ class AuthService {
 
   async logout(token) {
     try {
-      const response = await fetch(`${API_CONFIG.API_BASE}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({}),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      // Use apiService.post - logout requires token, loader enabled
+      // Note: For logout, we need to pass token manually since user is logging out
+      const result = await apiService.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${token}` } }, 'Logging out...');
+      
+      showToastFromResponse(result, { 
         successTitle: 'Logged Out',
         errorTitle: 'Logout Failed',
       });
-      return data;
+      return result;
     } catch (error) {
       logger.error('Error logging out:', error);
       const errorResponse = handleApiError(error, 'Failed to logout');
@@ -186,4 +144,3 @@ class AuthService {
 }
 
 export default new AuthService();
-

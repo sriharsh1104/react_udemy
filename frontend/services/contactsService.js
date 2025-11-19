@@ -1,36 +1,20 @@
-import { API_CONFIG } from '../constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showToastFromResponse } from '../utils/toast';
-import { handleInvalidToken } from '../utils/apiHelper';
+import apiService from './apiService';
 
 class ContactsService {
   async searchUsers(query) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(`/contacts/search?query=${encodeURIComponent(query)}`, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/search?query=${encodeURIComponent(query)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
       // Don't show toast for search (silent operation)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Search Failed',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error searching users:', error);
       const errorResponse = {
@@ -44,32 +28,17 @@ class ContactsService {
 
   async checkUserExists(email) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/contacts/check', { email }, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
       // Don't show toast for checkUserExists (silent operation)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Check Failed',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error checking user:', error);
       const errorResponse = {
@@ -83,41 +52,17 @@ class ContactsService {
 
   async getContacts() {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get('/contacts', {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      // Check for 401 Unauthorized (invalid token)
-      if (response.status === 401) {
-        await handleInvalidToken();
-        return {
-          success: false,
-          contacts: [],
-          message: 'Session expired. Please login again.',
-        };
-      }
-
-      const data = await response.json();
       // Don't show toast for getContacts (silent operation)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Load Contacts',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting contacts:', error);
       const errorResponse = {
@@ -131,40 +76,17 @@ class ContactsService {
 
   async getRecentChats() {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get('/contacts/recent-chats', {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/recent-chats`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      // Check for 401 Unauthorized (invalid token)
-      if (response.status === 401) {
-        await handleInvalidToken();
-        return {
-          success: false,
-          message: 'Session expired. Please login again.',
-        };
-      }
-
-      const data = await response.json();
       // Don't show toast for getRecentChats (silent operation)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Load Recent Chats',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting recent chats:', error);
       const errorResponse = {
@@ -178,31 +100,14 @@ class ContactsService {
 
   async addContact(contactEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/contacts', { contactEmail }, {}, 'Adding Contact...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          contactEmail,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Contact Added',
         errorTitle: 'Failed to Add Contact',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error adding contact:', error);
       const errorResponse = {
@@ -216,31 +121,14 @@ class ContactsService {
 
   async removeContact(contactEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.delete - loader and auth guard handled automatically
+      const result = await apiService.delete('/contacts', { body: JSON.stringify({ contactEmail }) }, 'Removing Contact...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          contactEmail,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Contact Removed',
         errorTitle: 'Failed to Remove Contact',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error removing contact:', error);
       const errorResponse = {
@@ -254,34 +142,17 @@ class ContactsService {
 
   async markMessagesAsRead(contactEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/contacts/mark-read', { contactEmail }, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/mark-read`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          contactEmail,
-        }),
-      });
-
-      const data = await response.json();
       // Don't show toast for markMessagesAsRead (silent operation)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Mark as Read',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error marking messages as read:', error);
       const errorResponse = {
@@ -295,31 +166,17 @@ class ContactsService {
 
   async checkPhoneRegistered(phone) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(`/contacts/check-phone?phone=${encodeURIComponent(phone)}`, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check-phone?phone=${encodeURIComponent(phone)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
       // Don't show toast for checkPhoneRegistered (silent operation)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Check Failed',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error checking phone:', error);
       const errorResponse = {
@@ -333,34 +190,17 @@ class ContactsService {
 
   async checkPhonesBatch(phones) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/contacts/check-phones-batch', { phones }, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/check-phones-batch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          phones,
-        }),
-      });
-
-      const data = await response.json();
       // Don't show toast for checkPhonesBatch (silent operation)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Check Failed',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error checking phones batch:', error);
       const errorResponse = {
@@ -374,31 +214,17 @@ class ContactsService {
 
   async getInviteLink() {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get('/contacts/invite-link', {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/invite-link`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
       // Don't show toast for getInviteLink (silent operation)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Get Invite Link',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting invite link:', error);
       const errorResponse = {
@@ -412,34 +238,17 @@ class ContactsService {
 
   async toggleFavorite(contactEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/contacts/toggle-favorite', { contactEmail }, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-favorite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          contactEmail,
-        }),
-      });
-
-      const data = await response.json();
       // Don't show toast for toggleFavorite (silent operation)
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Update Favorite',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error toggling favorite:', error);
       const errorResponse = {
@@ -453,31 +262,14 @@ class ContactsService {
 
   async deleteMessage(messageId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/contacts/delete-message', { messageId }, {}, 'Deleting Message...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/delete-message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          messageId,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Message Deleted',
         errorTitle: 'Failed to Delete Message',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error deleting message:', error);
       const errorResponse = {
@@ -491,32 +283,14 @@ class ContactsService {
 
   async editMessage(messageId, newMessage) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/contacts/edit-message', { messageId, newMessage }, {}, 'Editing Message...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/edit-message`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          messageId,
-          newMessage,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Message Edited',
         errorTitle: 'Failed to Edit Message',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error editing message:', error);
       const errorResponse = {
@@ -530,31 +304,14 @@ class ContactsService {
 
   async clearChat(contactEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/contacts/clear-chat', { contactEmail }, {}, 'Clearing Chat...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/clear-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          contactEmail,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Chat Cleared',
         errorTitle: 'Failed to Clear Chat',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error clearing chat:', error);
       const errorResponse = {
@@ -568,31 +325,14 @@ class ContactsService {
 
   async deleteChat(contactEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/contacts/delete-chat', { contactEmail }, {}, 'Deleting Chat...');
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/delete-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          contactEmail,
-        }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data, { 
+      showToastFromResponse(result, { 
         successTitle: 'Chat Deleted',
         errorTitle: 'Failed to Delete Chat',
       });
-      return data;
+      return result;
     } catch (error) {
       console.error('Error deleting chat:', error);
       const errorResponse = {
@@ -606,30 +346,16 @@ class ContactsService {
 
   async getMessageInfo(messageId) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return {
-          success: false,
-          message: 'No token found',
-        };
-      }
+      // Use apiService.get - loader disabled for silent operation, auth guard handled
+      const result = await apiService.get(`/contacts/message-info/${messageId}`, {}, false);
       
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/message-info/${messageId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!data.success) {
-        showToastFromResponse(data, { 
+      if (!result.success) {
+        showToastFromResponse(result, { 
           errorTitle: 'Failed to Load Message Info',
           showSuccess: false,
         });
       }
-      return data;
+      return result;
     } catch (error) {
       console.error('Error getting message info:', error);
       const errorResponse = {
@@ -643,23 +369,10 @@ class ContactsService {
 
   async togglePin(contactEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return { success: false, message: 'No token found' };
-      }
-      
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-pin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ contactEmail }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data);
-      return data;
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/contacts/toggle-pin', { contactEmail }, {}, false);
+      showToastFromResponse(result);
+      return result;
     } catch (error) {
       console.error('Error toggling pin:', error);
       const errorResponse = { success: false, message: 'Network error' };
@@ -670,23 +383,10 @@ class ContactsService {
 
   async toggleArchive(contactEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return { success: false, message: 'No token found' };
-      }
-      
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-archive`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ contactEmail }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data);
-      return data;
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/contacts/toggle-archive', { contactEmail }, {}, false);
+      showToastFromResponse(result);
+      return result;
     } catch (error) {
       console.error('Error toggling archive:', error);
       const errorResponse = { success: false, message: 'Network error' };
@@ -697,23 +397,10 @@ class ContactsService {
 
   async toggleMute(contactEmail, mutedUntil = null) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return { success: false, message: 'No token found' };
-      }
-      
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/toggle-mute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ contactEmail, mutedUntil }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data);
-      return data;
+      // Use apiService.post - loader disabled for silent operation, auth guard handled
+      const result = await apiService.post('/contacts/toggle-mute', { contactEmail, mutedUntil }, {}, false);
+      showToastFromResponse(result);
+      return result;
     } catch (error) {
       console.error('Error toggling mute:', error);
       const errorResponse = { success: false, message: 'Network error' };
@@ -724,23 +411,10 @@ class ContactsService {
 
   async deleteContact(contactEmail) {
     try {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        return { success: false, message: 'No token found' };
-      }
-      
-      const response = await fetch(`${API_CONFIG.API_BASE}/contacts/delete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ contactEmail }),
-      });
-
-      const data = await response.json();
-      showToastFromResponse(data);
-      return data;
+      // Use apiService.post - loader and auth guard handled automatically
+      const result = await apiService.post('/contacts/delete', { contactEmail }, {}, 'Deleting Contact...');
+      showToastFromResponse(result);
+      return result;
     } catch (error) {
       console.error('Error deleting contact:', error);
       const errorResponse = { success: false, message: 'Network error' };
@@ -751,4 +425,3 @@ class ContactsService {
 }
 
 export default new ContactsService();
-
