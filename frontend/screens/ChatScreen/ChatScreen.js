@@ -645,15 +645,13 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
           return; // Don't make API call for message_sent/received
         }
         
-        // For contact_unarchived: Check if contact already exists and is active
-        // If yes, treat it like message_sent (just update locally)
+        // For contact_unarchived: Only emitted when contact was actually archived
+        // If contact exists in current state, just update locally (no API call)
         if (action === 'contact_unarchived' && data.contactEmail) {
-          // Check current state to see if contact exists and is active
           const contactExists = contacts.find(c => c.email === data.contactEmail);
-          const wasArchived = contactExists?.isArchived === true;
           
-          // If contact already exists and was NOT archived, just update locally (no API call)
-          if (contactExists && !wasArchived) {
+          if (contactExists) {
+            // Contact exists - just unarchive and move to top locally
             setContacts((prev) => {
               const contactIndex = prev.findIndex(c => c.email === data.contactEmail);
               
@@ -661,7 +659,6 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
                 return prev; // Shouldn't happen, but safety check
               }
               
-              // Contact already active - just move to top (like message_sent)
               const updatedContacts = [...prev];
               const contact = updatedContacts[contactIndex];
               updatedContacts.splice(contactIndex, 1);
@@ -669,16 +666,17 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
               const updatedContact = {
                 ...contact,
                 lastMessageTimestamp: new Date().toISOString(),
-                isArchived: false, // Ensure it's not archived
+                isArchived: false, // Unarchive
               };
               
               updatedContacts.unshift(updatedContact);
               return updatedContacts;
             });
-            return; // No API call needed
+            return; // No API call needed - local update is sufficient
           }
           
-          // Contact doesn't exist or was archived - need full refresh
+          // Contact doesn't exist in current state - need to refresh to get it back
+          // This only happens if contact was archived and removed from Recent Chats
           loadContacts(false);
           return;
         }

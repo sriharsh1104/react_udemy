@@ -310,24 +310,31 @@ class SocketService {
     try {
       const contactsService = require('./contactsService');
       
+      // Check if sender's contact was archived before adding
+      const Contact = require('../models/Contact');
+      const senderContactBefore = await Contact.findOne({ userEmail: senderEmail, contactEmail });
+      const wasArchived = senderContactBefore?.isArchived === true;
+      
       // Add contactEmail as a contact for sender (if not exists or unarchive if archived)
-      const senderContactUpdated = await contactsService.addContact(senderEmail, contactEmail);
+      await contactsService.addContact(senderEmail, contactEmail);
       
       // Add senderEmail as a contact for receiver (if not exists or unarchive if archived)
       await contactsService.addContact(contactEmail, senderEmail);
       
       console.log(`[${timestamp}] ✅ CONTACTS AUTO-CREATED/UPDATED for message exchange`);
       
-      // Emit contactsUpdated event to sender immediately after unarchiving
-      // This ensures the contact appears in Recent Chats right away
-      const senderSocketId = await userService.getSocketByEmail(senderEmail);
-      if (senderSocketId) {
-        this.io.to(senderSocketId).emit('contactsUpdated', {
-          contactEmail: contactEmail,
-          action: 'contact_unarchived',
-          messageId: null, // Message not saved yet, will be saved next
-        });
-        console.log(`[${timestamp}] 🔔 CONTACTS_UPDATED event emitted to sender (unarchive)`);
+      // Only emit contact_unarchived event if contact was actually archived
+      // Otherwise, message_sent event will handle the update
+      if (wasArchived) {
+        const senderSocketId = await userService.getSocketByEmail(senderEmail);
+        if (senderSocketId) {
+          this.io.to(senderSocketId).emit('contactsUpdated', {
+            contactEmail: contactEmail,
+            action: 'contact_unarchived',
+            messageId: null, // Message not saved yet, will be saved next
+          });
+          console.log(`[${timestamp}] 🔔 CONTACTS_UPDATED event emitted to sender (unarchive)`);
+        }
       }
     } catch (contactError) {
       // Log but don't fail - contact creation is not critical for message delivery

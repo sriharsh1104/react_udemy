@@ -243,10 +243,11 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
 
   useEffect(() => {
     // Only load feed when screen is focused
+    // Note: contacts is not needed here - it's only used for forwarding posts
     if (isFocused) {
       loadFeed();
     }
-  }, [contacts, userEmail, feedMode, isFocused]);
+  }, [userEmail, feedMode, isFocused]);
 
   const loadFeed = async (pageNum = 1, append = false) => {
     if (pageNum === 1) {
