@@ -106,6 +106,7 @@ const ChatContent = ({
                 : (item.message?.message || item.message?.text || String(item.message || ''));
               return `message-${index}-${item.timestamp}-${item.senderEmail}-${messageStr.substring(0, 10)}`;
             }}
+            extraData={`${messages.length}-${messages[messages.length - 1]?.messageId || messages[messages.length - 1]?.timestamp || Date.now()}`}
             style={styles.messagesList}
             contentContainerStyle={styles.messagesContent}
             onContentSizeChange={() => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Platform } from "react-native";
 import socketService from "../services/socketService";
 import { SOCKET_EVENTS } from "../constants";
 import encryptionService from "../services/encryptionService";
@@ -214,8 +215,11 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
 
         // Check if message already exists (prevent duplicates)
         // For call messages, check by messageId or sessionId to be more reliable
-        setMessages((prev) => {
+        // On mobile, wrap state update in requestAnimationFrame to ensure UI updates properly
+        const updateMessages = () => {
+          setMessages((prev) => {
           let messageExists = false;
+          let optimisticMessageIndex = -1;
           
           if (isCallMessage && data.callRecord?.sessionId) {
             // For call messages, check by sessionId in callRecord
@@ -225,14 +229,63 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
                 msg.callRecord?.sessionId === data.callRecord.sessionId
             );
           } else {
-            // For regular messages, check by content and timestamp
-            messageExists = prev.some(
-            (msg) =>
-              msg.message === decryptedMessage &&
-              msg.senderEmail === data.senderEmail &&
-              Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) <
-                1000 // Within 1 second
-          );
+            // For regular messages, check by messageId first (most reliable)
+            if (data.messageId || data._id) {
+              const existingById = prev.findIndex(
+                (msg) => (msg.messageId || msg._id) === (data.messageId || data._id)
+              );
+              if (existingById >= 0) {
+                messageExists = true;
+              }
+            }
+            
+            // If not found by ID, check for optimistic message (messageId is null)
+            // This handles the case where we sent a message optimistically and now receive it back
+            if (!messageExists && data.senderEmail === userEmail) {
+              optimisticMessageIndex = prev.findIndex(
+                (msg) =>
+                  msg.messageId === null &&
+                  msg.senderEmail === userEmail &&
+                  msg.isSent === true &&
+                  msg.message === decryptedMessage &&
+                  Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 5000 // Within 5 seconds
+              );
+              
+              if (optimisticMessageIndex >= 0) {
+                // Update optimistic message with real messageId and status
+                const updated = [...prev];
+                updated[optimisticMessageIndex] = {
+                  ...updated[optimisticMessageIndex],
+                  messageId: data.messageId || data._id || null,
+                  status: data.status || "sent",
+                  timestamp: data.timestamp, // Use server timestamp
+                };
+                
+                // Update in local storage
+                if (data.messageId) {
+                  chatStorageService.updateMessage(
+                    userEmail,
+                    contactEmail,
+                    data.messageId,
+                    { messageId: data.messageId, status: data.status || "sent", timestamp: data.timestamp },
+                    false,
+                    null
+                  ).catch(err => console.error('Error updating optimistic message in storage:', err));
+                }
+                
+                return updated;
+              }
+            }
+            
+            // Final check: by content and timestamp (for messages from others)
+            if (!messageExists && optimisticMessageIndex === -1) {
+              messageExists = prev.some(
+                (msg) =>
+                  msg.message === decryptedMessage &&
+                  msg.senderEmail === data.senderEmail &&
+                  Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 1000 // Within 1 second
+              );
+            }
           }
 
           if (messageExists) {
@@ -284,7 +337,18 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           }
           
           return updatedMessages;
-        });
+          });
+        };
+
+        // On mobile, use requestAnimationFrame to ensure state update happens on next frame
+        // This ensures React Native properly detects the state change and updates FlatList
+        if (Platform.OS !== 'web') {
+          requestAnimationFrame(() => {
+            updateMessages();
+          });
+        } else {
+          updateMessages();
+        }
       }
     };
 
