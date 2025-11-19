@@ -1,23 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
 import CallHistoryTab from '../../components/call/CallHistoryTab';
-import GLoader from '../../components/common/GLoader';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCall } from '../../hooks/useCall';
 import useUserEmail from '../../hooks/useUserEmail';
 import { Alert } from 'react-native';
 import IncomingCallScreen from '../../components/call/IncomingCallScreen';
 import ActiveCallScreen from '../../components/call/ActiveCallScreen';
-import contactsService from '../../services/contactsService';
 import styles from './styles';
 
 const CallScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const currentRoute = useRoute();
   const { userEmail } = useUserEmail();
-  const [loading, setLoading] = useState(false);
   const [contacts, setContacts] = useState([]);
   const currentRouteName = currentRoute?.name || 'Call';
 
@@ -43,21 +40,6 @@ const CallScreen = ({ navigation }) => {
     handlePermissionRetry,
     handlePermissionCancel,
   } = useCall(userEmail);
-
-  // Load contacts to get names
-  useEffect(() => {
-    const loadContacts = async () => {
-      try {
-        const result = await contactsService.getContacts();
-        if (result.success) {
-          setContacts(result.contacts || []);
-        }
-      } catch (error) {
-        console.error('Error loading contacts:', error);
-      }
-    };
-    loadContacts();
-  }, []);
 
   // Get contact name from email
   const getContactName = useCallback((email) => {
@@ -140,11 +122,16 @@ const CallScreen = ({ navigation }) => {
     );
   }, [callState, callData, callDuration, localStream, remoteStream, acceptCall, declineCall, endCall, toggleMute, toggleSpeaker, toggleVideo, isMuted, isSpeakerOn, isVideoOn, getContactName]);
 
+  const handleContactsLoaded = useCallback((loadedContacts) => {
+    setContacts(loadedContacts);
+  }, []);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <CallHistoryTab
         userEmail={userEmail}
         onCallPress={handleCallFromHistory}
+        onContactsLoaded={handleContactsLoaded}
       />
       
       {/* Call UI Screens - Ringing and Active Call */}

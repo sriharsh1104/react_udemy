@@ -17,7 +17,7 @@ import socketService from '../../services/socketService';
 import contactsService from '../../services/contactsService';
 import { Alert } from 'react-native';
 
-const CallHistoryTab = ({ userEmail, onCallPress }) => {
+const CallHistoryTab = ({ userEmail, onCallPress, onContactsLoaded }) => {
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,11 +53,15 @@ const CallHistoryTab = ({ userEmail, onCallPress }) => {
       const result = await contactsService.getContacts();
       if (result.success && result.contacts) {
         setContacts(result.contacts || []);
+        // Notify parent component about loaded contacts
+        if (onContactsLoaded) {
+          onContactsLoaded(result.contacts || []);
+        }
       }
     } catch (error) {
       console.error('Error loading contacts:', error);
     }
-  }, []);
+  }, [onContactsLoaded]);
 
   // Prevent multiple simultaneous API calls
   const isInitialized = useRef(false);
