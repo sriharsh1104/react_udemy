@@ -207,145 +207,33 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           ? messageToDecrypt
           : await decryptMessageIfNeeded(messageToDecrypt, data.senderEmail);
 
-        // Check if message already exists (prevent duplicates)
-        // CRITICAL: Check by messageId first (most reliable), then by content
-        // If duplicate found but incoming has messageId and existing doesn't, UPDATE existing
+        // Add message directly without duplication checks
+        const messageId = data.messageId || data._id;
+
+        // Notify parent component that a new message was received (to refresh contacts)
+        if (onMessageReceived) {
+          onMessageReceived();
+        }
+
+        const newMessage = {
+          senderEmail: data.senderEmail,
+          message: decryptedMessage,
+          timestamp: data.timestamp,
+          isSent: data.senderEmail === userEmail, // True if from current user, false if from contact
+          messageId: messageId || null,
+          status: data.senderEmail === userEmail ? (data.status || "sent") : "delivered", // Use status from server if available
+          replyTo: data.replyTo || null,
+          replyToMessage: data.replyToMessage || null,
+          replyToSender: data.replyToSender || null,
+          isDeleted: data.isDeleted || false,
+          editedAt: data.editedAt || null,
+          isCallMessage: data.isCallMessage || false,
+          callRecord: data.callRecord || null,
+          isBillSplit: data.isBillSplit || false,
+          billSplitData: data.billSplitData || null,
+        };
+
         setMessages((prev) => {
-          let messageExists = false;
-          let existingMessageIndex = -1;
-          const messageId = data.messageId || data._id;
-          
-          // First check by messageId (most reliable)
-          if (messageId) {
-            existingMessageIndex = prev.findIndex(
-              (msg) => (msg.messageId || msg._id) === messageId
-            );
-            messageExists = existingMessageIndex >= 0;
-          }
-          
-          // If not found by ID, check by other criteria (for optimistic updates)
-          if (!messageExists) {
-            if (isCallMessage && data.callRecord?.sessionId) {
-              // For call messages, check by sessionId in callRecord
-              existingMessageIndex = prev.findIndex(
-                (msg) =>
-                  msg.isCallMessage &&
-                  msg.callRecord?.sessionId === data.callRecord.sessionId
-              );
-              messageExists = existingMessageIndex >= 0;
-            } else {
-              // For regular messages, check by content, sender, and timestamp
-              // This helps match optimistic messages (without messageId) with server confirmations (with messageId)
-              existingMessageIndex = prev.findIndex(
-                (msg) => {
-                  // If message has ID, only match by ID (already checked above)
-                  if (msg.messageId || msg._id) {
-                    return false;
-                  }
-                  
-                  // For file messages, compare by fileId instead of full JSON (more reliable)
-                  try {
-                    const msgParsed = typeof msg.message === 'string' ? JSON.parse(msg.message) : msg.message;
-                    const dataParsed = typeof decryptedMessage === 'string' ? JSON.parse(decryptedMessage) : decryptedMessage;
-                    
-                    if (msgParsed && msgParsed.type === 'file' && dataParsed && dataParsed.type === 'file') {
-                      // Match file messages by fileId (most reliable)
-                      if (msgParsed.fileId && dataParsed.fileId) {
-                        return (
-                          msgParsed.fileId === dataParsed.fileId &&
-                          msg.senderEmail === data.senderEmail &&
-                          Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 5000 // 5 seconds for file uploads
-                        );
-                      }
-                      // If fileId not available, match by fileName, fileType, and timestamp
-                      return (
-                        msgParsed.fileName === dataParsed.fileName &&
-                        msgParsed.fileType === dataParsed.fileType &&
-                        msg.senderEmail === data.senderEmail &&
-                        Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 5000
-                      );
-                    }
-                  } catch {
-                    // Not JSON, fall through to regular comparison
-                  }
-                  
-                  // Regular text message comparison
-                  return (
-                    msg.message === decryptedMessage &&
-                    msg.senderEmail === data.senderEmail &&
-                    Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 3000
-                  );
-                }
-              );
-              messageExists = existingMessageIndex >= 0;
-            }
-          }
-
-          // If duplicate found, UPDATE it if incoming message has messageId but existing doesn't
-          if (messageExists && existingMessageIndex >= 0) {
-            const existingMsg = prev[existingMessageIndex];
-            const hasMessageId = !!(messageId);
-            const existingHasMessageId = !!(existingMsg.messageId || existingMsg._id);
-            
-            // If incoming message has messageId but existing doesn't, UPDATE existing message
-            if (hasMessageId && !existingHasMessageId) {
-              console.log("Updating optimistic message with messageId:", messageId);
-              const updated = [...prev];
-              updated[existingMessageIndex] = {
-                ...existingMsg,
-                messageId: messageId,
-                _id: messageId,
-                status: data.status || existingMsg.status || "sent", // Use server status if available
-                timestamp: data.timestamp || existingMsg.timestamp, // Use server timestamp
-                // Update other fields from server if available
-                replyTo: data.replyTo !== undefined ? data.replyTo : existingMsg.replyTo,
-                replyToMessage: data.replyToMessage !== undefined ? data.replyToMessage : existingMsg.replyToMessage,
-                replyToSender: data.replyToSender !== undefined ? data.replyToSender : existingMsg.replyToSender,
-                isDeleted: data.isDeleted !== undefined ? data.isDeleted : existingMsg.isDeleted,
-                editedAt: data.editedAt !== undefined ? data.editedAt : existingMsg.editedAt,
-              };
-              
-              // Update in local storage
-              chatStorageService.updateMessage(
-                userEmail,
-                contactEmail,
-                messageId,
-                updated[existingMessageIndex],
-                false,
-                null
-              ).catch(err => console.error('Error updating optimistic message in storage:', err));
-              
-              return updated;
-            } else {
-              // Both have messageId or both don't - ignore duplicate
-              console.log("Duplicate message ignored:", decryptedMessage, "messageId:", messageId);
-              return prev;
-            }
-          }
-
-          // Notify parent component that a new message was received (to refresh contacts)
-          if (onMessageReceived) {
-            onMessageReceived();
-          }
-
-          const newMessage = {
-            senderEmail: data.senderEmail,
-            message: decryptedMessage,
-            timestamp: data.timestamp,
-            isSent: data.senderEmail === userEmail, // True if from current user, false if from contact
-            messageId: messageId || null,
-            status: data.senderEmail === userEmail ? (data.status || "sent") : "delivered", // Use status from server if available
-            replyTo: data.replyTo || null,
-            replyToMessage: data.replyToMessage || null,
-            replyToSender: data.replyToSender || null,
-            isDeleted: data.isDeleted || false,
-            editedAt: data.editedAt || null,
-            isCallMessage: data.isCallMessage || false,
-            callRecord: data.callRecord || null,
-            isBillSplit: data.isBillSplit || false,
-            billSplitData: data.billSplitData || null,
-          };
-
           const updatedMessages = [...prev, newMessage];
           
           // Save to local storage
@@ -414,104 +302,14 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
         const cachedMessages = await chatStorageService.loadPrivateChatMessages(userEmail, contactEmail);
         const mergedMessages = chatStorageService.mergeMessages(cachedMessages, formattedMessages);
         
-        // Only replace messages if we don't have any messages yet, or if this is the initial load
-        // Otherwise, merge with existing messages to avoid clearing optimistic updates
+        // Add all messages directly without duplicate checks or limitations
         setMessages((prev) => {
-          // If we already have messages, merge them intelligently
-          if (prev.length > 0) {
-            // Create a map of existing messages by messageId for quick lookup
-            const existingMessagesMap = new Map();
-            const messagesWithoutId = [];
-            prev.forEach((msg) => {
-              if (msg.messageId || msg._id) {
-                existingMessagesMap.set(msg.messageId || msg._id, msg);
-              } else {
-                messagesWithoutId.push(msg);
-              }
-            });
-
-            // Merge: keep existing messages that aren't in history (optimistic updates)
-            // and add/update messages from history
-            const finalMerged = [];
-
-            // First, add all history messages (they're already sorted)
-            mergedMessages.forEach((historyMsg) => {
-              const historyMsgId = historyMsg.messageId || historyMsg._id;
-              if (historyMsgId) {
-                const existingMsg = existingMessagesMap.get(historyMsgId);
-                if (existingMsg) {
-                  // Update existing message with history data (preserve status if it's more recent)
-                  finalMerged.push({
-                    ...existingMsg,
-                    ...historyMsg,
-                    // Keep the more recent status if we have one
-                    status:
-                      existingMsg.status === "read" ||
-                      existingMsg.status === "delivered"
-                        ? existingMsg.status
-                        : historyMsg.status,
-                  });
-                  existingMessagesMap.delete(historyMsgId); // Remove from map to track what's left
-                } else {
-                  // Add new message from history
-                  finalMerged.push(historyMsg);
-                }
-              } else {
-                // Message without ID - add it if not duplicate
-                const isDuplicate = finalMerged.some(
-                  (m) =>
-                    m.message === historyMsg.message &&
-                    m.senderEmail === historyMsg.senderEmail &&
-                    Math.abs(
-                      new Date(m.timestamp) - new Date(historyMsg.timestamp)
-                    ) < 2000
-                );
-                if (!isDuplicate) {
-                  finalMerged.push(historyMsg);
-                }
-              }
-            });
-
-            // Add remaining existing messages that weren't in history (optimistic updates)
-            // These are messages that were added optimistically but haven't been confirmed by server yet
-            existingMessagesMap.forEach((msg) => {
-              // Only add if it's recent (within last 5 minutes) to avoid adding very old optimistic messages
-              const msgAge = Date.now() - new Date(msg.timestamp).getTime();
-              if (msgAge < 5 * 60 * 1000) {
-                finalMerged.push(msg);
-              }
-            });
-
-            // Add messages without IDs that weren't duplicates
-            messagesWithoutId.forEach((msg) => {
-              const isDuplicate = finalMerged.some(
-                (m) =>
-                  (!m.messageId && !m._id) &&
-                  m.message === msg.message &&
-                  m.senderEmail === msg.senderEmail &&
-                  Math.abs(
-                    new Date(m.timestamp) - new Date(msg.timestamp)
-                  ) < 2000
-              );
-              if (!isDuplicate) {
-                const msgAge = Date.now() - new Date(msg.timestamp).getTime();
-                // Only add recent optimistic messages
-                if (msgAge < 5 * 60 * 1000) {
-                  finalMerged.push(msg);
-                }
-              }
-            });
-
-            // Sort by timestamp
-            finalMerged.sort(
-              (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-            );
-
-            return finalMerged;
-          }
-
-          // First load - return all merged messages
-          return mergedMessages;
+          // Simply combine all messages and sort by timestamp
+          const allMessages = [...prev, ...mergedMessages];
+          allMessages.sort(
+            (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+          );
+          return allMessages;
         });
         
         // Save merged messages to local storage
