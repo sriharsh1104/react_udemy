@@ -12,6 +12,7 @@ export const navigationLinking = {
       Feed: 'feed',
       Status: 'status',
       Call: 'call',
+      CalorieCount: 'calorie-count',
       Referral: 'referral/:referralCode',
     },
   },

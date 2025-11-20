@@ -47,6 +47,13 @@ const FeedScreen = ({ navigation }) => {
           <Text style={[styles.tabIcon, currentRouteName === 'Call' && styles.activeTabIcon]}>📞</Text>
           <Text style={[styles.tabLabel, currentRouteName === 'Call' && styles.activeTabLabel, { color: currentRouteName === 'Call' ? colors.primary : colors.textSecondary }]}>Call</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, currentRouteName === 'CalorieCount' && styles.activeTabButton]}
+          onPress={() => navigation.navigate('CalorieCount')}
+        >
+          <Text style={[styles.tabIcon, currentRouteName === 'CalorieCount' && styles.activeTabIcon]}>🔥</Text>
+          <Text style={[styles.tabLabel, currentRouteName === 'CalorieCount' && styles.activeTabLabel, { color: currentRouteName === 'CalorieCount' ? colors.primary : colors.textSecondary }]}>Health</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Footer */}

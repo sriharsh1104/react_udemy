@@ -9,6 +9,7 @@ export const ReferralScreen = lazy(() => import('../screens/ReferralScreen/Refer
 export const FeedScreen = lazy(() => import('../screens/FeedScreen/FeedScreen'));
 export const StatusScreen = lazy(() => import('../screens/StatusScreen/StatusScreen'));
 export const CallScreen = lazy(() => import('../screens/CallScreen/CallScreen'));
+export const CalorieCountScreen = lazy(() => import('../screens/CalorieCountScreen/CalorieCountScreen'));
 export const LogoutModal = lazy(() => import('../components/common/LogoutModal'));
 export const NotificationContainer = lazy(() => import('../components/common/Notification'));
 export const BiometricLockScreen = lazy(() => import('../components/common/BiometricLockScreen'));

@@ -1,4 +1,5 @@
 const healthController = require('../controllers/healthController');
+const healthDataController = require('../controllers/healthDataController');
 const authController = require('../controllers/authController');
 const profileController = require('../controllers/profileController');
 const contactsController = require('../controllers/contactsController');
@@ -144,6 +145,11 @@ router.post('/bills/create', writeLimiter, asyncHandler(billSplitController.crea
 router.get('/bills', asyncHandler(billSplitController.getBillSplits.bind(billSplitController)));
 router.post('/bills/mark-paid', writeLimiter, asyncHandler(billSplitController.markAsPaid.bind(billSplitController)));
 router.post('/bills/send-reminder', writeLimiter, asyncHandler(billSplitController.sendReminder.bind(billSplitController)));
+
+// Health Data routes
+router.get('/health/profile', asyncHandler(healthDataController.getHealthProfile.bind(healthDataController)));
+router.put('/health/profile', writeLimiter, asyncHandler(healthDataController.updateHealthProfile.bind(healthDataController)));
+router.post('/health/steps', writeLimiter, asyncHandler(healthDataController.updateSteps.bind(healthDataController)));
 
 module.exports = router;
 

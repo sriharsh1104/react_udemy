@@ -13,6 +13,7 @@ import {
   FeedScreen,
   StatusScreen,
   CallScreen,
+  CalorieCountScreen,
   LogoutModal,
   BiometricLockScreen,
 } from '../config/lazyScreens';
@@ -137,6 +138,13 @@ const AppNavigator = ({
             {(props) => (
               <Suspense fallback={null}>
                 <CallScreen {...props} />
+              </Suspense>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="CalorieCount">
+            {(props) => (
+              <Suspense fallback={null}>
+                <CalorieCountScreen {...props} />
               </Suspense>
             )}
           </Stack.Screen>

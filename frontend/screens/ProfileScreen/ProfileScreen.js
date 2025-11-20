@@ -21,6 +21,7 @@ import ConfirmationModal from '../../components/common/ConfirmationModal/Confirm
 import useAlertModal from '../../hooks/useAlertModal';
 // GLoader removed - loader disabled
 import profileService from '../../services/profileService';
+import healthService from '../../services/healthService';
 import styles from './styles';
 
 const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile = null, isProfileComplete = false }) => {
@@ -30,10 +31,15 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   const [age, setAge] = useState('');
   const [phone1, setPhone1] = useState('');
   const [phone2, setPhone2] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [gender, setGender] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!initialProfile);
   const [profileCompleteStatus, setProfileCompleteStatus] = useState(isProfileComplete);
+  const [healthProfileComplete, setHealthProfileComplete] = useState(false);
+  const [healthMetrics, setHealthMetrics] = useState(null); // For step count and calories
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [followingList, setFollowingList] = useState([]);
@@ -48,12 +54,49 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     age: '',
     phone1: '',
     phone2: '',
+    height: '',
+    weight: '',
+    gender: '',
   });
 
   useEffect(() => {
     // Update profileCompleteStatus when prop changes
     setProfileCompleteStatus(isProfileComplete);
   }, [isProfileComplete]);
+
+  // Load health profile function - defined early so it can be used in useFocusEffect
+  const loadHealthProfile = useCallback(async () => {
+    try {
+      const result = await healthService.getHealthProfile();
+      if (result.success && result.healthProfile) {
+        const profile = result.healthProfile;
+        setHeight(profile.height ? profile.height.toString() : '');
+        setWeight(profile.weight ? profile.weight.toString() : '');
+        setGender(profile.gender || '');
+        setHealthProfileComplete(profile.isHealthProfileComplete || false);
+        
+        // Store health metrics for display
+        if (profile.isHealthProfileComplete) {
+          setHealthMetrics({
+            steps: profile.todaySteps || 0,
+            caloriesBurnt: profile.todayCaloriesBurnt || 0,
+            bmi: profile.bmi,
+            idealWeightRange: profile.idealWeightRange,
+          });
+        }
+        
+        // Update initial values
+        setInitialValues(prev => ({
+          ...prev,
+          height: profile.height ? profile.height.toString() : '',
+          weight: profile.weight ? profile.weight.toString() : '',
+          gender: profile.gender || '',
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading health profile:', error);
+    }
+  }, []);
 
   // Use ref to prevent double calls in React 18 dev mode
   const hasLoadedProfile = useRef(false);
@@ -90,6 +133,8 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     loadProfile();
       }
     }
+    // Load health profile
+    loadHealthProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -121,11 +166,17 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
         }
       };
       
+      // Reload health profile when screen comes into focus
+      const refreshHealthProfile = async () => {
+        await loadHealthProfile();
+      };
+      
       // Only refresh if not in initial loading state
       if (!initialLoading) {
         refreshCounts();
+        refreshHealthProfile();
       }
-    }, [initialLoading])
+    }, [initialLoading, loadHealthProfile])
   );
 
   const loadProfile = async () => {
@@ -144,12 +195,13 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
       setPhone2(initialPhone2);
       
       // Store initial values for change detection
-      setInitialValues({
+      setInitialValues(prev => ({
+        ...prev,
         name: initialName,
         age: initialAge,
         phone1: initialPhone1,
         phone2: initialPhone2,
-      });
+      }));
       
       setProfileCompleteStatus(result.profile.isProfileComplete || false);
       setFollowersCount(result.profile.followersCount || 0);
@@ -162,10 +214,13 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
   // Check if any field has changed from initial values
   const hasChanges = () => {
     return (
-      name.trim() !== initialValues.name.trim() ||
-      age.trim() !== initialValues.age.trim() ||
-      phone1.trim() !== initialValues.phone1.trim() ||
-      phone2.trim() !== initialValues.phone2.trim()
+      (name || '').trim() !== (initialValues.name || '').trim() ||
+      (age || '').trim() !== (initialValues.age || '').trim() ||
+      (phone1 || '').trim() !== (initialValues.phone1 || '').trim() ||
+      (phone2 || '').trim() !== (initialValues.phone2 || '').trim() ||
+      (height || '').trim() !== (initialValues.height || '').trim() ||
+      (weight || '').trim() !== (initialValues.weight || '').trim() ||
+      (gender || '') !== (initialValues.gender || '')
     );
   };
   
@@ -222,11 +277,33 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
     setSaving(true);
     
     try {
+    // Save profile data
     const result = await profileService.updateProfile({
       name: name.trim(),
       age: age ? parseInt(age) : null,
       phoneNumbers,
     });
+
+    // Save health profile data if provided
+    if (height || weight || gender) {
+      try {
+        const heightNum = height ? parseFloat(height) : undefined;
+        const weightNum = weight ? parseFloat(weight) : undefined;
+        const ageNum = age ? parseInt(age) : undefined;
+        
+        if (heightNum && weightNum && gender && ageNum) {
+          await healthService.updateHealthProfile({
+            height: heightNum,
+            weight: weightNum,
+            gender: gender,
+            age: ageNum,
+          });
+        }
+      } catch (healthError) {
+        console.error('Error saving health profile:', healthError);
+        // Don't fail the whole save if health profile fails
+      }
+    }
 
     if (result.success) {
       // Update profile complete status from response
@@ -244,12 +321,18 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
         setFollowingList(result.profile.followingList);
       }
       
+      // Reload health profile to get updated status
+      await loadHealthProfile();
+      
       // Update initial values after successful save to reset change detection
       setInitialValues({
         name: name.trim(),
         age: age.trim(),
         phone1: phoneNumbers[0] || '',
         phone2: phoneNumbers[1] || '',
+        height: height.trim(),
+        weight: weight.trim(),
+        gender: gender,
       });
       
       // Directly navigate to chat section on success
@@ -507,6 +590,120 @@ const ProfileScreen = ({ userEmail, onBack, isMandatory = false, initialProfile 
             />
             <Text style={styles.hint}>You can login with this number</Text>
           </View>
+
+          {/* Health Profile Section */}
+          <View style={[styles.section, { marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: colors.divider }]}>
+            <Text style={[styles.label, { fontSize: 18, fontWeight: 'bold', marginBottom: 15 }]}>Health Profile</Text>
+            
+            {/* Height */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Height (cm)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter height in cm"
+                placeholderTextColor={COLORS.inputPlaceholder}
+                value={height}
+                onChangeText={(text) => setHeight(text.replace(/[^0-9.]/g, '').slice(0, 6))}
+                keyboardType="decimal-pad"
+                maxLength={6}
+              />
+            </View>
+
+            {/* Weight */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Weight (kg)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter weight in kg"
+                placeholderTextColor={COLORS.inputPlaceholder}
+                value={weight}
+                onChangeText={(text) => setWeight(text.replace(/[^0-9.]/g, '').slice(0, 6))}
+                keyboardType="decimal-pad"
+                maxLength={6}
+              />
+            </View>
+
+            {/* Gender */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Gender</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                {['male', 'female', 'other'].map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[
+                      {
+                        flex: 1,
+                        padding: 12,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        alignItems: 'center',
+                        marginHorizontal: 4,
+                        backgroundColor: gender === g ? colors.primary : 'transparent',
+                        borderColor: gender === g ? colors.primary : colors.divider,
+                      },
+                    ]}
+                    onPress={() => setGender(g)}
+                  >
+                    <Text
+                      style={[
+                        {
+                          color: gender === g ? '#FFFFFF' : colors.text,
+                          fontWeight: '500',
+                        },
+                      ]}
+                    >
+                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* Health Metrics Display - Show when health profile is complete */}
+          {healthProfileComplete && healthMetrics && (
+            <View style={[styles.section, { marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: colors.divider }]}>
+              <Text style={[styles.label, { fontSize: 18, fontWeight: 'bold', marginBottom: 15 }]}>Today's Activity</Text>
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 15 }}>
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Text style={[styles.label, { fontSize: 24, fontWeight: 'bold', color: colors.primary }]}>
+                    {healthMetrics.steps.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.hint, { marginTop: 4 }]}>Steps</Text>
+                </View>
+                <View style={{ alignItems: 'center', flex: 1 }}>
+                  <Text style={[styles.label, { fontSize: 24, fontWeight: 'bold', color: colors.primary }]}>
+                    {healthMetrics.caloriesBurnt.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.hint, { marginTop: 4 }]}>Calories Burnt</Text>
+                </View>
+              </View>
+
+              {healthMetrics.bmi && (
+                <View style={{ marginTop: 10, paddingTop: 15, borderTopWidth: 1, borderTopColor: colors.divider }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                    <View style={{ alignItems: 'center', flex: 1 }}>
+                      <Text style={[styles.label, { fontSize: 20, fontWeight: 'bold', color: colors.primary }]}>
+                        {healthMetrics.bmi}
+                      </Text>
+                      <Text style={[styles.hint, { marginTop: 4 }]}>BMI</Text>
+                    </View>
+                    {healthMetrics.idealWeightRange && (
+                      <View style={{ alignItems: 'center', flex: 1 }}>
+                        <Text style={[styles.label, { fontSize: 16, fontWeight: 'bold', color: colors.primary }]}>
+                          {healthMetrics.idealWeightRange.ideal} kg
+                        </Text>
+                        <Text style={[styles.hint, { marginTop: 4, fontSize: 10 }]}>
+                          Ideal: {healthMetrics.idealWeightRange.min}-{healthMetrics.idealWeightRange.max} kg
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
 
           <TouchableOpacity
             style={[styles.saveButton, isSaveDisabled() && styles.saveButtonDisabled]}
