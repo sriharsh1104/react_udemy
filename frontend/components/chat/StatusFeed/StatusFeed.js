@@ -1236,13 +1236,10 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
                 onPress={() => handleUserProfilePress(item.userEmail)}
                 activeOpacity={0.7}
               >
-              <Text style={[styles.feedUserName, { color: colors.text }]}>
-                {item.userName || item.userEmail?.split('@')[0]}
-              </Text>
-              </TouchableOpacity>
               <Text style={[styles.feedTime, { color: colors.textSecondary }]}>
                 {item.statusTime}
               </Text>
+              </TouchableOpacity>
             </View>
           </View>
           {/* Show menu for all posts */}
@@ -1339,10 +1336,7 @@ const StatusFeed = ({ userEmail, contacts = [] }) => {
         {item.caption && item.caption.trim() ? (
           <View style={styles.feedCaption}>
             <Text style={[styles.feedCaptionText, { color: colors.text }]}>
-              <Text style={[styles.feedCaptionUser, { color: colors.text }]}>
-                {item.userName || item.userEmail?.split('@')[0]}
-              </Text>
-              <Text> {String(item.caption || '')}</Text>
+              {String(item.caption || '')}
             </Text>
           </View>
         ) : null}

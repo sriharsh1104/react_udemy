@@ -40,10 +40,15 @@ const StatusSchema = new mongoose.Schema({
   expiresAt: {
     type: Date,
     default: function() {
-      // Status expires after 24 hours
-      return new Date(Date.now() + 24 * 60 * 60 * 1000);
+      // Only status posts expire after 24 hours, feed posts are permanent
+      if (this.postType === 'status') {
+        return new Date(Date.now() + 24 * 60 * 60 * 1000);
+      }
+      // Feed posts don't expire - set to null
+      // MongoDB TTL index only deletes documents where expiresAt exists and is in the past
+      // So null values won't be deleted
+      return null;
     },
-    index: { expireAfterSeconds: 0 },
   },
   caption: {
     type: String,
@@ -125,6 +130,11 @@ StatusSchema.index({ userEmail: 1, createdAt: -1 });
 
 // Index for finding unviewed statuses
 StatusSchema.index({ userEmail: 1, 'viewers.viewerEmail': 1 });
+
+// TTL index for auto-deleting expired status posts (only status posts, not feed posts)
+// This index only affects documents where expiresAt exists and is in the past
+// Feed posts have expiresAt: null, so they won't be deleted
+StatusSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('Status', StatusSchema);
 
