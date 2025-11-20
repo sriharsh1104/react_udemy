@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { sendSuccess, sendError, HTTP_STATUS } = require('../utils/responseHelper');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
+const { OAuth2Client } = require('google-auth-library');
 
 class AuthController {
   // Send OTP to email or phone
@@ -353,6 +354,132 @@ class AuthController {
       return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.LOGOUT_SUCCESSFUL);
     } catch (error) {
       console.error('Error in logout:', error);
+      return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Google OAuth Login
+  async googleLogin(req, res) {
+    try {
+      const { idToken } = req.body;
+
+      if (!idToken) {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Google ID token is required');
+      }
+
+      // Get client IDs for Android and Web
+      const androidClientId = process.env.GOOGLE_ANDROID_CLIENT_ID;
+      const webClientId = process.env.GOOGLE_WEB_CLIENT_ID;
+      const webClientSecret = process.env.GOOGLE_WEB_CLIENT_SECRET;
+
+      if (!androidClientId && !webClientId) {
+        return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, 'Google OAuth not configured');
+      }
+
+      // Try to verify token with Android client ID first (for Android apps)
+      let ticket = null;
+      let verifyError = null;
+
+      if (androidClientId) {
+        try {
+          const androidClient = new OAuth2Client(androidClientId);
+          ticket = await androidClient.verifyIdToken({
+            idToken: idToken,
+            audience: androidClientId,
+          });
+        } catch (err) {
+          verifyError = err;
+          // Continue to try web client ID
+        }
+      }
+
+      // If Android verification failed, try Web client ID (for web apps)
+      if (!ticket && webClientId) {
+        try {
+          const webClient = new OAuth2Client(webClientId, webClientSecret);
+          ticket = await webClient.verifyIdToken({
+            idToken: idToken,
+            audience: webClientId,
+          });
+        } catch (err) {
+          verifyError = err;
+        }
+      }
+
+      // If both verifications failed
+      if (!ticket) {
+        console.error('Google token verification failed:', verifyError);
+        return sendError(res, HTTP_STATUS.UNAUTHORIZED, 'Invalid Google token');
+      }
+
+      const payload = ticket.getPayload();
+      const email = payload.email;
+      const googleId = payload.sub;
+      const name = payload.name;
+      const picture = payload.picture;
+
+      if (!email) {
+        return sendError(res, HTTP_STATUS.BAD_REQUEST, 'Email not provided by Google');
+      }
+
+      // Check if user exists
+      let user = await User.findOne({ email: email.toLowerCase() });
+
+      if (!user) {
+        // Create new user with Google OAuth
+        const crypto = require('crypto');
+        let referralCode;
+        let isUnique = false;
+        while (!isUnique) {
+          referralCode = crypto.randomBytes(6).toString('hex').toUpperCase();
+          const existingUser = await User.findOne({ referralCode });
+          if (!existingUser) {
+            isUnique = true;
+          }
+        }
+
+        user = new User({
+          email: email.toLowerCase(),
+          googleId: googleId,
+          referralCode,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        await user.save();
+
+        // Create profile with Google data
+        await userProfileService.createOrUpdateProfile(email, {
+          name: name,
+          profilePicture: picture,
+        });
+      } else {
+        // Update existing user with Google ID if not already set
+        if (!user.googleId) {
+          user.googleId = googleId;
+          user.updatedAt = new Date();
+          await user.save();
+        }
+      }
+
+      // Generate token
+      const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Store user session
+      await userService.addUserSession(user.email, token);
+
+      // Get user profile
+      const profile = await userProfileService.getProfileByEmail(user.email);
+      const isProfileComplete = profile ? await userProfileService.isProfileComplete(user.email) : false;
+
+      return sendSuccess(res, HTTP_STATUS.OK, SUCCESS_MESSAGES.LOGIN_SUCCESSFUL, {
+        token,
+        email: user.email,
+        profile: profile || null,
+        isProfileComplete,
+      });
+    } catch (error) {
+      console.error('Error in googleLogin:', error);
       return sendError(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
     }
   }

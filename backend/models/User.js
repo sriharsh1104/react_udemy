@@ -16,12 +16,22 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     default: null,
   },
+  profilePicture: {
+    type: String,
+    default: null,
+  },
   phoneNumbers: [{
     type: String,
   }],
   password: {
     type: String,
     default: null, // null means password not set
+  },
+  googleId: {
+    type: String,
+    default: null, // Google OAuth ID
+    sparse: true,
+    index: true,
   },
   offlineMode: {
     type: Boolean,

@@ -129,6 +129,18 @@ npm start
 - Responsive UI
 - Modular, maintainable code structure
 
+## Environment Variables
+
+See `backend/ENV_VARIABLES.md` for a complete list of required environment variables.
+
+## Google OAuth Setup
+
+For setting up Google OAuth authentication:
+1. See `GOOGLE_OAUTH_SETUP.md` for detailed step-by-step instructions
+2. Configure `.env` files in both backend and frontend folders
+3. Backend requires: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+4. Frontend requires: `EXPO_PUBLIC_GOOGLE_CLIENT_ID`
+
 ## Configuration
 
 ### Backend Port

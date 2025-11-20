@@ -141,6 +141,28 @@ class AuthService {
       return errorResponse;
     }
   }
+
+  async googleLogin(idToken) {
+    try {
+      // Use apiService.post - auth endpoints don't require token, loader enabled
+      const result = await apiService.post('/auth/google-login', { idToken }, {}, 'Logging in with Google...');
+      
+      // Don't show toast for Google login success (handled in LoginScreen)
+      if (!result.success) {
+        showToastFromResponse(result, { 
+          successTitle: 'Login Successful',
+          errorTitle: 'Google Login Failed',
+          showSuccess: false,
+        });
+      }
+      return result;
+    } catch (error) {
+      logger.error('Error logging in with Google:', error);
+      const errorResponse = handleApiError(error, 'Failed to login with Google');
+      showToastFromResponse(errorResponse, { errorTitle: 'Network Error' });
+      return errorResponse;
+    }
+  }
 }
 
 export default new AuthService();

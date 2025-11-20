@@ -68,6 +68,28 @@ CLOUDINARY_API_SECRET=abcdefghijklmnopqrstuvwxyz123456
 SESSION_SECRET=your-random-secret-key-here-minimum-32-characters-long
 ```
 
+## Google OAuth Configuration
+
+```bash
+# Google OAuth - Get from Google Cloud Console
+# Steps to get credentials:
+# 1. Go to https://console.cloud.google.com/
+# 2. Create a new project or select existing one
+# 3. Enable Google+ API
+# 4. Go to "Credentials" section
+# 5. Create OAuth 2.0 Client IDs (for Web application and Android)
+# 6. Add authorized redirect URIs
+
+# Android OAuth Client (Client ID only, no secret needed)
+# This is the client ID for Android app from Google Cloud Console
+GOOGLE_ANDROID_CLIENT_ID=your-android-client-id.apps.googleusercontent.com
+
+# Web OAuth Client (Client ID + Secret)
+# This is the client ID for Web application from Google Cloud Console
+GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+GOOGLE_WEB_CLIENT_SECRET=your-web-client-secret
+```
+
 ## Where to Get These Values
 
 See `SETUP_GUIDE.md` for detailed instructions on creating accounts and getting API keys.

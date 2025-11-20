@@ -27,6 +27,7 @@ router.post('/auth/register', authLimiter, asyncHandler(authController.register.
 router.post('/auth/send-otp', authLimiter, asyncHandler(authController.sendOTP.bind(authController)));
 router.post('/auth/verify-otp', authLimiter, asyncHandler(authController.verifyOTP.bind(authController)));
 router.post('/auth/login-password', authLimiter, asyncHandler(authController.loginWithPassword.bind(authController)));
+router.post('/auth/google-login', authLimiter, asyncHandler(authController.googleLogin.bind(authController)));
 router.post('/auth/forget-password', authLimiter, asyncHandler(authController.forgetPassword.bind(authController)));
 router.post('/auth/reset-password', authLimiter, asyncHandler(authController.resetPassword.bind(authController)));
 router.post('/auth/logout', asyncHandler(authController.logout.bind(authController)));

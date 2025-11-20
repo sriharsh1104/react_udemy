@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   View,
@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useTheme } from '../../contexts/ThemeContext';
 import Button from '../../components/common/Button';
 import PasswordInput from '../../components/common/PasswordInput';
@@ -38,6 +39,21 @@ const LoginScreen = ({ onLogin }) => {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [confirmSignupPassword, setConfirmSignupPassword] = useState('');
+
+  // Initialize Google Sign-In
+  useEffect(() => {
+    // Use Android client ID for React Native Google Sign-In
+    // For Android: Use GOOGLE_ANDROID_CLIENT_ID
+    // For Web: This will be handled separately via web OAuth flow
+    const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+    
+    if (androidClientId) {
+      GoogleSignin.configure({
+        webClientId: androidClientId, // Android client ID (no secret needed)
+        offlineAccess: false,
+      });
+    }
+  }, []);
 
   const isEmail = (text) => text.includes('@');
   const isValidPhone = (text) => /^\+?[1-9]\d{1,14}$/.test(text.replace(/\s/g, ''));
@@ -297,6 +313,65 @@ const LoginScreen = ({ onLogin }) => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    if (loading) return;
+
+    try {
+      setLoading(true);
+      
+      // Check if Google Play services are available
+      await GoogleSignin.hasPlayServices();
+      
+      // Sign in with Google
+      const userInfo = await GoogleSignin.signIn();
+      
+      // Get the ID token
+      const idToken = userInfo.data?.idToken || userInfo.idToken;
+      
+      if (!idToken) {
+        showAlert('Error', 'Failed to get Google authentication token', { type: 'error' });
+        setLoading(false);
+        return;
+      }
+
+      // Send ID token to backend for verification
+      const result = await authService.googleLogin(idToken);
+
+      if (result.success) {
+        // Store auth token
+        await AsyncStorage.setItem('authToken', result.token);
+        await AsyncStorage.setItem('userEmail', result.email);
+        
+        // Pass profile with isProfileComplete flag
+        const profileWithComplete = result.profile 
+          ? { ...result.profile, isProfileComplete: result.isProfileComplete }
+          : null;
+        
+        // Stop loader before navigation
+        setLoading(false);
+        // Directly login to chat section
+        onLogin(result.email, result.token, profileWithComplete, result.isProfileComplete);
+      } else {
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Google Sign-In Error:', error);
+      setLoading(false);
+      
+      // Handle different error types
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        // User cancelled the sign-in
+        return;
+      } else if (error.code === 'IN_PROGRESS') {
+        showAlert('Info', 'Sign-in is already in progress', { type: 'info' });
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        showAlert('Error', 'Google Play Services not available', { type: 'error' });
+      } else {
+        showAlert('Error', 'Failed to sign in with Google', { type: 'error' });
+      }
+    }
+  };
+
   const screenHeight = Dimensions.get('window').height;
   const isSmallScreen = screenHeight < 700;
 
@@ -398,6 +473,23 @@ const LoginScreen = ({ onLogin }) => {
                 </Text>
               </TouchableOpacity>
             )}
+
+            <View style={styles.dividerContainer}>
+              <View style={[styles.divider, { backgroundColor: colors.textSecondary }]} />
+              <Text style={[styles.dividerText, { color: colors.textSecondary }]}>OR</Text>
+              <View style={[styles.divider, { backgroundColor: colors.textSecondary }]} />
+            </View>
+
+            <Button
+              title="Continue with Google"
+              onPress={handleGoogleLogin}
+              variant="secondary"
+              size="large"
+              loading={loading}
+              disabled={loading}
+              fullWidth
+              icon="🔐"
+            />
 
             <View style={styles.signupContainer}>
               <Text style={[styles.signupText, { color: colors.textSecondary }]}>Don't have an account? </Text>

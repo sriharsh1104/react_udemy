@@ -40,7 +40,13 @@
     "extra": {
       "eas": {
         "projectId": "6f94b55c-2d4e-4740-8dcd-4b879f94e118"
-      }
-    }
+      },
+      "googleClientId": "${EXPO_PUBLIC_GOOGLE_CLIENT_ID}"
+    },
+    "plugins": [
+      [
+        "@react-native-google-signin/google-signin"
+      ]
+    ]
   }
 }

@@ -50,6 +50,9 @@ class UserProfileService {
       if (profileData.age !== undefined) {
         updateData.age = profileData.age || null;
       }
+      if (profileData.profilePicture !== undefined) {
+        updateData.profilePicture = profileData.profilePicture || null;
+      }
       if (profileData.phoneNumbers !== undefined) {
         // Normalize phone numbers (remove spaces, +, etc.)
         const normalizedPhones = profileData.phoneNumbers
