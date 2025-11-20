@@ -140,6 +140,7 @@ const AppContent = ({ navigationRef: externalNavRef }) => {
         handleLogout={handleLogoutWithCleanup}
         handleLogoutPress={handleLogoutPress}
         handleBiometricAuthenticated={handleBiometricAuthenticated}
+        isLoggedIn={isLoggedIn}
       />
       <StatusBar style={isDark ? "light" : "dark"} />
       <Toast 

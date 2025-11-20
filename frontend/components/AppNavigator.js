@@ -18,6 +18,7 @@ import {
   BiometricLockScreen,
 } from '../config/lazyScreens';
 import profileService from '../services/profileService';
+import ProtectedRoute from './ProtectedRoute';
 
 const Stack = createNativeStackNavigator();
 
@@ -36,6 +37,7 @@ const AppNavigator = ({
   handleLogout,
   handleLogoutPress,
   handleBiometricAuthenticated,
+  isLoggedIn,
 }) => {
   const { colors } = useTheme();
 
@@ -62,90 +64,106 @@ const AppNavigator = ({
           </Stack.Screen>
           <Stack.Screen name="Chat">
             {(props) => (
-              <Suspense fallback={null}>
-                <ChatScreen
-                  {...props}
-                  userEmail={userEmail}
-                  onLogout={handleLogout}
-                  onProfilePress={() => props.navigation.navigate('Profile')}
-                  onSettingsPress={() => props.navigation.navigate('Settings')}
-                  onLogoutPress={handleLogoutPress}
-                />
-              </Suspense>
+              <ProtectedRoute isLoggedIn={isLoggedIn} navigationRef={navigationRef}>
+                <Suspense fallback={null}>
+                  <ChatScreen
+                    {...props}
+                    userEmail={userEmail}
+                    onLogout={handleLogout}
+                    onProfilePress={() => props.navigation.navigate('Profile')}
+                    onSettingsPress={() => props.navigation.navigate('Settings')}
+                    onLogoutPress={handleLogoutPress}
+                  />
+                </Suspense>
+              </ProtectedRoute>
             )}
           </Stack.Screen>
           <Stack.Screen name="Profile">
             {(props) => (
-              <Suspense fallback={null}>
-                <ProfileScreen
-                  {...props}
-                  userEmail={userEmail}
-                  initialProfile={profile}
-                  isProfileComplete={profile?.isProfileComplete || false}
-                  onBack={async () => {
-                    // Reload profile to get updated isProfileComplete status
-                    const profileResult = await profileService.getProfile();
-                    if (profileResult.success && profileResult.profile) {
-                      const updatedProfile = profileResult.profile;
-                      setProfile(updatedProfile);
-                      // Navigate to chat if profile is complete
-                      if (updatedProfile?.isProfileComplete) {
-                        props.navigation.navigate('Chat');
+              <ProtectedRoute isLoggedIn={isLoggedIn} navigationRef={navigationRef}>
+                <Suspense fallback={null}>
+                  <ProfileScreen
+                    {...props}
+                    userEmail={userEmail}
+                    initialProfile={profile}
+                    isProfileComplete={profile?.isProfileComplete || false}
+                    onBack={async () => {
+                      // Reload profile to get updated isProfileComplete status
+                      const profileResult = await profileService.getProfile();
+                      if (profileResult.success && profileResult.profile) {
+                        const updatedProfile = profileResult.profile;
+                        setProfile(updatedProfile);
+                        // Navigate to chat if profile is complete
+                        if (updatedProfile?.isProfileComplete) {
+                          props.navigation.navigate('Chat');
+                        } else {
+                          props.navigation.goBack();
+                        }
                       } else {
                         props.navigation.goBack();
                       }
-                    } else {
-                      props.navigation.goBack();
-                    }
-                  }}
-                  isMandatory={!profile || !profile.isProfileComplete}
-                />
-              </Suspense>
+                    }}
+                    isMandatory={!profile || !profile.isProfileComplete}
+                  />
+                </Suspense>
+              </ProtectedRoute>
             )}
           </Stack.Screen>
           <Stack.Screen name="Settings">
             {(props) => (
-              <Suspense fallback={null}>
-                <SettingsScreen
-                  {...props}
-                  onBack={() => props.navigation.goBack()}
-                />
-              </Suspense>
+              <ProtectedRoute isLoggedIn={isLoggedIn} navigationRef={navigationRef}>
+                <Suspense fallback={null}>
+                  <SettingsScreen
+                    {...props}
+                    onBack={() => props.navigation.goBack()}
+                  />
+                </Suspense>
+              </ProtectedRoute>
             )}
           </Stack.Screen>
           <Stack.Screen name="Referral">
             {(props) => (
-              <Suspense fallback={null}>
-                <ReferralScreen {...props} />
-              </Suspense>
+              <ProtectedRoute isLoggedIn={isLoggedIn} navigationRef={navigationRef}>
+                <Suspense fallback={null}>
+                  <ReferralScreen {...props} />
+                </Suspense>
+              </ProtectedRoute>
             )}
           </Stack.Screen>
           <Stack.Screen name="Feed">
             {(props) => (
-              <Suspense fallback={null}>
-                <FeedScreen {...props} />
-              </Suspense>
+              <ProtectedRoute isLoggedIn={isLoggedIn} navigationRef={navigationRef}>
+                <Suspense fallback={null}>
+                  <FeedScreen {...props} />
+                </Suspense>
+              </ProtectedRoute>
             )}
           </Stack.Screen>
           <Stack.Screen name="Status">
             {(props) => (
-              <Suspense fallback={null}>
-                <StatusScreen {...props} />
-              </Suspense>
+              <ProtectedRoute isLoggedIn={isLoggedIn} navigationRef={navigationRef}>
+                <Suspense fallback={null}>
+                  <StatusScreen {...props} />
+                </Suspense>
+              </ProtectedRoute>
             )}
           </Stack.Screen>
           <Stack.Screen name="Call">
             {(props) => (
-              <Suspense fallback={null}>
-                <CallScreen {...props} />
-              </Suspense>
+              <ProtectedRoute isLoggedIn={isLoggedIn} navigationRef={navigationRef}>
+                <Suspense fallback={null}>
+                  <CallScreen {...props} />
+                </Suspense>
+              </ProtectedRoute>
             )}
           </Stack.Screen>
           <Stack.Screen name="CalorieCount">
             {(props) => (
-              <Suspense fallback={null}>
-                <CalorieCountScreen {...props} />
-              </Suspense>
+              <ProtectedRoute isLoggedIn={isLoggedIn} navigationRef={navigationRef}>
+                <Suspense fallback={null}>
+                  <CalorieCountScreen {...props} />
+                </Suspense>
+              </ProtectedRoute>
             )}
           </Stack.Screen>
         </Stack.Navigator>
