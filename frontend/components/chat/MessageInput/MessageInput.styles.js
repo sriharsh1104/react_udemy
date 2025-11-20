@@ -66,6 +66,19 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: COLORS.text,
   },
+  streakButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.xs,
+    backgroundColor: COLORS.primary + '20',
+  },
+  streakIcon: {
+    fontSize: 20,
+    color: COLORS.primary,
+  },
   emojiButton: {
     width: 36,
     height: 36,

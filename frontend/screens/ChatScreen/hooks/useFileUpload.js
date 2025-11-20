@@ -14,6 +14,7 @@ export const useFileUpload = ({
   userEmail,
   sendPrivateMessage,
   sendGroupMessage,
+  sendStreakMessage,
 }) => {
   const handleFileSelect = useCallback(async (file) => {
     try {
@@ -86,6 +87,35 @@ export const useFileUpload = ({
     }
   }, [chatType, contactEmail, groupId, userEmail, sendPrivateMessage, sendGroupMessage]);
 
-  return { handleFileSelect };
+  const handleStreakFile = useCallback(async (file) => {
+    try {
+      if (!contactEmail || chatType !== 'private') {
+        Alert.alert('Error', 'Streak can only be sent in private chats');
+        return;
+      }
+      
+      const uploadResult = await fileUploadService.uploadFile(file, userEmail);
+      
+      if (uploadResult.success && uploadResult.fileId) {
+        const fileMessage = JSON.stringify({
+          type: 'file',
+          fileId: uploadResult.fileId,
+          fileName: uploadResult.fileName || file.name,
+          fileType: uploadResult.fileType || file.type,
+          fileSize: uploadResult.fileSize || file.size || 0,
+          localUri: uploadResult.localUri || null,
+        });
+        
+        if (sendStreakMessage) {
+          sendStreakMessage(fileMessage);
+        }
+      }
+    } catch (error) {
+      logger.error('Error uploading streak file:', error);
+      Alert.alert('Error', error.message || 'Failed to send streak');
+    }
+  }, [chatType, contactEmail, userEmail, sendStreakMessage]);
+
+  return { handleFileSelect, handleStreakFile };
 };
 

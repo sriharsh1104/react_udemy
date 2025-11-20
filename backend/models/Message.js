@@ -132,6 +132,11 @@ const MessageSchema = new mongoose.Schema({
     default: false,
     index: true,
   },
+  isStreak: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
 });
 
 // Compound indexes for efficient querying

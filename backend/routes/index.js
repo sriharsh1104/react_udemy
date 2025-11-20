@@ -10,6 +10,7 @@ const statusController = require('../controllers/statusController');
 const feedController = require('../controllers/feedController');
 const { controller: callController, verifyToken: verifyCallToken } = require('../controllers/callController');
 const billSplitController = require('../controllers/billSplitController');
+const streakController = require('../controllers/streakController');
 const { authLimiter, writeLimiter, uploadLimiter } = require('../middleware/rateLimiter');
 
 const router = require('express').Router();
@@ -150,6 +151,11 @@ router.post('/bills/send-reminder', writeLimiter, asyncHandler(billSplitControll
 router.get('/health/profile', asyncHandler(healthDataController.getHealthProfile.bind(healthDataController)));
 router.put('/health/profile', writeLimiter, asyncHandler(healthDataController.updateHealthProfile.bind(healthDataController)));
 router.post('/health/steps', writeLimiter, asyncHandler(healthDataController.updateSteps.bind(healthDataController)));
+
+// Streak routes
+router.get('/streaks', streakController.getMyStreaks);
+router.get('/streaks/with-contact', streakController.getStreakWithContact);
+router.post('/streaks/reset', writeLimiter, streakController.resetStreak);
 
 module.exports = router;
 

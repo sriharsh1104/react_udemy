@@ -39,6 +39,16 @@ class ChatService {
 
       await message.save();
       
+      // Update streak ONLY for streak messages (non-fire-and-forget, but don't block on errors)
+      if (!groupId && !messageData.isReminder && messageData.isStreak) {
+        const streakService = require('./streakService');
+        streakService.updateStreak(email1, email2, messageData.senderEmail, 'streak')
+          .catch(err => {
+            console.error('Error updating streak for streak message:', err);
+            // Don't throw - streak update failure shouldn't break message sending
+          });
+      }
+      
       return message.toObject();
     } catch (error) {
       console.error('Error adding message to DB:', error);

@@ -408,14 +408,22 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
     }
   }, [chatType, groupId, contactEmail, executeClearChat, setShowClearChatModal]);
 
+  // Streak message handler
+  const sendStreakMessage = useCallback(async (fileMessage) => {
+    if (chatType === 'private' && contactEmail) {
+      await sendPrivateMessage(fileMessage, null, true); // isStreak = true
+    }
+  }, [chatType, contactEmail, sendPrivateMessage]);
+
   // File upload
-  const { handleFileSelect } = useFileUpload({
+  const { handleFileSelect, handleStreakFile } = useFileUpload({
     chatType,
     contactEmail,
     groupId,
     userEmail,
     sendPrivateMessage,
     sendGroupMessage,
+    sendStreakMessage,
   });
 
   // Pinned message
@@ -939,6 +947,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
         handleTyping={handleTyping}
         handleSendMessage={chatHandlers.handleSendMessage}
         handleFileSelect={handleFileSelect}
+        handleStreakFile={handleStreakFile}
           userEmail={userEmail}
           replyingTo={replyingTo}
         setReplyingTo={setReplyingTo}
@@ -974,7 +983,7 @@ const ChatScreen = ({ userEmail, onLogout, onProfilePress, onSettingsPress, onLo
   }, [
     contactEmail, groupId, contacts, groups, showInviteModal, inviteEmail, showCreateGroupModal,
     messages, loadingMessages, flatListRef, renderMessage, currentTypingUser, inputMessage,
-    handleTyping, chatHandlers, handleFileSelect, userEmail, replyingTo, editingMessage,
+    handleTyping, chatHandlers, handleFileSelect, handleStreakFile, userEmail, replyingTo, editingMessage,
     selectedMessages, actionBarHandlers, pinnedMessage, handlePinnedMessagePress,
     handleUnpinFromBanner, currentGroup, colors, contactHandlers, loadContacts,
     setShowInviteModal, setInviteEmail, setShowCreateGroupModal, setShowBillSplitModal,

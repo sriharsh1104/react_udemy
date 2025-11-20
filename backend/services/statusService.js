@@ -204,6 +204,9 @@ class StatusService {
       });
 
       await status.save();
+      
+      // Streak updates removed - streaks only work with dedicated streak button
+      
       return status;
     } catch (error) {
       console.error('Error marking status as viewed:', error);

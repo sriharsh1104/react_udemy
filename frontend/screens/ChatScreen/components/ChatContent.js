@@ -23,6 +23,7 @@ const ChatContent = ({
   handleTyping,
   handleSendMessage,
   handleFileSelect,
+  handleStreakFile,
   userEmail,
   replyingTo,
   setReplyingTo,
@@ -134,6 +135,7 @@ const ChatContent = ({
         onChangeText={handleTyping}
         onSend={handleSendMessage}
         onFileSelect={handleFileSelect}
+        onStreakPress={chatType === 'private' ? handleStreakFile : null}
         userEmail={userEmail}
         replyingTo={replyingTo}
         onCancelReply={() => setReplyingTo(null)}
@@ -164,6 +166,7 @@ ChatContent.propTypes = {
   handleTyping: PropTypes.func.isRequired,
   handleSendMessage: PropTypes.func.isRequired,
   handleFileSelect: PropTypes.func.isRequired,
+  handleStreakFile: PropTypes.func,
   userEmail: PropTypes.string.isRequired,
   replyingTo: PropTypes.object,
   setReplyingTo: PropTypes.func.isRequired,

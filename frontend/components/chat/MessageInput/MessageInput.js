@@ -9,7 +9,7 @@ import EmojiPicker from '../EmojiPicker';
 import GIFPicker from '../GIFPicker';
 import styles from './MessageInput.styles';
 
-const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, replyingTo, onCancelReply, editingMessage, onCancelEdit, onBillSplitPress }) => {
+const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, replyingTo, onCancelReply, editingMessage, onCancelEdit, onBillSplitPress, onStreakPress }) => {
   const { showAlert, alertState, hideAlert } = useAlertModal();
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -77,6 +77,20 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
       }
     } catch (error) {
       showAlert('Error', error.message || 'Failed to take photo', { type: 'error' });
+    }
+  };
+
+  const handleStreakPress = async () => {
+    try {
+      // Show options for photo or video
+      setShowAttachmentMenu(false);
+      // For now, use takePhoto - can be enhanced with action sheet to choose photo/video
+      const file = await fileUploadService.takePhoto();
+      if (file && onStreakPress) {
+        onStreakPress(file);
+      }
+    } catch (error) {
+      showAlert('Error', error.message || 'Failed to capture streak', { type: 'error' });
     }
   };
 
@@ -287,6 +301,16 @@ const MessageInput = ({ value, onChangeText, onSend, onFileSelect, userEmail, re
             activeOpacity={0.7}
           >
             <Text style={styles.billSplitIcon}>💰</Text>
+          </TouchableOpacity>
+        )}
+        
+        {onStreakPress && (
+          <TouchableOpacity 
+            style={styles.streakButton}
+            onPress={handleStreakPress}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.streakIcon}>🔥</Text>
           </TouchableOpacity>
         )}
         

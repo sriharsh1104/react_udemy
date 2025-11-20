@@ -731,7 +731,7 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
     };
   }, [socket, userEmail, contactEmail, cleanupOldMessages, decryptMessageIfNeeded]);
 
-  const sendMessage = async (message, replyInfo = null) => {
+  const sendMessage = async (message, replyInfo = null, isStreak = false) => {
     if (message.trim() && socket && contactEmail && userEmail) {
       const messageText = message.trim();
 
@@ -833,6 +833,7 @@ export const useChat = (userEmail, contactEmail, onMessageReceived) => {
           replyTo: replyInfo?.replyTo || null,
           replyToMessage: replyInfo?.replyToMessage || null,
           replyToSender: replyInfo?.replyToSender || null,
+          isStreak: isStreak || false,
         };
 
         // Send encrypted message to server

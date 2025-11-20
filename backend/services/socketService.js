@@ -283,7 +283,7 @@ class SocketService {
 
   async handlePrivateMessage(socket, data) {
     const timestamp = new Date().toISOString();
-    const { message, contactEmail, senderEmail: providedSenderEmail, replyTo, replyToMessage, replyToSender } = data;
+    const { message, contactEmail, senderEmail: providedSenderEmail, replyTo, replyToMessage, replyToSender, isStreak } = data;
     
     // Try to get senderEmail from data first, fallback to socket lookup
     let senderEmail = providedSenderEmail || await this.getEmailFromSocket(socket.id);
@@ -349,6 +349,7 @@ class SocketService {
       replyTo: replyTo || null,
       replyToMessage: replyToMessage || null,
       replyToSender: replyToSender || null,
+      isStreak: isStreak || false,
     };
     
     let savedMessage;
