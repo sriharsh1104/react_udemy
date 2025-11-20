@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,75 @@ const IncomingCallScreen = ({
   receiverEmail,
 }) => {
   const [ringAnimation] = useState(new Animated.Value(0));
+  const audioRef = useRef(null);
+  const audioIntervalRef = useRef(null);
+
+  // Generate bell/ringing sound using Web Audio API
+  const playRingingSound = () => {
+    if (Platform.OS !== 'web') return; // Only for web
+    
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+
+      const audioContext = new AudioContext();
+      
+      // Create a bell-like sound (combination of frequencies)
+      const playBell = () => {
+        const oscillator1 = audioContext.createOscillator();
+        const oscillator2 = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        // First tone (higher frequency - bell ding)
+        oscillator1.type = 'sine';
+        oscillator1.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator1.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
+        
+        // Second tone (lower frequency - bell dong)
+        oscillator2.type = 'sine';
+        oscillator2.frequency.setValueAtTime(600, audioContext.currentTime);
+        oscillator2.frequency.exponentialRampToValueAtTime(300, audioContext.currentTime + 0.1);
+        
+        // Envelope for bell sound
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.15);
+        
+        oscillator1.connect(gainNode);
+        oscillator2.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator1.start(audioContext.currentTime);
+        oscillator2.start(audioContext.currentTime);
+        oscillator1.stop(audioContext.currentTime + 0.15);
+        oscillator2.stop(audioContext.currentTime + 0.15);
+      };
+
+      // Play bell sound every 2 seconds (ringing pattern)
+      playBell(); // Play immediately
+      audioIntervalRef.current = setInterval(() => {
+        playBell();
+      }, 2000); // Repeat every 2 seconds
+    } catch (error) {
+      console.error('Error playing ringing sound:', error);
+    }
+  };
+
+  const stopRingingSound = () => {
+    if (audioIntervalRef.current) {
+      clearInterval(audioIntervalRef.current);
+      audioIntervalRef.current = null;
+    }
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      } catch (error) {
+        console.error('Error stopping audio:', error);
+      }
+    }
+  };
 
   useEffect(() => {
     if (visible) {
@@ -41,8 +110,19 @@ const IncomingCallScreen = ({
           }),
         ])
       ).start();
+
+      // Play ringing sound for both incoming and outgoing calls
+      playRingingSound();
+    } else {
+      // Stop ringing sound when not visible
+      stopRingingSound();
     }
-  }, [visible]);
+
+    // Cleanup on unmount
+    return () => {
+      stopRingingSound();
+    };
+  }, [visible, isOutgoing]);
 
   const displayName = isOutgoing 
     ? (receiverName || receiverEmail?.split('@')[0] || 'Unknown')
@@ -119,7 +199,10 @@ const IncomingCallScreen = ({
             // Outgoing call - only end button
             <TouchableOpacity
               style={[styles.actionButton, styles.endButton]}
-              onPress={onDecline}
+              onPress={() => {
+                stopRingingSound();
+                onDecline();
+              }}
             >
               <Text style={styles.endButtonText}>End</Text>
             </TouchableOpacity>
@@ -128,13 +211,19 @@ const IncomingCallScreen = ({
             <>
               <TouchableOpacity
                 style={[styles.actionButton, styles.declineButton]}
-                onPress={onDecline}
+                onPress={() => {
+                  stopRingingSound();
+                  onDecline();
+                }}
               >
                 <Text style={styles.declineButtonText}>Decline</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionButton, styles.acceptButton]}
-                onPress={onAccept}
+                onPress={() => {
+                  stopRingingSound();
+                  onAccept();
+                }}
               >
                 <Text style={styles.acceptButtonText}>Accept</Text>
               </TouchableOpacity>

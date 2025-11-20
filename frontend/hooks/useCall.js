@@ -294,9 +294,19 @@ export const useCall = (userEmail) => {
       const errorMessage = error.message || 'Failed to initiate call';
       
       // Check if it's a permission error
-      if (errorMessage.includes('permission denied') || errorMessage.includes('Permission denied')) {
-        setPermissionDeviceType(type === 'video' ? 'camera and microphone' : 'microphone');
+      if (errorMessage.includes('PERMISSION_DENIED') || errorMessage.includes('permission denied') || errorMessage.includes('Permission denied')) {
+        // Extract device type from error message if available
+        const deviceTypeMatch = errorMessage.match(/PERMISSION_DENIED:(.+)/);
+        const deviceType = deviceTypeMatch ? deviceTypeMatch[1] : (type === 'video' ? 'camera and microphone' : 'microphone');
+        setPermissionDeviceType(deviceType);
         setShowPermissionPrompt(true);
+        // Store call data so we can retry after permission is granted
+        setCallData({
+          receiverEmail,
+          groupId,
+          type,
+          direction: 'outgoing',
+        });
       } else if (errorMessage.includes('offline') || errorMessage.includes('User offline')) {
         // User offline - show as missed call
         Alert.alert(
@@ -328,18 +338,41 @@ export const useCall = (userEmail) => {
 
   const handlePermissionRetry = async () => {
     setShowPermissionPrompt(false);
-    // Small delay to let user update permissions
-    setTimeout(() => {
+    // Small delay to let user update permissions in browser
+    setTimeout(async () => {
       if (callData) {
-        // Retry the call
-        const { receiverEmail, groupId, type } = callData;
-        initiateCall(receiverEmail, groupId, type);
+        try {
+          // If it's an outgoing call, retry initiateCall
+          if (callData.direction === 'outgoing') {
+            const { receiverEmail, groupId, type } = callData;
+            await initiateCall(receiverEmail, groupId, type);
+          } else {
+            // If it's an incoming call, retry acceptCall
+            await acceptCall();
+          }
+        } catch (error) {
+          // If permission is still denied, show prompt again
+          const errorMessage = error.message || '';
+          if (errorMessage.includes('PERMISSION_DENIED') || errorMessage.includes('permission denied')) {
+            setShowPermissionPrompt(true);
+          }
+        }
       }
-    }, 500);
+    }, 1000); // Increased delay to give browser time to process permission change
   };
 
   const handlePermissionCancel = () => {
     setShowPermissionPrompt(false);
+    Alert.alert(
+      'Permission Denied',
+      'You need to allow microphone/camera access to make calls. The call cannot proceed without permission.',
+      [
+        {
+          text: 'OK',
+          onPress: () => resetCall(),
+        },
+      ]
+    );
     resetCall();
   };
 
@@ -357,17 +390,28 @@ export const useCall = (userEmail) => {
     } catch (error) {
       console.error('Error accepting call:', error);
       const errorMessage = error.message || 'Failed to accept call';
-      Alert.alert(
-        'Permission Required',
-        errorMessage,
-        [
-          {
-            text: 'OK',
-            onPress: () => resetCall(),
-          },
-        ]
-      );
-      resetCall();
+      
+      // Check if it's a permission error
+      if (errorMessage.includes('PERMISSION_DENIED') || errorMessage.includes('permission denied') || errorMessage.includes('Permission denied')) {
+        // Extract device type from error message if available
+        const deviceTypeMatch = errorMessage.match(/PERMISSION_DENIED:(.+)/);
+        const deviceType = deviceTypeMatch ? deviceTypeMatch[1] : (callData?.type === 'video' ? 'camera and microphone' : 'microphone');
+        setPermissionDeviceType(deviceType);
+        setShowPermissionPrompt(true);
+        // Note: We keep callData so user can retry after granting permission
+      } else {
+        Alert.alert(
+          'Error',
+          errorMessage,
+          [
+            {
+              text: 'OK',
+              onPress: () => resetCall(),
+            },
+          ]
+        );
+        resetCall();
+      }
     }
   };
 

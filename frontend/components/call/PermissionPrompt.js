@@ -18,7 +18,7 @@ const PermissionPrompt = ({ visible, onRetry, onCancel, deviceType = 'microphone
         '1. Click the lock icon (🔒) or info icon (ℹ️) in your browser\'s address bar',
         '2. Find "' + deviceType + '" in the permissions list',
         '3. Change it to "Allow"',
-        '4. Click "Retry" below or refresh the page',
+        '4. Click "Allow" below to retry',
       ];
     } else {
       return [
@@ -53,6 +53,12 @@ const PermissionPrompt = ({ visible, onRetry, onCancel, deviceType = 'microphone
             ))}
           </View>
 
+          <View style={styles.warningContainer}>
+            <Text style={styles.warningText}>
+              ⚠️ If you don't allow permission, you won't be able to make or receive calls. The call will fail.
+            </Text>
+          </View>
+
           <View style={styles.buttonsContainer}>
             <TouchableOpacity
               style={[styles.button, styles.cancelButton]}
@@ -64,7 +70,7 @@ const PermissionPrompt = ({ visible, onRetry, onCancel, deviceType = 'microphone
               style={[styles.button, styles.retryButton]}
               onPress={onRetry}
             >
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={styles.retryButtonText}>Allow</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -118,6 +124,20 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
     lineHeight: 20,
+  },
+  warningContainer: {
+    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 193, 7, 0.3)',
+  },
+  warningText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.text,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   buttonsContainer: {
     flexDirection: 'row',

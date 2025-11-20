@@ -77,7 +77,25 @@ class WebRTCService {
           throw new Error('Media devices not supported in this browser. Please use a modern browser like Chrome, Firefox, or Safari.');
         }
         
-        // Try to get user media
+        // Check permission status first (if available)
+        const deviceType = constraints.video ? 'camera' : 'microphone';
+        const permissionName = constraints.video ? 'camera' : 'microphone';
+        
+        try {
+          // Check if Permissions API is available
+          if (navigator.permissions && navigator.permissions.query) {
+            const permissionStatus = await navigator.permissions.query({ name: permissionName });
+            if (permissionStatus.state === 'denied') {
+              // Permission was previously denied - provide clear instructions
+              throw new Error('PERMISSION_DENIED_PREVIOUSLY');
+            }
+          }
+        } catch (permError) {
+          // If permission check fails or permission was denied, continue to request
+          // The browser will show its own permission prompt
+        }
+        
+        // Try to get user media - browser will show permission prompt if needed
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         return stream;
       } else {
@@ -99,13 +117,10 @@ class WebRTCService {
         throw new Error('WebRTC calls require react-native-webrtc package for mobile. Please install it: npm install react-native-webrtc');
       }
     } catch (error) {
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        // Provide detailed instructions
-        const deviceType = constraints.video ? 'camera' : 'microphone';
-        const instructions = Platform.OS === 'web' 
-          ? `\n\nTo enable ${deviceType} access:\n1. Click the lock icon (🔒) in your browser's address bar\n2. Find "${deviceType}" in the permissions list\n3. Change it to "Allow"\n4. Refresh the page and try again.`
-          : '';
-        throw new Error(`Microphone/Camera permission denied.${instructions}`);
+      if (error.message === 'PERMISSION_DENIED_PREVIOUSLY' || error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        // Permission denied - provide user-friendly error that will trigger permission prompt
+        const deviceType = constraints.video ? 'camera and microphone' : 'microphone';
+        throw new Error(`PERMISSION_DENIED:${deviceType}`);
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
         throw new Error('No microphone/camera found. Please connect a microphone/camera and try again.');
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
