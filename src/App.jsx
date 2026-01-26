@@ -5,6 +5,7 @@ import VideoConverter from './components/VideoConverter'
 import ImageConverter from './components/ImageConverter'
 import PDFEditor from './components/PDFEditor'
 import SocialDownload from './components/SocialDownload'
+import AZMP3Download from './components/AZMP3Download'
 import ERC20Contract from './components/ERC20Contract'
 import OTTLinks from './components/OTTLinks'
 import Esports from './components/Esports'
@@ -32,6 +33,7 @@ function AppContent() {
     if (location.pathname === '/image') return 'image'
     if (location.pathname === '/pdf') return 'pdf'
     if (location.pathname === '/social') return 'social'
+    if (location.pathname === '/azmp3') return 'azmp3'
     if (location.pathname === '/ott') return 'ott'
     if (location.pathname === '/esports') return 'esports'
     if (location.pathname === '/ai') return 'ai'
@@ -50,6 +52,7 @@ function AppContent() {
       image: '/image',
       pdf: '/pdf',
       social: '/social',
+      azmp3: '/azmp3',
       ott: '/ott',
       esports: '/esports',
       ai: '/ai',
@@ -117,6 +120,7 @@ function AppContent() {
             <Route path="/image" element={<ImageConverter />} />
             <Route path="/pdf" element={<PDFEditor />} />
             <Route path="/social" element={<SocialDownload />} />
+            <Route path="/azmp3" element={<AZMP3Download />} />
             <Route path="/ott" element={<OTTLinks />} />
             <Route path="/esports" element={<Esports />} />
             <Route path="/ai" element={<AIChat />} />

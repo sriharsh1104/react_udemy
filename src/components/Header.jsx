@@ -51,6 +51,12 @@ const Header = ({ activeTab, onTabChange, gameMode, onGameModeToggle }) => {
             🎬 Social Download
           </button>
           <button
+            className={`tab ${activeTab === 'azmp3' ? 'active' : ''}`}
+            onClick={() => onTabChange('azmp3')}
+          >
+            🎵 AZMP3 Downloader
+          </button>
+          <button
             className={`tab ${activeTab === 'ott' ? 'active' : ''}`}
             onClick={() => onTabChange('ott')}
           >
