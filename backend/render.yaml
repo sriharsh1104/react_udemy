@@ -10,6 +10,10 @@ services:
       - key: NODE_ENV
         value: production
     # Note: PORT is automatically set by Render, no need to specify
+    # AI chat (backend proxy) – add in Render Dashboard > Environment:
+    # - OPENAI_API_KEY (optional, for OpenAI/GPT)
+    # - PERPLEXITY_API_KEY (optional, for Perplexity)
+    # - GEMINI_API_KEY (optional, for Google Gemini)
     # Optional: Add your Stripe key if needed
     # - key: STRIPE_SECRET_KEY
     #   sync: false

@@ -2099,15 +2099,97 @@ app.delete('/api/english-games/scores', (req, res) => {
   }
 })
 
+// AI chat proxy – uses API keys from env (Render: OPENAI_API_KEY, PERPLEXITY_API_KEY, GEMINI_API_KEY)
+app.post('/api/ai/chat', async (req, res) => {
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+
+  try {
+    const { provider, messages } = req.body
+    if (!provider || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Missing provider or messages' })
+    }
+
+    const envKeys = {
+      openai: process.env.OPENAI_API_KEY,
+      perplexity: process.env.PERPLEXITY_API_KEY,
+      gemini: process.env.GEMINI_API_KEY
+    }
+    const apiKey = envKeys[provider]
+    if (!apiKey) {
+      return res.status(502).json({
+        error: `API key for ${provider} not configured. Add OPENAI_API_KEY / PERPLEXITY_API_KEY / GEMINI_API_KEY in Render env.`
+      })
+    }
+
+    if (provider === 'openai') {
+      const { data } = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-4o-mini',
+          messages: messages.map(m => ({ role: m.role, content: m.content }))
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`
+          }
+        }
+      )
+      return res.json({ content: data.choices[0].message.content })
+    }
+
+    if (provider === 'perplexity') {
+      const { data } = await axios.post(
+        'https://api.perplexity.ai/chat/completions',
+        {
+          model: 'llama-3.1-sonar-large-128k-online',
+          messages: messages.map(m => ({ role: m.role, content: m.content }))
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`
+          }
+        }
+      )
+      return res.json({ content: data.choices[0].message.content })
+    }
+
+    if (provider === 'gemini') {
+      const lastUser = messages.filter(m => m.role === 'user').pop()
+      const history = messages.slice(0, -1)
+      const parts = history.map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.content }]
+      }))
+      parts.push({ role: 'user', parts: [{ text: lastUser.content }] })
+
+      const { data } = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+        { contents: parts },
+        { headers: { 'Content-Type': 'application/json' } }
+      )
+      return res.json({ content: data.candidates[0].content.parts[0].text })
+    }
+
+    return res.status(400).json({ error: 'Unknown provider' })
+  } catch (err) {
+    const msg = err.response?.data?.error?.message || err.response?.data?.error || err.message
+    const status = err.response?.status || 500
+    res.status(status >= 400 ? status : 500).json({ error: msg || 'AI request failed' })
+  }
+})
+
 // Health check
 app.get('/api/health', (req, res) => {
   // ALWAYS set CORS headers - NO CONDITIONS
   const origin = req.headers.origin || '*'
   res.setHeader('Access-Control-Allow-Origin', origin)
   res.setHeader('Access-Control-Allow-Credentials', 'false')
-  
-  res.json({ 
-    status: 'ok', 
+
+  res.json({
+    status: 'ok',
     message: 'Backend server is running',
     socketio: 'enabled',
     timestamp: new Date().toISOString()
