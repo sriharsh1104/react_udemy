@@ -1,6 +1,21 @@
 import { useRef } from 'react'
 import './VideoUploader.css'
 
+// Extensions allowed for video/audio. Used when file.type is empty/wrong (common on mobile).
+const ALLOWED_EXTENSIONS = [
+  '.mp4', '.webm', '.mov', '.avi', '.mkv',
+  '.mp3', '.wav', '.ogg', '.aac', '.m4a', '.wma', '.flac'
+]
+
+const isAllowedFile = (file) => {
+  if (!file) return false
+  const typeOk = file.type && (file.type.startsWith('video/') || file.type.startsWith('audio/'))
+  if (typeOk) return true
+  // Mobile often sends empty or wrong file.type — fallback to extension
+  const name = (file.name || '').toLowerCase()
+  return ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext))
+}
+
 const VideoUploader = ({ onVideoUpload }) => {
   const fileInputRef = useRef(null)
 
@@ -10,9 +25,8 @@ const VideoUploader = ({ onVideoUpload }) => {
 
   const handleDrop = (e) => {
     e.preventDefault()
-    
     const file = e.dataTransfer.files[0]
-    if (file && (file.type.startsWith('video/') || file.type.startsWith('audio/'))) {
+    if (isAllowedFile(file)) {
       onVideoUpload(file)
     } else {
       alert('Please upload a valid video or audio file')
@@ -21,7 +35,7 @@ const VideoUploader = ({ onVideoUpload }) => {
 
   const handleFileInput = (e) => {
     const file = e.target.files[0]
-    if (file && (file.type.startsWith('video/') || file.type.startsWith('audio/'))) {
+    if (isAllowedFile(file)) {
       onVideoUpload(file)
     } else {
       alert('Please upload a valid video or audio file')

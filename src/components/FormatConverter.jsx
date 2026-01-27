@@ -49,7 +49,10 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
   const [customExtractedFilename, setCustomExtractedFilename] = useState('')
   const [customSeparatedFilename, setCustomSeparatedFilename] = useState('')
 
-  const inputIsAudio = !!videoFile?.type?.startsWith('audio/')
+  // Mobile often sends empty file.type — use extension fallback so audio formats show correctly
+  const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.aac', '.m4a', '.wma', '.flac']
+  const name = (videoFile?.name || '').toLowerCase()
+  const inputIsAudio = !!(videoFile?.type?.startsWith('audio/') || AUDIO_EXTENSIONS.some(ext => name.endsWith(ext)))
   const availableFormats = inputIsAudio ? FORMATS.filter(f => f.type === 'audio') : FORMATS
 
   const originalBytes = videoFile?.size || 0

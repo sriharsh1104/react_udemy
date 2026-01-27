@@ -1739,7 +1739,14 @@ if (!fs.existsSync(audioProcessDir)) {
   fs.mkdirSync(audioProcessDir, { recursive: true })
 }
 
-// Multer config for audio/video uploads
+// MIME types and extensions allowed for audio/video. Mobile often sends empty/wrong mimetype — allow by extension too.
+const AUDIO_VIDEO_MIMES = [
+  'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska',
+  'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/mp4', 'audio/flac',
+  'audio/x-m4a', 'audio/x-wav', 'audio/3gpp'
+]
+const AUDIO_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.ogg', '.aac', '.m4a', '.wma', '.flac', '.3gp']
+
 const audioVideoUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, audioProcessDir),
@@ -1750,9 +1757,12 @@ const audioVideoUpload = multer({
   }),
   limits: { fileSize: 500 * 1024 * 1024 }, // 500MB max
   fileFilter: (_req, file, cb) => {
-    const allowed = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska',
-                     'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/mp4', 'audio/flac']
-    cb(allowed.includes(file.mimetype) ? null : new Error('Only video/audio files allowed'), allowed.includes(file.mimetype))
+    const mimeOk = file.mimetype && AUDIO_VIDEO_MIMES.includes(file.mimetype)
+    if (mimeOk) return cb(null, true)
+    const ext = (path.extname(file.originalname || '') || '').toLowerCase()
+    const extOk = AUDIO_VIDEO_EXTENSIONS.includes(ext)
+    if (extOk) return cb(null, true)
+    cb(new Error('Only video/audio files allowed'), false)
   }
 })
 
@@ -2202,15 +2212,16 @@ function extractPinterestId(url) {
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id)
-  
-  // Generate random name for user
-  const randomName = generateRandomName()
-  connectedUsers.set(socket.id, { name: randomName, socketId: socket.id })
+
+  // Use client's saved session name if sent (same tab/session = same name until full exit)
+  const requestedName = (socket.handshake.auth?.userName || socket.handshake.query?.userName || '').trim()
+  const userName = requestedName && requestedName.length <= 50 ? requestedName : generateRandomName()
+  connectedUsers.set(socket.id, { name: userName, socketId: socket.id })
   
   // Send welcome message, user's name, and message history
   socket.emit('userConnected', { 
     userId: socket.id, 
-    userName: randomName,
+    userName,
     connectedUsers: Array.from(connectedUsers.values()),
     messageHistory: chatMessages // Send all stored messages
   })
@@ -2218,7 +2229,7 @@ io.on('connection', (socket) => {
   // Broadcast new user joined
   socket.broadcast.emit('userJoined', {
     userId: socket.id,
-    userName: randomName
+    userName
   })
   
   // Handle incoming messages (text or image)

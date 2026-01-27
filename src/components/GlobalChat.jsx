@@ -44,6 +44,7 @@ const GlobalChat = () => {
   useEffect(() => {
     // Connect to socket server with production-ready options
     // Use polling first for better compatibility, then upgrade to websocket
+    const savedName = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('chat_user_name')) || ''
     socketRef.current = io(BACKEND_URL, {
       transports: ['polling', 'websocket'], // Try polling first, then websocket
       upgrade: true, // Allow upgrade from polling to websocket
@@ -54,7 +55,8 @@ const GlobalChat = () => {
       reconnectionAttempts: 10,
       timeout: 20000,
       forceNew: false,
-      autoConnect: true
+      autoConnect: true,
+      auth: { userName: savedName } // Same session = same name until tab close
     })
 
     // Handle connection errors
@@ -85,7 +87,11 @@ const GlobalChat = () => {
     })
 
     socketRef.current.on('userConnected', (data) => {
-      setUserName(data.userName)
+      const name = data.userName || ''
+      setUserName(name)
+      if (typeof sessionStorage !== 'undefined' && name) {
+        sessionStorage.setItem('chat_user_name', name)
+      }
       setConnectedUsers(data.connectedUsers?.length || 0)
       
       // Load message history if available (backend already maintains last 100 user messages)
