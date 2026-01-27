@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { BACKEND_URL } from '../constants'
 import './AIChat.css'
 
 const MAX_FREE_CHATS = 10
@@ -26,11 +27,9 @@ const AI_PROVIDERS = {
 
 function AIChat() {
   const [selectedProvider, setSelectedProvider] = useState('openai')
-  const [apiKeys, setApiKeys] = useState({
-    openai: import.meta.env.VITE_OPENAI_API_KEY || '',
-    perplexity: import.meta.env.VITE_PERPLEXITY_API_KEY || '',
-    gemini: import.meta.env.VITE_GEMINI_API_KEY || ''
-  })
+  // Backend uses OPENAI_API_KEY, PERPLEXITY_API_KEY, GEMINI_API_KEY from env (e.g. on Render).
+  // When user hasn't entered a key, we call backend; when they have, we call provider directly.
+  const [apiKeys] = useState({ openai: '', perplexity: '', gemini: '' })
   const [userApiKeys, setUserApiKeys] = useState({
     openai: '',
     perplexity: '',
@@ -75,22 +74,21 @@ function AIChat() {
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return
 
-    // Check free chat limit
-    if (chatCount >= MAX_FREE_CHATS && !getApiKey(selectedProvider)) {
+    // Free limit applies when using server key (no user key). With own key, no limit.
+    if (chatCount >= MAX_FREE_CHATS && !userApiKeys[selectedProvider]) {
       alert(`Free chat limit reached (${MAX_FREE_CHATS} chats). Please add your own API key to continue.`)
       return
     }
 
     const userMessage = inputMessage.trim()
     setInputMessage('')
-    
-    // Add user message
+
     const newMessages = [...messages, { role: 'user', content: userMessage }]
     setMessages(newMessages)
     setIsLoading(true)
 
-    // Increment chat count if using default API key
-    if (!userApiKeys[selectedProvider] && getApiKey(selectedProvider)) {
+    // Count when using server key (backend env)
+    if (!userApiKeys[selectedProvider]) {
       setChatCount(prev => prev + 1)
     }
 
@@ -104,32 +102,38 @@ function AIChat() {
       setMessages(prev => [...prev, { role: 'assistant', content: response.content }])
     } catch (error) {
       console.error('AI Error:', error)
+      const errMsg = error.message || 'Failed to get response. Please check your API key.'
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: `Error: ${error.message || 'Failed to get response. Please check your API key.'}`
+        content: errMsg,
+        isError: true
       }])
     } finally {
       setIsLoading(false)
     }
   }
 
-  const callAIProvider = async (provider, messages, apiKey) => {
-    if (!apiKey) {
-      return { error: 'API key not found. Please add your API key in settings.' }
+  const callAIProvider = async (provider, messages, userKey) => {
+    // No user key → use backend (env: OPENAI_API_KEY, PERPLEXITY_API_KEY, GEMINI_API_KEY on Render).
+    if (!userKey) {
+      const res = await fetch(`${BACKEND_URL}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, messages })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) return { error: data.error || `Server error ${res.status}` }
+      return { content: data.content }
     }
 
     const providerConfig = AI_PROVIDERS[provider]
-
     switch (provider) {
       case 'openai':
-        return await callOpenAI(messages, apiKey, providerConfig)
-      
+        return await callOpenAI(messages, userKey, providerConfig)
       case 'perplexity':
-        return await callPerplexity(messages, apiKey, providerConfig)
-      
+        return await callPerplexity(messages, userKey, providerConfig)
       case 'gemini':
-        return await callGemini(messages, apiKey, providerConfig)
-      
+        return await callGemini(messages, userKey, providerConfig)
       default:
         return { error: 'Unknown provider' }
     }
@@ -236,8 +240,8 @@ function AIChat() {
   }
 
   const remainingChats = MAX_FREE_CHATS - chatCount
-  const hasApiKey = !!getApiKey(selectedProvider)
-  const canChat = hasApiKey && (chatCount < MAX_FREE_CHATS || userApiKeys[selectedProvider])
+  // User ne key di → user ki key use; nahi di → backend env key use. Chat tab hi allow jab user key ho ya free limit ke andar ho.
+  const canChat = !!userApiKeys[selectedProvider] || chatCount < MAX_FREE_CHATS
 
   return (
     <div className="ai-chat-container">
@@ -261,37 +265,41 @@ function AIChat() {
       {showApiKeyInput && (
         <div className="api-keys-panel">
           <h3>API Key Settings</h3>
-          {Object.entries(AI_PROVIDERS).map(([key, provider]) => (
-            <div key={key} className="api-key-input-group">
-              <label>
-                {provider.icon} {provider.name}
-                {apiKeys[key] && !userApiKeys[key] && (
-                  <span className="default-key-badge">Using default</span>
+          <form onSubmit={(e) => e.preventDefault()} aria-label="API key settings">
+            {Object.entries(AI_PROVIDERS).map(([key, provider]) => (
+              <div key={key} className="api-key-input-group">
+                <label>
+                  {provider.icon} {provider.name}
+                {!userApiKeys[key] && (
+                  <span className="default-key-badge">Using server key</span>
                 )}
-                {userApiKeys[key] && (
-                  <span className="custom-key-badge">Using your key</span>
-                )}
-              </label>
-              <div className="api-key-input-wrapper">
-                <input
-                  type="password"
-                  value={userApiKeys[key] || ''}
-                  onChange={(e) => handleApiKeyChange(key, e.target.value)}
-                  placeholder={apiKeys[key] ? 'Leave empty to use default' : 'Enter your API key'}
-                  className="api-key-input"
-                />
-                {userApiKeys[key] && (
-                  <button 
-                    className="reset-key-btn"
-                    onClick={() => resetApiKey(key)}
-                    title="Reset to default"
-                  >
-                    Reset
-                  </button>
-                )}
+                  {userApiKeys[key] && (
+                    <span className="custom-key-badge">Using your key</span>
+                  )}
+                </label>
+                <div className="api-key-input-wrapper">
+                  <input
+                    type="password"
+                    value={userApiKeys[key] || ''}
+                    onChange={(e) => handleApiKeyChange(key, e.target.value)}
+                    placeholder={userApiKeys[key] ? 'Leave empty to use server key' : 'Enter your API key'}
+                    className="api-key-input"
+                    autoComplete="off"
+                  />
+                  {userApiKeys[key] && (
+                    <button
+                      type="button"
+                      className="reset-key-btn"
+                      onClick={() => resetApiKey(key)}
+                      title="Reset to default"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </form>
           <div className="api-key-info">
             <p>💡 Tips:</p>
             <ul>
@@ -330,6 +338,11 @@ function AIChat() {
             <div className="message-content">
               {message.role === 'user' ? (
                 <div className="message-bubble user-bubble">
+                  {message.content}
+                </div>
+              ) : message.isError ? (
+                <div className="message-bubble error-bubble" role="alert">
+                  <span className="error-icon" aria-hidden>⚠</span>
                   {message.content}
                 </div>
               ) : (

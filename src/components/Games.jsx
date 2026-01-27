@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import MathsGamesContent from './MathsGamesContent'
 import ComputerGamesContent from './ComputerGamesContent'
+import EnglishGamesContent from './EnglishGamesContent'
 import './MathsGames.css'
 
 const Games = ({ onExitGameMode }) => {
@@ -22,6 +23,12 @@ const Games = ({ onExitGameMode }) => {
           >
             🖥️ Computer
           </button>
+          <button
+            className={`tab-button ${activeGameTab === 'english' ? 'active' : ''}`}
+            onClick={() => setActiveGameTab('english')}
+          >
+            📚 English
+          </button>
         </div>
       </div>
 
@@ -30,6 +37,9 @@ const Games = ({ onExitGameMode }) => {
       )}
       {activeGameTab === 'computer' && (
         <ComputerGamesContent onExitGameMode={onExitGameMode} />
+      )}
+      {activeGameTab === 'english' && (
+        <EnglishGamesContent onExitGameMode={onExitGameMode} />
       )}
     </div>
   )

@@ -5,6 +5,7 @@ import WordMatch from './WordMatch'
 import SpellingBee from './SpellingBee'
 import WordBuilder from './WordBuilder'
 import AnimalQuiz from './AnimalQuiz'
+import ActionWordsQuiz from './ActionWordsQuiz'
 import { BACKEND_URL } from '../constants'
 import './MathsGames.css'
 
@@ -245,6 +246,12 @@ const EnglishGamesContent = ({ onExitGameMode }) => {
         >
           🦁 Animal Quiz
         </button>
+        <button
+          className={`tab-button ${activeTab === 'actionwords' ? 'active' : ''}`}
+          onClick={() => setActiveTab('actionwords')}
+        >
+          🖼️ Action Words
+        </button>
       </div>
 
       <div className="games-container">
@@ -389,6 +396,11 @@ const EnglishGamesContent = ({ onExitGameMode }) => {
           {activeTab === 'animalquiz' && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
               <AnimalQuiz />
+            </div>
+          )}
+          {activeTab === 'actionwords' && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+              <ActionWordsQuiz />
             </div>
           )}
       </div>
