@@ -63,6 +63,11 @@
   padding-bottom: 0;
 }
 
+.tabs-container.maths-games-tabs {
+  border-bottom: none;
+  gap: 20px;
+}
+
 .tab-button {
   padding: 12px 24px;
   font-size: 16px;
@@ -75,6 +80,8 @@
   transition: all 0.2s ease;
   position: relative;
   top: 2px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tab-button:hover {
@@ -400,18 +407,114 @@
 }
 
 @media (max-width: 768px) {
-  .balloon-games-grid {
-    grid-template-columns: 1fr;
+  .maths-games {
+    gap: 16px;
   }
 
   .maths-games-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .tabs-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding-bottom: 4px;
+    margin: 0 -4px;
+    scrollbar-width: thin;
+  }
+
+  .tabs-container::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .tabs-container::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 4px;
+  }
+
+  .tab-button {
+    padding: 10px 18px;
+    font-size: 15px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .balloon-games-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .reset-all-btn {
     width: 100%;
     justify-content: center;
+    min-height: 44px;
+  }
+
+  .games-container {
+    gap: 24px;
+  }
+
+  .mode-selection-modal {
+    margin: 12px;
+    padding: 20px;
+  }
+
+  .mode-selection-modal .modal-header h2 {
+    font-size: 22px;
+  }
+
+  .mode-selection-modal .modal-header p {
+    font-size: 15px;
+  }
+
+  .placeholder-content {
+    padding: 24px 20px;
+  }
+
+  .placeholder-content h3 {
+    font-size: 22px;
+  }
+
+  .placeholder-content p {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .maths-games {
+    gap: 12px;
+  }
+
+  .tab-button {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+
+  .balloon-games-grid {
+    gap: 12px;
+  }
+
+  .user-welcome {
+    font-size: 16px;
+    padding: 10px 16px;
+  }
+
+  .student-name-input,
+  .student-name-display {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .student-name-input label,
+  .student-name-display label {
+    white-space: normal;
   }
 }
 

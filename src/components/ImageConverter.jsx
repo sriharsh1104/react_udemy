@@ -14,6 +14,7 @@ const ImageConverter = () => {
   const [svgCode, setSvgCode] = useState('')
   const [isCropMode, setIsCropMode] = useState(false)
   const [cropData, setCropData] = useState({ x: 0, y: 0, width: 0, height: 0 })
+  const [cropAspectRatio, setCropAspectRatio] = useState(null) // null = free, 9/16, 16/9, 1 for mobile presets
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [resizeHandle, setResizeHandle] = useState(null) // 'tl', 'tr', 'bl', 'br', 't', 'r', 'b', 'l'
@@ -28,6 +29,7 @@ const ImageConverter = () => {
   const previewCanvasRef = useRef(null)
   const imageRef = useRef(null)
   const containerRef = useRef(null)
+  const previewContainerRef = useRef(null)
 
   const FORMATS = [
     { value: 'jpeg', label: 'JPEG' },
@@ -36,6 +38,19 @@ const ImageConverter = () => {
     { value: 'bmp', label: 'BMP' },
     { value: 'svg', label: 'SVG' }
   ]
+
+  const CROP_ASPECT_PRESETS = [
+    { id: 'free', label: 'Free', value: null },
+    { id: '9:16', label: 'Mobile Portrait (9:16)', value: 9 / 16 },
+    { id: '16:9', label: 'Mobile Landscape (16:9)', value: 16 / 9 },
+    { id: '1:1', label: 'Square (1:1)', value: 1 }
+  ]
+
+  const constrainToAspect = (w, h, ratio) => {
+    if (ratio == null || w <= 0 || h <= 0) return { w, h }
+    if (w / ratio <= h) return { w, h: w / ratio }
+    return { w: h * ratio, h }
+  }
 
   const normalizeSvgForIcon = (svgText, sizePx, fallbackViewBox) => {
     try {
@@ -101,6 +116,19 @@ const ImageConverter = () => {
 
     img.src = uploadedImage
   }, [uploadedImage, resizeWidth, resizeHeight])
+
+  // Touch events: use non-passive listener so preventDefault works (avoids "Unable to preventDefault inside passive event listener")
+  useEffect(() => {
+    const el = previewContainerRef.current
+    if (!el || !isCropMode) return
+    const prevent = (e) => e.preventDefault()
+    el.addEventListener('touchstart', prevent, { passive: false, capture: true })
+    el.addEventListener('touchmove', prevent, { passive: false, capture: true })
+    return () => {
+      el.removeEventListener('touchstart', prevent, { capture: true })
+      el.removeEventListener('touchmove', prevent, { capture: true })
+    }
+  }, [isCropMode])
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0]
@@ -271,8 +299,8 @@ const ImageConverter = () => {
 
   const handleStart = (e) => {
     if (!isCropMode || !imageRef.current) return
-    e.preventDefault() // Prevent scrolling on mobile
-    
+    if (!e.touches) e.preventDefault()
+
     const rect = imageRef.current.getBoundingClientRect()
     const coords = getEventCoordinates(e)
     const x = coords.clientX - rect.left
@@ -330,8 +358,8 @@ const ImageConverter = () => {
 
   const handleMove = (e) => {
     if (!isCropMode || !imageRef.current) return
-    e.preventDefault() // Prevent scrolling on mobile
-    
+    if (!e.touches) e.preventDefault()
+
     const rect = imageRef.current.getBoundingClientRect()
     const coords = getEventCoordinates(e)
     const currentX = coords.clientX - rect.left
@@ -422,6 +450,23 @@ const ImageConverter = () => {
           break
       }
 
+      // Apply aspect ratio lock (mobile-style presets)
+      if (cropAspectRatio != null) {
+        const { x, y, width, height } = newCropData
+        const { w, h } = constrainToAspect(width, height, cropAspectRatio)
+        switch (resizeHandle) {
+          case 'br': newCropData = { x, y, width: w, height: h }; break
+          case 'bl': newCropData = { x: x + width - w, y, width: w, height: h }; break
+          case 'tr': newCropData = { x, y: y + height - h, width: w, height: h }; break
+          case 'tl': newCropData = { x: x + width - w, y: y + height - h, width: w, height: h }; break
+          case 'b': newCropData = { x, y, width: w, height: h }; break
+          case 't': newCropData = { x, y: y + height - h, width: w, height: h }; break
+          case 'r': newCropData = { x, y, width: w, height: h }; break
+          case 'l': newCropData = { x: x + width - w, y, width: w, height: h }; break
+          default: break
+        }
+      }
+
       // Ensure crop box stays within image bounds
       newCropData.x = Math.max(0, Math.min(newCropData.x, rect.width - newCropData.width))
       newCropData.y = Math.max(0, Math.min(newCropData.y, rect.height - newCropData.height))
@@ -432,18 +477,37 @@ const ImageConverter = () => {
       return
     }
 
-    // Creating new selection
+    // Creating new selection (drag to select — mobile-style)
     if (isCreatingSelection) {
       const newWidth = currentX - dragStart.x
       const newHeight = currentY - dragStart.y
       const newX = newWidth < 0 ? currentX : dragStart.x
       const newY = newHeight < 0 ? currentY : dragStart.y
-      
+      let w = Math.max(0, Math.abs(newWidth))
+      let h = Math.max(0, Math.abs(newHeight))
+      if (cropAspectRatio != null && (w > 0 || h > 0)) {
+        const out = constrainToAspect(w || 1, h || 1, cropAspectRatio)
+        w = out.w
+        h = out.h
+        const maxW = rect.width
+        const maxH = rect.height
+        if (w > maxW || h > maxH) {
+          const fit = constrainToAspect(maxW, maxH, cropAspectRatio)
+          w = fit.w
+          h = fit.h
+        }
+      }
+      const clampX = Math.max(0, Math.min(newX, rect.width - 1))
+      const clampY = Math.max(0, Math.min(newY, rect.height - 1))
+      const maxW = rect.width - clampX
+      const maxH = rect.height - clampY
+      const finalW = Math.min(w, maxW)
+      const finalH = Math.min(h, maxH)
       setCropData({
-        x: Math.max(0, Math.min(newX, rect.width)),
-        y: Math.max(0, Math.min(newY, rect.height)),
-        width: Math.max(0, Math.abs(newWidth)),
-        height: Math.max(0, Math.abs(newHeight))
+        x: clampX,
+        y: clampY,
+        width: Math.max(1, finalW),
+        height: Math.max(1, finalH)
       })
       return
     }
@@ -685,6 +749,7 @@ const ImageConverter = () => {
     setCroppedImage(null)
     setDownloadUrl(null)
     setIsCropMode(false)
+    setCropAspectRatio(null)
     setResizeWidth('')
     setResizeHeight('')
     setIsSvgInput(false)
@@ -725,8 +790,23 @@ const ImageConverter = () => {
         <div className="converter-view">
           {!croppedImage ? (
             <>
-              <div className="image-preview-section" ref={containerRef}>
-                <h3>{isCropMode ? 'Crop Mode - Drag to Select Area' : 'Original Image'}</h3>
+              <div className={`image-preview-section ${isCropMode ? 'crop-enabled' : ''}`} ref={containerRef}>
+                <div className="image-preview-header">
+                  <h3>{isCropMode ? 'Crop Mode - Drag to Select Area' : 'Original Image'}</h3>
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className="remove-image-btn"
+                    title="Remove image"
+                    aria-label="Remove image"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    Remove
+                  </button>
+                </div>
                 {originalDimensions.width > 0 && (
                   <p className="image-dimensions">
                     Size: {originalDimensions.width} × {originalDimensions.height} pixels
@@ -764,20 +844,36 @@ const ImageConverter = () => {
                   </div>
                 )}
                 {isCropMode && (
-                  <div className="crop-controls">
-                    <button 
-                      onClick={applyCrop} 
-                      className="apply-crop-btn"
-                      disabled={!cropData.width || !cropData.height || cropData.width < 10 || cropData.height < 10}
-                    >
-                      ✓ Apply Crop
-                    </button>
-                    <button onClick={handleCancelCrop} className="cancel-crop-btn">
-                      ✗ Cancel
-                    </button>
+                  <div className="crop-controls-wrap">
+                    <div className="crop-aspect-presets">
+                      <span className="crop-aspect-label">Aspect:</span>
+                      {CROP_ASPECT_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          className={`crop-aspect-btn ${cropAspectRatio === preset.value ? 'active' : ''}`}
+                          onClick={() => setCropAspectRatio(preset.value)}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="crop-controls">
+                      <button 
+                        onClick={applyCrop} 
+                        className="apply-crop-btn"
+                        disabled={!cropData.width || !cropData.height || cropData.width < 10 || cropData.height < 10}
+                      >
+                        ✓ Apply Crop
+                      </button>
+                      <button onClick={handleCancelCrop} className="cancel-crop-btn">
+                        ✗ Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
                 <div 
+                  ref={previewContainerRef}
                   className={`preview-container ${isCropMode ? 'crop-mode' : ''}`}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
@@ -826,11 +922,18 @@ const ImageConverter = () => {
                 {isCropMode && (
                   <p className="crop-info">
                     {cropData.width > 0 && cropData.height > 0 ? (
-                      <>Selected: {Math.round(cropData.width)} × {Math.round(cropData.height)} pixels</>
+                      <>
+                        Selected: {Math.round(cropData.width)} × {Math.round(cropData.height)} px
+                        {cropAspectRatio != null && (
+                          <span className="crop-aspect-badge">
+                            {CROP_ASPECT_PRESETS.find(p => p.value === cropAspectRatio)?.label || 'Locked'}
+                          </span>
+                        )}
+                      </>
                     ) : isDragging ? (
                       <>Dragging... Release to finish selection</>
                     ) : (
-                      <>👆 Touch and drag on the image to select crop area</>
+                      <>👆 Touch / drag to select crop area{cropAspectRatio != null ? ' (aspect locked)' : ''}</>
                     )}
                   </p>
                 )}

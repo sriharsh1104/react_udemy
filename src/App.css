@@ -1,9 +1,11 @@
 .app {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 20px;
+  overflow-x: hidden;
 }
 
 .container {
@@ -14,28 +16,44 @@
   max-width: 1200px;
   width: 100%;
   padding: 40px;
+  overflow-x: hidden;
 }
 
 .tab-content {
   width: 100%;
+  min-width: 0; /* Allow shrink in flex */
+}
+
+@media (max-width: 992px) {
+  .app {
+    padding: 16px;
+  }
+  .container {
+    padding: 24px 20px;
+  }
 }
 
 @media (max-width: 768px) {
   .app {
-    padding: 10px;
+    padding: 10px 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
   }
 
   .container {
-    padding: 20px 15px;
+    padding: 16px 14px;
+    border-radius: var(--radius-md);
   }
 }
 
 @media (max-width: 480px) {
   .app {
-    padding: 8px;
+    padding: 8px 10px;
   }
 
   .container {
-    padding: 16px 12px;
+    padding: 14px 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
   }
 }

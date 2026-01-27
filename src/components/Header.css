@@ -32,6 +32,7 @@
   margin: 0;
   text-align: center;
   flex: 1;
+  word-break: break-word;
 }
 
 .game-mode-toggle {
@@ -126,6 +127,7 @@
   transition: all 0.25s ease;
   color: var(--text-secondary);
   backdrop-filter: blur(6px);
+  flex-shrink: 0;
 }
 
 .tab:hover {
@@ -139,31 +141,119 @@
   box-shadow: 0 8px 24px rgba(108, 124, 255, 0.35);
 }
 
-@media (max-width: 768px) {
+/* Tablet */
+@media (max-width: 992px) {
   .header-content {
-    padding: 20px;
+    padding: 18px 24px;
   }
-  
+  .header-title {
+    font-size: 1.6rem;
+  }
+  .tab {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .header {
+    padding-top: 48px; /* Space for fixed PingDisplay */
+    margin-bottom: 20px;
+  }
+
+  .header-content {
+    padding: 12px 16px 16px;
+  }
+
   .header-top {
     flex-direction: column;
     align-items: center;
-    gap: 15px;
+    gap: 12px;
+    margin-bottom: 14px;
   }
-  
+
   .header-title {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
+    text-align: center;
+    line-height: 1.25;
   }
-  
-  .tabs {
-    flex-direction: column;
-  }
-  
-  .tab {
-    width: 100%;
-  }
-  
+
   .game-mode-toggle {
     width: 100%;
     justify-content: center;
+  }
+
+  .toggle-label {
+    min-height: 44px; /* Touch target */
+    align-items: center;
+  }
+
+  .tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    justify-content: flex-start;
+    padding-bottom: 6px;
+    margin: 0 -16px; /* Bleed to edges for scroll feel */
+    padding-left: 16px;
+    padding-right: 16px;
+    scrollbar-width: thin;
+  }
+
+  .tabs.game-mode-active {
+    justify-content: flex-start;
+  }
+
+  .tabs::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .tabs::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 4px;
+  }
+
+  .tab {
+    padding: 10px 18px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tab:hover {
+    transform: none;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .header {
+    padding-top: 46px;
+  }
+
+  .header-content {
+    padding: 10px 12px 14px;
+  }
+
+  .header-title {
+    font-size: 1.2rem;
+  }
+
+  .tabs {
+    margin: 0 -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .tab {
+    padding: 8px 14px;
+    font-size: 0.8rem;
   }
 }

@@ -96,16 +96,17 @@
 @media (max-width: 768px) {
   .ping-display {
     position: fixed;
-    top: max(10px, env(safe-area-inset-top));
-    right: max(10px, env(safe-area-inset-right));
-    bottom: auto;
+    top: max(10px, env(safe-area-inset-top, 10px));
+    right: max(10px, env(safe-area-inset-right, 10px));
     left: auto;
-    padding: 4px 8px;
+    bottom: auto;
+    padding: 6px 10px;
     font-size: 0.7rem;
     gap: 4px;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     z-index: 999;
+    min-height: 36px;
   }
   
   .ping-icon {
