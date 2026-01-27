@@ -1,12 +1,12 @@
 // Backend API Configuration
-// Priority: .env.local > .env > default production URL
-// 
-// To set your Render backend URL:
-// 1. Create .env.local file in project root
-// 2. Add: VITE_BACKEND_URL=https://your-backend-name.onrender.com
-// 
-// OR update the default URL below with your Render backend URL
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://react-udemy-hw22.onrender.com'
+// Priority: .env.local / deployed env > default production URL
+//
+// Recommended setup:
+// - Local dev backend:   VITE_BACKEND_URL=http://localhost:3001
+// - Production backend:  VITE_BACKEND_URL=https://api.priyankaclass.buzz
+//
+// If VITE_BACKEND_URL is not set, we fall back to the production API subdomain.
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://api.priyankaclass.buzz'
 
 export const platforms = [
     { name: 'Netflix', url: 'https://www.netflix.com/', icon: 'svg' },
