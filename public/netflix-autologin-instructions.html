@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netflix Auto-Login - Installation Instructions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #141414;
+            color: #fff;
+            line-height: 1.6;
+        }
+        .container {
+            background: #1f1f1f;
+            padding: 30px;
+            border-radius: 8px;
+        }
+        h1 {
+            color: #e50914;
+        }
+        h2 {
+            color: #e50914;
+            margin-top: 30px;
+        }
+        .step {
+            background: #2d2d2d;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            border-left: 4px solid #e50914;
+        }
+        .code {
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .button {
+            background: #e50914;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button:hover {
+            background: #f40612;
+        }
+        .warning {
+            background: #ff9800;
+            color: #000;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .success {
+            background: #4caf50;
+            color: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Netflix Auto-Login Setup</h1>
+        
+        <div class="success">
+            <strong>✅ Automatic Login Enabled!</strong><br>
+            Once installed, clicking Netflix will automatically log you in using credentials from your .env file.
+        </div>
+
+        <h2>Step 1: Install Tampermonkey</h2>
+        <div class="step">
+            <p><strong>For Chrome/Edge:</strong></p>
+            <a href="https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" 
+               target="_blank" class="button">Install Tampermonkey (Chrome)</a>
+            
+            <p><strong>For Firefox:</strong></p>
+            <a href="https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/" 
+               target="_blank" class="button">Install Tampermonkey (Firefox)</a>
+        </div>
+
+        <h2>Step 2: Install the Userscript</h2>
+        <div class="step">
+            <p>Click the button below to install the Netflix Auto-Login userscript:</p>
+            <a href="/netflix-autologin.user.js" class="button">Install Userscript</a>
+            <p><em>Or manually copy the URL and paste it in Tampermonkey's "Create new script" page</em></p>
+        </div>
+
+        <h2>Step 3: Configure Credentials</h2>
+        <div class="step">
+            <p>Make sure you have set these in your <code>.env</code> file:</p>
+            <div class="code">
+VITE_NETFLIX_EMAIL=your-email@example.com<br>
+VITE_NETFLIX_PASSWORD=your-password
+            </div>
+            <p>The app will automatically store these in localStorage when you click Netflix.</p>
+        </div>
+
+        <h2>Step 4: Test It!</h2>
+        <div class="step">
+            <p>Go back to your app and click the Netflix option. It should automatically:</p>
+            <ol>
+                <li>Open Netflix login page</li>
+                <li>Fill in your credentials</li>
+                <li>Click the login button</li>
+                <li>Log you in automatically!</li>
+            </ol>
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Security Note:</strong><br>
+            Credentials are stored in browser localStorage and are only used for auto-login. 
+            They are cleared after successful login for security.
+        </div>
+
+        <h2>How It Works</h2>
+        <div class="step">
+            <p>1. When you click Netflix, the app reads credentials from <code>.env</code></p>
+            <p>2. Credentials are stored in <code>localStorage</code></p>
+            <p>3. Netflix page opens</p>
+            <p>4. Userscript detects the login page and reads credentials from <code>localStorage</code></p>
+            <p>5. Userscript automatically fills the form and submits</p>
+            <p>6. You're logged in! 🎉</p>
+        </div>
+
+        <h2>Troubleshooting</h2>
+        <div class="step">
+            <p><strong>Auto-login not working?</strong></p>
+            <ul>
+                <li>Make sure Tampermonkey is installed and enabled</li>
+                <li>Check that the userscript is installed and enabled in Tampermonkey dashboard</li>
+                <li>Verify credentials are set in <code>.env</code> file</li>
+                <li>Check browser console (F12) for any errors</li>
+                <li>Make sure popups are allowed for the site</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

@@ -2,6 +2,7 @@
   "name": "video-format-converter",
   "private": true,
   "version": "1.0.0",
+  "homepage": "https://priyankaclass.buzz",
   "type": "module",
   "scripts": {
     "dev": "vite",

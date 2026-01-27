@@ -84,6 +84,23 @@ The backend will run on `http://localhost:3001`
 npm run build
 ```
 
+### Custom domain: priyankaclass.buzz
+
+The frontend is set up to be served at **https://priyankaclass.buzz**.
+
+1. **Vercel** (recommended)
+   - Deploy the repo and then: Project → **Settings** → **Domains** → Add `priyankaclass.buzz`.
+   - Add `www.priyankaclass.buzz` as well if you want it; redirect one to the other in the Domains UI.
+   - At your domain registrar, add the CNAME/A records Vercel shows (e.g. `cname.vercel-dns.com` for the apex or `www`).
+
+2. **Other host (Netlify, Render static, etc.)**
+   - Build: `npm run build`; serve the `dist/` folder.
+   - In the host’s dashboard, add `priyankaclass.buzz` and follow their DNS instructions.
+
+3. **Backend / API**
+   - If the app calls your own backend, set `VITE_BACKEND_URL` to that API URL (e.g. your Render backend).
+   - In the backend, allow `https://priyankaclass.buzz` in CORS so the browser can call the API from this domain.
+
 ## How It Works
 
 ### Video Conversion

@@ -409,11 +409,16 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to extract audio')
+        let errMsg = 'Failed to extract audio'
+        try {
+          const errorData = await response.json()
+          if (errorData && errorData.error) errMsg = errorData.error
+        } catch (_) { /* non-JSON response */ }
+        throw new Error(errMsg)
       }
 
       const data = await response.json()
+      if (!data || !data.downloadUrl) throw new Error('Invalid response: missing downloadUrl')
       setExtractedAudioUrl(data.downloadUrl)
     } catch (error) {
       console.error('Audio extraction error:', error)
@@ -439,11 +444,16 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to separate audio')
+        let errMsg = 'Failed to separate audio'
+        try {
+          const errorData = await response.json()
+          if (errorData && errorData.error) errMsg = errorData.error
+        } catch (_) { /* non-JSON response */ }
+        throw new Error(errMsg)
       }
 
       const data = await response.json()
+      if (!data || !data.downloadUrl) throw new Error('Invalid response: missing downloadUrl')
       setSeparatedAudioUrl(data.downloadUrl)
     } catch (error) {
       console.error('Separation error:', error)
@@ -534,292 +544,155 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
 
   return (
     <div className="converter-container">
-      <div className="video-preview">
-        <div className="preview-header">
-          <h3>Original {inputIsAudio ? 'Audio' : 'Video'}</h3>
-        </div>
+      {/* Step 1: Original file */}
+      <section className="step-card step-1">
+        <div className="step-badge">Step 1</div>
+        <h3 className="step-title">Your {inputIsAudio ? 'Audio' : 'Video'}</h3>
+        <p className="step-desc">Preview your file. Remove it to upload a new one.</p>
         {inputIsAudio ? (
-          <div className="audio-player-wrapper">
+          <div className="media-wrapper media-audio">
             <audio ref={mediaRef} src={videoUrl} controls className="audio-player" />
-            <button onClick={handleRemoveFile} className="remove-file-button" title="Remove file and upload new one">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
-              </svg>
+            <button onClick={handleRemoveFile} className="remove-file-btn" type="button" title="Remove and upload new">
+              Remove file
             </button>
           </div>
         ) : (
-          <div className="video-player-wrapper">
+          <div className="media-wrapper media-video">
             <video ref={mediaRef} src={videoUrl} controls className="video-player" />
-            <button onClick={handleRemoveFile} className="remove-file-button" title="Remove file and upload new one">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
-              </svg>
+            <button onClick={handleRemoveFile} className="remove-file-btn" type="button" title="Remove and upload new">
+              Remove file
             </button>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="converter-controls">
-        <div className="format-selector">
+      {/* Step 2: Convert / Trim */}
+      <section className="step-card step-2">
+        <div className="step-badge">Step 2</div>
+        <h3 className="step-title">Convert or Trim</h3>
+        <p className="step-desc">Pick output format, optional time range, then convert or compress.</p>
+
+        <div className="step-block">
+          <label className="step-label">Output format</label>
           <PremiumDropdown
             id="format-select"
-            label="Select Output Format:"
+            label=""
             value={selectedFormat}
             onChange={(e) => setSelectedFormat(e.target.value)}
             options={availableFormats.map(f => ({ value: f.value, label: f.label }))}
-            className="format-select"
+            className="format-select format-select-full"
           />
         </div>
 
-        <div className="trim-controls">
+        <div className="step-block trim-block">
+          <label className="step-label">Time range (optional)</label>
           <div className="trim-mode-selector">
-            <label>
-              <input
-                type="radio"
-                checked={!useMultipleRanges}
-                onChange={() => setUseMultipleRanges(false)}
-              />
-              Single Time Range
+            <label className="trim-option">
+              <input type="radio" checked={!useMultipleRanges} onChange={() => setUseMultipleRanges(false)} />
+              <span>Single range</span>
             </label>
-            <label>
-              <input
-                type="radio"
-                checked={useMultipleRanges}
-                onChange={() => setUseMultipleRanges(true)}
-              />
-              Multiple Time Ranges
+            <label className="trim-option">
+              <input type="radio" checked={useMultipleRanges} onChange={() => setUseMultipleRanges(true)} />
+              <span>Multiple ranges</span>
             </label>
           </div>
 
           {!useMultipleRanges ? (
-            <>
-              <div className="trim-field">
-                <label htmlFor="start-time">Start time (HH:MM:SS or MM:SS or seconds)</label>
+            <div className="trim-fields-row">
+              <div className="trim-field-wrap">
+                <label htmlFor="start-time">Start</label>
                 <input
                   id="start-time"
                   type="text"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  placeholder="e.g. 00:00:05"
+                  placeholder="00:00:05"
                   className="trim-input"
                 />
               </div>
-              <div className="trim-field">
-                <label htmlFor="end-time">End time (optional)</label>
+              <div className="trim-field-wrap">
+                <label htmlFor="end-time">End</label>
                 <input
                   id="end-time"
                   type="text"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  placeholder="e.g. 00:00:15"
+                  placeholder="00:00:15"
                   className="trim-input"
                 />
               </div>
-              <div className="trim-hint">Leave blank to use full length. If only start is set, export from start to end of video. If both set, export the range.</div>
-            </>
+            </div>
           ) : (
-            <div className="multiple-ranges-section">
-              <div className="ranges-list">
-                {timeRanges.map((range, index) => (
-                  <div key={index} className="time-range-item">
-                    <div className="range-inputs">
-                      <div className="range-field">
-                        <label>Start ({index + 1})</label>
-                        <input
-                          type="text"
-                          value={range.start}
-                          onChange={(e) => {
-                            const newRanges = [...timeRanges]
-                            newRanges[index].start = e.target.value
-                            setTimeRanges(newRanges)
-                          }}
-                          placeholder="e.g. 00:00:20"
-                          className="trim-input"
-                        />
-                      </div>
-                      <div className="range-field">
-                        <label>End ({index + 1})</label>
-                        <input
-                          type="text"
-                          value={range.end}
-                          onChange={(e) => {
-                            const newRanges = [...timeRanges]
-                            newRanges[index].end = e.target.value
-                            setTimeRanges(newRanges)
-                          }}
-                          placeholder="e.g. 00:00:40"
-                          className="trim-input"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTimeRanges(timeRanges.filter((_, i) => i !== index))
-                        }}
-                        className="remove-range-button"
-                      >
-                        Remove
-                      </button>
-                    </div>
+            <div className="multiple-ranges-block">
+              {timeRanges.map((range, index) => (
+                <div key={index} className="time-range-row">
+                  <div className="trim-field-wrap">
+                    <label>Start {index + 1}</label>
+                    <input
+                      type="text"
+                      value={range.start}
+                      onChange={(e) => {
+                        const r = [...timeRanges]
+                        r[index].start = e.target.value
+                        setTimeRanges(r)
+                      }}
+                      placeholder="00:00:20"
+                      className="trim-input"
+                    />
                   </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setTimeRanges([...timeRanges, { start: '', end: '' }])
-                }}
-                className="add-range-button"
-              >
-                + Add Time Range
-              </button>
-              <div className="trim-hint">
-                Add multiple time ranges (e.g., 20-40, 60-80, 120-160). All selected ranges will be cut and concatenated into one audio file.
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="action-buttons">
-        <button
-          onClick={convertVideo}
-          disabled={isConverting}
-          className="convert-button"
-        >
-          {isConverting ? 'Processing...' : `Convert/Trim to ${selectedFormat.toUpperCase()}`}
-        </button>
-        <button
-          onClick={quickCompress}
-          disabled={isConverting}
-          className="compress-button"
-        >
-          {isConverting ? 'Processing...' : 'Quick Compress'}
-        </button>
-        </div>
-
-        {/* Audio Extraction Section */}
-        {!inputIsAudio && (
-          <div className="audio-extraction-section">
-            <h3>🎵 Audio Extraction</h3>
-            <div className="audio-extract-controls">
-              <div className="format-selector">
-                <label htmlFor="audio-extract-format">Audio Format:</label>
-                <PremiumDropdown
-                  id="audio-extract-format"
-                  value={audioExtractFormat}
-                  onChange={(e) => setAudioExtractFormat(e.target.value)}
-                  options={[
-                    { value: 'mp3', label: 'MP3' },
-                    { value: 'wav', label: 'WAV' },
-                    { value: 'aac', label: 'AAC' }
-                  ]}
-                  className="format-select"
-                />
-              </div>
-              <button
-                onClick={extractAudioFromVideo}
-                disabled={isExtractingAudio}
-                className="extract-audio-button"
-              >
-                {isExtractingAudio ? 'Extracting Audio...' : 'Extract Audio from Video'}
-              </button>
-            </div>
-            {extractedAudioUrl && (
-              <div className="extracted-audio-preview">
-                <audio src={extractedAudioUrl} controls className="audio-player" />
-                <div className="download-filename-section">
-                  <label htmlFor="extracted-filename">File Name (optional):</label>
-                  <input
-                    id="extracted-filename"
-                    type="text"
-                    value={customExtractedFilename}
-                    onChange={(e) => setCustomExtractedFilename(e.target.value)}
-                    placeholder={`extracted_audio.${audioExtractFormat}`}
-                    className="filename-input"
-                  />
+                  <div className="trim-field-wrap">
+                    <label>End {index + 1}</label>
+                    <input
+                      type="text"
+                      value={range.end}
+                      onChange={(e) => {
+                        const r = [...timeRanges]
+                        r[index].end = e.target.value
+                        setTimeRanges(r)
+                      }}
+                      placeholder="00:00:40"
+                      className="trim-input"
+                    />
+                  </div>
+                  <button type="button" onClick={() => setTimeRanges(timeRanges.filter((_, i) => i !== index))} className="btn-remove-range">
+                    Remove
+                  </button>
                 </div>
-                <button onClick={handleDownloadExtracted} className="download-button">
-                  Download Extracted Audio
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Voice/Music Separation Section */}
-        <div className="voice-separation-section">
-          <h3>🎤 Voice/Music Separation</h3>
-          <div className="separation-controls">
-            <div className="mode-selector">
-              <label>
-                <input
-                  type="radio"
-                  value="voice"
-                  checked={separationMode === 'voice'}
-                  onChange={(e) => setSeparationMode(e.target.value)}
-                />
-                Extract Voice Only
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  value="music"
-                  checked={separationMode === 'music'}
-                  onChange={(e) => setSeparationMode(e.target.value)}
-                />
-                Extract Music Only
-              </label>
-            </div>
-            <button
-              onClick={separateVoiceMusic}
-              disabled={isSeparating}
-              className="separate-button"
-            >
-              {isSeparating ? 'Separating...' : `Extract ${separationMode === 'voice' ? 'Voice' : 'Music'}`}
-            </button>
-          </div>
-          {separatedAudioUrl && (
-            <div className="separated-audio-preview">
-              <audio src={separatedAudioUrl} controls className="audio-player" />
-              <div className="download-filename-section">
-                <label htmlFor="separated-filename">File Name (optional):</label>
-                <input
-                  id="separated-filename"
-                  type="text"
-                  value={customSeparatedFilename}
-                  onChange={(e) => setCustomSeparatedFilename(e.target.value)}
-                  placeholder={`separated_${separationMode}.mp3`}
-                  className="filename-input"
-                />
-              </div>
-              <button onClick={handleDownloadSeparated} className="download-button">
-                Download {separationMode === 'voice' ? 'Voice' : 'Music'}
+              ))}
+              <button type="button" onClick={() => setTimeRanges([...timeRanges, { start: '', end: '' }])} className="btn-add-range">
+                + Add range
               </button>
             </div>
           )}
+          <p className="trim-hint-text">Use HH:MM:SS, MM:SS or seconds. Leave blank for full length.</p>
+        </div>
+
+        <div className="action-row">
+          <button onClick={convertVideo} disabled={isConverting} className="btn-convert">
+            {isConverting ? 'Processing…' : `Convert to ${selectedFormat.toUpperCase()}`}
+          </button>
+          <button onClick={quickCompress} disabled={isConverting} className="btn-compress">
+            {isConverting ? 'Processing…' : 'Quick compress'}
+          </button>
         </div>
 
         {downloadUrl && (
-          <div className="converted-video">
-            <h3>Converted {getSelectedFormatType() === 'audio' ? 'Audio' : 'Video'} Preview</h3>
-            <div className="conversion-stats">
-              <div className="stat-pill"><span>Original</span><strong>{(originalBytes/1024/1024).toFixed(2)} MB</strong></div>
-              <div className="stat-pill"><span>Output</span><strong>{(convertedBytes/1024/1024).toFixed(2)} MB</strong></div>
-              <div className="stat-pill">
-                <span>Reduction</span>
-                <strong>{originalBytes > 0 ? Math.max(0, ((1 - (convertedBytes/Math.max(1,originalBytes))) * 100)).toFixed(1) : '0.0'}%</strong>
-              </div>
+          <div className="result-block result-converted">
+            <h4 className="result-heading">Converted output</h4>
+            <div className="stat-row">
+              <span className="stat-item"><em>Original</em> {(originalBytes / 1024 / 1024).toFixed(2)} MB</span>
+              <span className="stat-item"><em>Output</em> {(convertedBytes / 1024 / 1024).toFixed(2)} MB</span>
+              <span className="stat-item"><em>Saved</em> {originalBytes > 0 ? Math.max(0, (1 - convertedBytes / originalBytes) * 100).toFixed(0) : 0}%</span>
             </div>
             {getSelectedFormatType() === 'audio' ? (
-              <div className="audio-preview">
+              <div className="preview-audio">
                 <audio src={downloadUrl} controls className="audio-player" />
-                <p className="audio-info">🎵 Audio extracted successfully</p>
               </div>
             ) : (
-              <video src={convertedVideo} controls className="video-player" />
+              <video src={convertedVideo} controls className="video-player video-preview-sm" />
             )}
-            <div className="download-filename-section">
-              <label htmlFor="converted-filename">File Name (optional):</label>
+            <div className="filename-row">
+              <label htmlFor="converted-filename">File name (optional)</label>
               <input
                 id="converted-filename"
                 type="text"
@@ -829,16 +702,102 @@ const FormatConverter = ({ videoUrl, videoFile, onReset }) => {
                 className="filename-input"
               />
             </div>
-            <button onClick={handleDownload} className="download-button">
-              Download Converted {getSelectedFormatType() === 'audio' ? 'Audio' : 'Video'}
-            </button>
+            <button onClick={handleDownload} className="btn-download">Download converted {getSelectedFormatType() === 'audio' ? 'audio' : 'video'}</button>
           </div>
         )}
-      </div>
+      </section>
 
-      <button onClick={onReset} className="reset-button">
-        Upload Another File
-      </button>
+      {/* Step 3: Extract audio (video only) */}
+      {!inputIsAudio && (
+        <section className="step-card step-3">
+          <div className="step-badge">Step 3</div>
+          <h3 className="step-title">Extract audio</h3>
+          <p className="step-desc">Get only the audio track from your video.</p>
+          <div className="step-block extract-block">
+            <label className="step-label">Audio format</label>
+            <PremiumDropdown
+              id="audio-extract-format"
+              label=""
+              value={audioExtractFormat}
+              onChange={(e) => setAudioExtractFormat(e.target.value)}
+              options={[
+                { value: 'mp3', label: 'MP3' },
+                { value: 'wav', label: 'WAV' },
+                { value: 'aac', label: 'AAC' }
+              ]}
+              className="format-select format-select-full"
+            />
+            <button onClick={extractAudioFromVideo} disabled={isExtractingAudio} className="btn-extract">
+              {isExtractingAudio ? 'Extracting…' : 'Extract audio'}
+            </button>
+          </div>
+          {extractedAudioUrl && (
+            <div className="result-block">
+              <h4 className="result-heading">Extracted audio</h4>
+              <audio src={extractedAudioUrl} controls className="audio-player" />
+              <div className="filename-row">
+                <label htmlFor="extracted-filename">File name (optional)</label>
+                <input
+                  id="extracted-filename"
+                  type="text"
+                  value={customExtractedFilename}
+                  onChange={(e) => setCustomExtractedFilename(e.target.value)}
+                  placeholder={`extracted.${audioExtractFormat}`}
+                  className="filename-input"
+                />
+              </div>
+              <button onClick={handleDownloadExtracted} className="btn-download">Download extracted audio</button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Step 4: Voice / Music separation (video only when step 3 exists; else step 3) */}
+      {!inputIsAudio && (
+        <section className="step-card step-4">
+          <div className="step-badge">Step 4</div>
+          <h3 className="step-title">Separate voice & music</h3>
+          <p className="step-desc">Get only voice or only music from the track.</p>
+          <div className="step-block separation-block">
+            <label className="step-label">Extract</label>
+            <div className="mode-options">
+              <label className="mode-option">
+                <input type="radio" value="voice" checked={separationMode === 'voice'} onChange={(e) => setSeparationMode(e.target.value)} />
+                <span>Voice only</span>
+              </label>
+              <label className="mode-option">
+                <input type="radio" value="music" checked={separationMode === 'music'} onChange={(e) => setSeparationMode(e.target.value)} />
+                <span>Music only</span>
+              </label>
+            </div>
+            <button onClick={separateVoiceMusic} disabled={isSeparating} className="btn-separate">
+              {isSeparating ? 'Separating…' : `Extract ${separationMode}`}
+            </button>
+          </div>
+          {separatedAudioUrl && (
+            <div className="result-block">
+              <h4 className="result-heading">Separated track</h4>
+              <audio src={separatedAudioUrl} controls className="audio-player" />
+              <div className="filename-row">
+                <label htmlFor="separated-filename">File name (optional)</label>
+                <input
+                  id="separated-filename"
+                  type="text"
+                  value={customSeparatedFilename}
+                  onChange={(e) => setCustomSeparatedFilename(e.target.value)}
+                  placeholder={`separated_${separationMode}.mp3`}
+                  className="filename-input"
+                />
+              </div>
+              <button onClick={handleDownloadSeparated} className="btn-download">Download {separationMode}</button>
+            </div>
+          )}
+        </section>
+      )}
+
+      <div className="converter-footer">
+        <button onClick={onReset} className="btn-reset" type="button">Upload another file</button>
+      </div>
     </div>
   )
 }

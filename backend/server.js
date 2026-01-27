@@ -13,6 +13,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const http = require('http')
 const { Server } = require('socket.io')
 const tradingConstants = require('./constants')
+const puppeteer = require('puppeteer')
 
 const app = express()
 const server = http.createServer(app)
@@ -22,6 +23,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5174',
+  'https://priyankaclass.buzz',
+  'https://www.priyankaclass.buzz',
   'https://react-udemy-rc44-lm6ymtpr0-sriharsh1104s-projects.vercel.app',
   'https://react-udemy-rc44-dvq0ffddo-sriharsh1104s-projects.vercel.app',
   'https://react-udemy-rc44.vercel.app',
@@ -616,6 +619,143 @@ app.post('/api/formats', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
+})
+
+// Netflix auto-login endpoint - returns a page that auto-fills Netflix login
+app.get('/api/netflix/autologin', (req, res) => {
+  // ALWAYS set CORS headers
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.setHeader('Access-Control-Allow-Headers', '*')
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+
+  const email = req.query.email
+  const password = req.query.password
+
+  if (!email || !password) {
+    return res.status(400).send(`
+      <html>
+        <body>
+          <h1>Error: Email and password are required</h1>
+          <p>Please provide email and password as query parameters.</p>
+        </body>
+      </html>
+    `)
+  }
+
+  // Return HTML page that redirects to Netflix and attempts to auto-fill
+  // Note: Due to CORS, we can't directly fill Netflix's form, but we can open it
+  // and provide instructions or use a bookmarklet approach
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Netflix Auto-Login</title>
+      <meta charset="UTF-8">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          max-width: 600px;
+          margin: 50px auto;
+          padding: 20px;
+          background: #141414;
+          color: #fff;
+        }
+        .container {
+          background: #1f1f1f;
+          padding: 30px;
+          border-radius: 8px;
+        }
+        button {
+          background: #e50914;
+          color: white;
+          border: none;
+          padding: 15px 30px;
+          font-size: 16px;
+          border-radius: 4px;
+          cursor: pointer;
+          width: 100%;
+          margin-top: 20px;
+        }
+        button:hover {
+          background: #f40612;
+        }
+        .info {
+          background: #2d2d2d;
+          padding: 15px;
+          border-radius: 4px;
+          margin: 20px 0;
+          font-size: 14px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>🎬 Netflix Auto-Login</h1>
+        <div class="info">
+          <p><strong>Note:</strong> Due to browser security (CORS), we cannot automatically fill Netflix's login form from an external page.</p>
+          <p>Click the button below to open Netflix. Then use the auto-fill script provided.</p>
+        </div>
+        <button onclick="openNetflix()">Open Netflix Login</button>
+        <div class="info" id="scriptInfo" style="display: none; margin-top: 20px;">
+          <p><strong>Auto-Fill Script:</strong></p>
+          <p>After Netflix login page opens, open browser console (F12) and paste this:</p>
+          <pre style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto;">
+document.querySelector('input[type="email"], input[name="userLoginId"]').value = '${email.replace(/'/g, "\\'")}';
+document.querySelector('input[type="password"], input[name="password"]').value = '${password.replace(/'/g, "\\'")}';
+document.querySelector('button[type="submit"], button[data-uia="login-submit-button"]').click();
+          </pre>
+        </div>
+      </div>
+      <script>
+        function openNetflix() {
+          window.open('https://www.netflix.com/login', '_blank');
+          document.getElementById('scriptInfo').style.display = 'block';
+        }
+        
+        // Try to use Puppeteer-like automation via iframe (won't work due to CORS, but attempt it)
+        // Alternative: Use a browser extension approach
+        window.addEventListener('load', () => {
+          console.log('Netflix Auto-Login page loaded');
+          console.log('Email:', '${email.substring(0, 3)}***');
+        });
+      </script>
+    </body>
+    </html>
+  `
+
+  res.send(html)
+})
+
+// Netflix auto-login endpoint using Puppeteer (for server-side automation)
+app.post('/api/netflix/login', async (req, res) => {
+  // ALWAYS set CORS headers
+  const origin = req.headers.origin || '*'
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+  res.setHeader('Access-Control-Allow-Headers', '*')
+  res.setHeader('Access-Control-Allow-Credentials', 'false')
+
+  const { email, password } = req.body
+
+  if (!email || !password) {
+    return res.status(400).json({ 
+      error: 'Email and password are required',
+      success: false 
+    })
+  }
+
+  // For server-side automation, we'd need X11 or similar to show browser to user
+  // Instead, return a URL to the auto-login page
+  const autoLoginUrl = `${getBackendUrl(req)}/api/netflix/autologin?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+  
+  res.json({ 
+    success: true,
+    message: 'Opening Netflix auto-login page...',
+    autoLoginUrl: autoLoginUrl,
+    redirect: true
+  })
 })
 
 // Generic download endpoint
@@ -1626,7 +1766,8 @@ app.post('/api/audio/extract', audioVideoUpload.single('file'), async (req, res)
       return res.status(400).json({ error: 'Video or audio file is required' })
     }
 
-    const { format = 'mp3' } = req.body
+    const rawFormat = (req.body && req.body.format) ? String(req.body.format).toLowerCase().trim() : 'mp3'
+    const format = ['mp3', 'wav', 'aac'].includes(rawFormat) ? rawFormat : 'mp3'
     const inputPath = req.file.path
     const timestamp = Date.now()
     const outputFileName = `extracted_${timestamp}.${format}`
@@ -1673,7 +1814,8 @@ app.post('/api/audio/separate', audioVideoUpload.single('file'), async (req, res
       return res.status(400).json({ error: 'Audio or video file is required' })
     }
 
-    const { mode = 'voice' } = req.body // 'voice' or 'music'
+    const rawMode = (req.body && req.body.mode) ? String(req.body.mode).toLowerCase().trim() : 'voice'
+    const mode = rawMode === 'music' ? 'music' : 'voice'
     const inputPath = req.file.path
     const timestamp = Date.now()
     const outputFileName = `${mode}_${timestamp}.mp3`
@@ -1695,16 +1837,12 @@ app.post('/api/audio/separate', audioVideoUpload.single('file'), async (req, res
         })
       }
 
-      // Separate voice/music using FFmpeg filters
-      // Using pan filter to attempt basic separation (centered vocals vs stereo music)
-      // Note: This is a basic approach. For better results, use Spleeter or Demucs
+      // Separate voice/music using FFmpeg pan filter (basic stereo L/R math, not AI)
+      // voice = L+R (mid/center); music = L-R (sides). For real vocal separation use Spleeter/Demucs.
       let separationCommand
-      
       if (mode === 'voice') {
-        // Extract center channel (often contains vocals)
         separationCommand = `ffmpeg -i "${audioExtractPath}" -af "pan=mono|c0=0.5*c0+0.5*c1" -acodec libmp3lame -ab 192k -ar 44100 "${outputPath}" -y`
       } else {
-        // Extract side channels (often contains music/instruments)
         separationCommand = `ffmpeg -i "${audioExtractPath}" -af "pan=mono|c0=0.5*c0+-0.5*c1" -acodec libmp3lame -ab 192k -ar 44100 "${outputPath}" -y`
       }
 

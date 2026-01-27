@@ -1,4 +1,5 @@
-import { platforms, pSites, sportsLinks } from '../constants'
+import { useState } from 'react'
+import { platforms, pSites, sportsLinks, BACKEND_URL } from '../constants'
 import './OTTLinks.css'
 import netflixIcon from '../assets/icons/netflix.svg'
 import youtubeIcon from '../assets/icons/youtube.svg'
@@ -47,21 +48,99 @@ function openYouTubeNoCookie() {
 }
 
 function OTTLinks() {
+  const [netflixLoading, setNetflixLoading] = useState(false)
+
+  const handleNetflixClick = (e) => {
+    e.preventDefault()
+    
+    // Get credentials from .env
+    const email = import.meta.env.VITE_NETFLIX_EMAIL
+    const password = import.meta.env.VITE_NETFLIX_PASSWORD
+
+    if (!email || !password) {
+      alert('Netflix credentials not found in .env file. Please set VITE_NETFLIX_EMAIL and VITE_NETFLIX_PASSWORD')
+      window.open('https://www.netflix.com/', '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    setNetflixLoading(true)
+
+    // Store credentials in localStorage for the userscript to access
+    try {
+      localStorage.setItem('netflix_auto_email', email)
+      localStorage.setItem('netflix_auto_password', password)
+      console.log('Netflix credentials stored in localStorage')
+    } catch (error) {
+      console.error('Failed to store credentials:', error)
+      alert('Failed to store credentials. Please check browser settings.')
+      setNetflixLoading(false)
+      return
+    }
+
+    // Check if userscript is installed (by checking if we can detect it)
+    // Open Netflix login page
+    const netflixWindow = window.open('https://www.netflix.com/login', '_blank', 'noopener,noreferrer')
+    
+    if (!netflixWindow) {
+      alert('Please allow popups for auto-login to work')
+      setNetflixLoading(false)
+      return
+    }
+
+    // Check if userscript is installed and show instructions if needed
+    setTimeout(() => {
+      const hasUserscript = localStorage.getItem('netflix_userscript_installed')
+      
+      if (!hasUserscript) {
+        // Show one-time instruction with link to full instructions
+        const userChoice = confirm(
+          'For fully automatic Netflix login, install the userscript!\n\n' +
+          'Click OK to see installation instructions, or Cancel to continue.\n\n' +
+          '(You only need to do this once)'
+        )
+        
+        if (userChoice) {
+          window.open('/netflix-autologin-instructions.html', '_blank', 'noopener,noreferrer')
+        }
+      } else {
+        console.log('Netflix Auto-Login: Userscript detected! Auto-login will work automatically.')
+      }
+      
+      setNetflixLoading(false)
+    }, 1000)
+  }
   return (
     <div className="ott">
       <h2 className="ott-title">Content</h2>
       <div className="ott-grid">
-        {platforms.map((p) => (
-          <a
-            key={p.name}
-            href={p.url}
-            className="ott-card"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {p.icon === 'svg' && p.name === 'Netflix' ? (
-              <img src={netflixIcon} alt={p.name} className="ott-icon" />
-            ) : p.icon === 'svg' && p.name === 'YouTube' ? (
+        {platforms.map((p) => {
+          // Special handling for Netflix with auto-login
+          if (p.name === 'Netflix') {
+            return (
+              <button
+                key={p.name}
+                type="button"
+                className="ott-card"
+                onClick={handleNetflixClick}
+                disabled={netflixLoading}
+              >
+                <img src={netflixIcon} alt={p.name} className="ott-icon" />
+                <span className="ott-name">
+                  {netflixLoading ? 'Logging in...' : p.name}
+                </span>
+              </button>
+            )
+          }
+          
+          return (
+            <a
+              key={p.name}
+              href={p.url}
+              className="ott-card"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {p.icon === 'svg' && p.name === 'YouTube' ? (
               <img src={youtubeIcon} alt={p.name} className="ott-icon" />
             ) : p.icon === 'svg' && p.name === 'Amazon Prime' ? (
               <img src={amazonIcon} alt={p.name} className="ott-icon" />
@@ -80,7 +159,8 @@ function OTTLinks() {
             )}
             <span className="ott-name">{p.name}</span>
           </a>
-        ))}
+          )
+        })}
         <button
           type="button"
           className="ott-card"
