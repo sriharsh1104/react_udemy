@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Monitor bezel -->
+  <rect x="2" y="2" width="28" height="20" rx="2" fill="#64748b" stroke="#475569" stroke-width="1"/>
+  <!-- Screen -->
+  <rect x="5" y="5" width="22" height="14" rx="1" fill="#1e293b"/>
+  <!-- Screen highlight -->
+  <line x1="7" y1="9" x2="25" y2="9" stroke="#64748b" stroke-width="0.8" opacity="0.8"/>
+  <!-- Stand -->
+  <rect x="12" y="22" width="8" height="2" fill="#475569"/>
+  <line x1="10" y1="22" x2="10" y2="26" stroke="#475569" stroke-width="1.5"/>
+  <line x1="22" y1="22" x2="22" y2="26" stroke="#475569" stroke-width="1.5"/>
+  <rect x="8" y="26" width="16" height="2" rx="1" fill="#475569"/>
+</svg>
