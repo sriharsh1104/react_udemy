@@ -13,7 +13,6 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const http = require('http')
 const { Server } = require('socket.io')
 const tradingConstants = require('./constants')
-const puppeteer = require('puppeteer')
 
 const app = express()
 const server = http.createServer(app)

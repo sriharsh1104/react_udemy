@@ -1,8 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ACTION_WORDS_QUESTIONS } from '../data/actionWordsQuizData'
 import './ActionWordsQuiz.css'
-
-const QUESTIONS = ACTION_WORDS_QUESTIONS
 
 function shuffle(arr) {
   const a = [...arr]
@@ -13,14 +10,17 @@ function shuffle(arr) {
   return a
 }
 
-const ActionWordsQuiz = () => {
+/**
+ * Reusable image quiz: title, subtitle, question text, and questions array (imageUrl, correct, wrong).
+ */
+const ImageQuiz = ({ title, subtitle, questionText, questions }) => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedOption, setSelectedOption] = useState(null)
   const [showResult, setShowResult] = useState(false)
   const [score, setScore] = useState(0)
   const [totalAttempts, setTotalAttempts] = useState(0)
 
-  const question = QUESTIONS[currentIndex]
+  const question = questions[currentIndex]
   const options = useMemo(
     () => shuffle([question.correct, ...question.wrong]),
     [currentIndex]
@@ -37,7 +37,7 @@ const ActionWordsQuiz = () => {
   }
 
   const nextQuestion = () => {
-    setCurrentIndex((prev) => (prev + 1) % QUESTIONS.length)
+    setCurrentIndex((prev) => (prev + 1) % questions.length)
     setSelectedOption(null)
     setShowResult(false)
   }
@@ -47,8 +47,8 @@ const ActionWordsQuiz = () => {
   return (
     <div className="action-words-quiz">
       <div className="action-words-quiz-content">
-        <h1 className="action-words-title">Action Words – Preposition Verbs</h1>
-        <p className="action-words-subtitle">Picture dekho, sahi verb + preposition choose karo</p>
+        <h1 className="action-words-title">{title}</h1>
+        <p className="action-words-subtitle">{subtitle}</p>
 
         <div className="action-words-score">
           Score: {score} / {totalAttempts}
@@ -63,9 +63,7 @@ const ActionWordsQuiz = () => {
           <p className="action-words-picture-label">Picture {pictureNumber}</p>
         </div>
 
-        <h2 className="action-words-question">
-          Childern tell me what they are doing in the picture?
-        </h2>
+        <h2 className="action-words-question">{questionText}</h2>
 
         <div className="action-words-options">
           {options.map((opt) => {
@@ -107,11 +105,11 @@ const ActionWordsQuiz = () => {
         )}
 
         <p className="action-words-progress">
-          Picture {pictureNumber} of {QUESTIONS.length}
+          Picture {pictureNumber} of {questions.length}
         </p>
       </div>
     </div>
   )
 }
 
-export default ActionWordsQuiz
+export default ImageQuiz
