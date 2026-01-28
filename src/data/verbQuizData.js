@@ -7,7 +7,8 @@ const BASE = 'https://upload.wikimedia.org/wikipedia/commons'
 export const VERB_QUESTIONS = [
   { imageUrl: `${BASE}/4/43/Draw_Wake_up.png`, correct: 'wake', wrong: ['sleep', 'sit'] },
   { imageUrl: `${BASE}/4/49/Toothpasteonbrush.jpg`, correct: 'brush', wrong: ['eat', 'drink'] },
-  { imageUrl: `${BASE}/0/02/Children_bathing_in_a_river.jpg`, correct: 'bathe', wrong: ['run', 'sleep'] },
+  // Replaced previous bathing (naked) image with a fully clothed walking scene
+  { imageUrl: `${BASE}/d/d9/Children_walking_in_the_village.jpg`, correct: 'walk', wrong: ['run', 'sleep'] },
   { imageUrl: `${BASE}/d/d6/Girl_eating_a_heart_shaped_cookie_%2815117104341%29.jpg`, correct: 'eat', wrong: ['drink', 'run'] },
   { imageUrl: `${BASE}/7/71/Quench_the_thirst.jpg`, correct: 'drink', wrong: ['eat', 'write'] },
   { imageUrl: `${BASE}/d/d9/Children_walking_in_the_village.jpg`, correct: 'walk', wrong: ['run', 'sit'] },
@@ -26,13 +27,14 @@ export const VERB_QUESTIONS = [
   { imageUrl: `${BASE}/9/9a/Clean_up.jpg`, correct: 'clean', wrong: ['eat', 'wake'] },
   { imageUrl: `${BASE}/8/89/Standing_girl.jpg`, correct: 'stand', wrong: ['sit', 'sleep'] },
   { imageUrl: `${BASE}/e/ea/Hold_my_hand.jpg`, correct: 'hold', wrong: ['let go', 'run'] },
-  { imageUrl: `${BASE}/d/da/Crying_boy.jpg`, correct: 'cry', wrong: ['laugh', 'wake'] },
-  { imageUrl: `${BASE}/c/c9/Boy_swimming_in_lake.jpg`, correct: 'swim', wrong: ['run', 'sit'] },
+  // Replaced crying/small-clothes images with neutral, fully clothed scenes
+  { imageUrl: `${BASE}/9/9a/Clean_up.jpg`, correct: 'clean', wrong: ['sleep', 'run'] },
+  { imageUrl: `${BASE}/0/02/Illuminated_light_switch.jpg`, correct: 'turn', wrong: ['run', 'sit'] },
   { imageUrl: `${BASE}/9/96/Child_looking_at_camera_%28Unsplash%29.jpg`, correct: 'look', wrong: ['run', 'turn'] },
   { imageUrl: `${BASE}/c/cb/Family_Waiting_For_a_Flight_at_the_Airport.jpg`, correct: 'wait', wrong: ['run', 'give'] },
   { imageUrl: `${BASE}/0/00/Boy_waving.gif`, correct: 'wave', wrong: ['point', 'hold'] },
-  { imageUrl: `${BASE}/f/f2/Cute_girl_in_bed.jpg`, correct: 'lie', wrong: ['stand', 'wake'] },
-  { imageUrl: `${BASE}/b/b6/Child_playing_in_sand.jpg`, correct: 'play', wrong: ['clean', 'run'] },
+  { imageUrl: `${BASE}/3/38/Sleeping.png`, correct: 'sleep', wrong: ['stand', 'wake'] },
+  { imageUrl: `${BASE}/3/32/Lego_Color_Bricks.jpg`, correct: 'build', wrong: ['clean', 'run'] },
   { imageUrl: `${BASE}/1/16/Creative_Commons_Birthday_Cake_and_Candles_%284825652728%29.jpg`, correct: 'blow', wrong: ['eat', 'turn'] },
   { imageUrl: `${BASE}/6/64/Pointing-finger.png`, correct: 'point', wrong: ['wave', 'hold'] },
   { imageUrl: `${BASE}/2/22/Building_blocks.png`, correct: 'build', wrong: ['knock', 'throw'] },

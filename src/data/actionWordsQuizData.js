@@ -7,7 +7,9 @@ const BASE = 'https://upload.wikimedia.org/wikipedia/commons'
 export const ACTION_WORDS_QUESTIONS = [
   { imageUrl: `${BASE}/4/43/Draw_Wake_up.png`, correct: 'wake up', wrong: ['brush off', 'run away'] },
   { imageUrl: `${BASE}/4/49/Toothpasteonbrush.jpg`, correct: 'brush off', wrong: ['wake up', 'eat up'] },
-  { imageUrl: `${BASE}/0/02/Children_bathing_in_a_river.jpg`, correct: 'take a bath', wrong: ['wake up', 'fall asleep'] },
+  // Replaced previous bathing (naked) image with a safe, clothed scene
+  // Replaced sand-playing image with a neutral bricks image
+  { imageUrl: `${BASE}/3/32/Lego_Color_Bricks.jpg`, correct: 'play with bricks', wrong: ['wake up', 'fall asleep'] },
   { imageUrl: `${BASE}/d/d6/Girl_eating_a_heart_shaped_cookie_%2815117104341%29.jpg`, correct: 'eat up', wrong: ['drink up', 'run away'] },
   { imageUrl: `${BASE}/7/71/Quench_the_thirst.jpg`, correct: 'drink up', wrong: ['eat up', 'write down'] },
   { imageUrl: `${BASE}/d/d9/Children_walking_in_the_village.jpg`, correct: 'walk away', wrong: ['run away', 'sit down'] },
@@ -27,13 +29,14 @@ export const ACTION_WORDS_QUESTIONS = [
   { imageUrl: `${BASE}/8/89/Standing_girl.jpg`, correct: 'stand up', wrong: ['sit down', 'fall asleep'] },
   { imageUrl: `${BASE}/e/ea/Hold_my_hand.jpg`, correct: 'hold on to', wrong: ['let go of', 'run away'] },
   // New batch (~40 total)
-  { imageUrl: `${BASE}/d/da/Crying_boy.jpg`, correct: 'cry out', wrong: ['laugh at', 'wake up'] },
-  { imageUrl: `${BASE}/c/c9/Boy_swimming_in_lake.jpg`, correct: 'swim', wrong: ['run away', 'sit down'] },
+  // Replaced crying/swimming images with safe, fully clothed scenes
+  { imageUrl: `${BASE}/9/9a/Clean_up.jpg`, correct: 'clean up', wrong: ['laugh at', 'wake up'] },
+  { imageUrl: `${BASE}/0/02/Illuminated_light_switch.jpg`, correct: 'turn on', wrong: ['run away', 'sit down'] },
   { imageUrl: `${BASE}/9/96/Child_looking_at_camera_%28Unsplash%29.jpg`, correct: 'look at', wrong: ['look for', 'turn away'] },
   { imageUrl: `${BASE}/c/cb/Family_Waiting_For_a_Flight_at_the_Airport.jpg`, correct: 'wait for', wrong: ['run away', 'give up'] },
   { imageUrl: `${BASE}/0/00/Boy_waving.gif`, correct: 'wave at', wrong: ['point at', 'hold on to'] },
   { imageUrl: `${BASE}/f/f2/Cute_girl_in_bed.jpg`, correct: 'lie down', wrong: ['stand up', 'wake up'] },
-  { imageUrl: `${BASE}/b/b6/Child_playing_in_sand.jpg`, correct: 'play in', wrong: ['clean up', 'run away'] },
+  { imageUrl: `${BASE}/3/32/Lego_Color_Bricks.jpg`, correct: 'play with blocks', wrong: ['clean up', 'run away'] },
   { imageUrl: `${BASE}/1/16/Creative_Commons_Birthday_Cake_and_Candles_%284825652728%29.jpg`, correct: 'blow out', wrong: ['eat up', 'turn on'] },
   { imageUrl: `${BASE}/6/64/Pointing-finger.png`, correct: 'point at', wrong: ['wave at', 'hold on to'] },
   { imageUrl: `${BASE}/2/22/Building_blocks.png`, correct: 'build up', wrong: ['knock down', 'throw away'] },
