@@ -2,6 +2,14 @@ import { isBirthdayTestMode } from '../data/birthdayCalendar'
 
 const TZ = 'Asia/Kolkata'
 
+/** YYYY-MM-DD in IST — re-render trigger ke liye */
+export function getISTDateKey() {
+  const t = getTodayIST()
+  const m = String(t.month).padStart(2, '0')
+  const d = String(t.day).padStart(2, '0')
+  return `${t.year}-${m}-${d}`
+}
+
 /** Today's calendar date parts in IST */
 export function getTodayIST() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -62,6 +70,23 @@ export function isTodayDay(dayNum) {
   return today.month === 6 && today.day === dayNum
 }
 
+/** Din guzar chuka (IST) — aaj wala nahi; test mode unlock par bhi date se */
+export function isPastDay(dayNum, calendarStart, birthday) {
+  if (isTodayDay(dayNum)) return false
+
+  const current = getCurrentJuneDay(calendarStart, birthday)
+  if (current != null) return dayNum < current
+
+  const today = getTodayIST()
+  const end = parseISODate(birthday)
+
+  if (today.year > end.year) return dayNum <= 24
+  if (today.year === end.year && today.month > end.month) return true
+  if (today.year === end.year && today.month === 6 && today.day > dayNum) return true
+
+  return false
+}
+
 export function getCountdownToBirthday(birthdayISO) {
   const startIST = new Date(`${birthdayISO}T00:00:00+05:30`)
   const now = new Date()
@@ -84,4 +109,11 @@ export function getRelationshipDays(startISO) {
   const now = new Date()
   const diff = Math.floor((now - start) / (1000 * 60 * 60 * 24))
   return diff >= 0 ? diff : null
+}
+
+/** Day numbers 1–24 that are unlocked today (IST) */
+export function getUnlockedDayNumbers(calendarStart, birthday) {
+  return Array.from({ length: 24 }, (_, i) => i + 1).filter((dayNum) =>
+    isDayUnlocked(dayNum, calendarStart, birthday)
+  )
 }

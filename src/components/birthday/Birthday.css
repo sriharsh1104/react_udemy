@@ -1,4 +1,16 @@
-/* Birthday countdown — romantic, mobile-first */
+/* Birthday countdown — mobile-first (phone par khulega) */
+
+.birthday-app,
+.birthday-gate {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.birthday-app {
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  max-width: 100vw;
+}
 
 .birthday-test-banner {
   position: sticky;
@@ -61,10 +73,12 @@
 .birthday-gate {
   position: relative;
   z-index: 1;
-  max-width: 400px;
+  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
-  padding: 3rem 1.5rem;
+  padding: max(2rem, env(safe-area-inset-top)) 1.25rem 2rem;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -159,7 +173,7 @@
   border: 1px solid rgba(255, 179, 198, 0.35);
   background: rgba(255, 255, 255, 0.08);
   color: #fff5f8;
-  font-size: 1rem;
+  font-size: 16px;
   box-sizing: border-box;
 }
 
@@ -201,24 +215,23 @@
 }
 
 .birthday-btn {
-  padding: 0.85rem 1.5rem;
+  padding: 0.9rem 1.25rem;
+  min-height: 48px;
   border-radius: 12px;
   border: none;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .birthday-btn-primary {
   background: linear-gradient(135deg, #ff6b9d, #c77dff);
   color: #fff;
   box-shadow: 0 4px 20px rgba(255, 107, 157, 0.35);
-}
-
-.birthday-btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(255, 107, 157, 0.45);
 }
 
 /* Hero */
@@ -247,6 +260,10 @@
   display: block;
 }
 
+.birthday-hero-image-btn:disabled {
+  cursor: default;
+}
+
 .birthday-hero-expand {
   position: absolute;
   top: 0.75rem;
@@ -264,7 +281,7 @@
 .birthday-hero-image {
   width: 100%;
   height: auto;
-  max-height: min(72vh, 520px);
+  max-height: min(52dvh, 420px);
   object-fit: contain;
   object-position: center;
   display: block;
@@ -296,7 +313,7 @@
   left: 0;
   right: 0;
   z-index: 2;
-  padding: 1rem 1.25rem 1.25rem;
+  padding: 0.85rem 1rem max(1rem, env(safe-area-inset-bottom, 0.5rem));
   text-align: left;
 }
 
@@ -307,18 +324,90 @@
   font-weight: 600;
 }
 
+.birthday-hero-active-title {
+  margin: 0.2rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff5f8;
+  line-height: 1.3;
+}
+
+/* Inline day message — no popup modal */
+.birthday-day-panel {
+  position: relative;
+  z-index: 1;
+  margin: -0.5rem max(0.75rem, env(safe-area-inset-left)) 1rem
+    max(0.75rem, env(safe-area-inset-right));
+  padding: 1.1rem 1rem;
+  border-radius: 16px;
+  background: rgba(45, 27, 46, 0.92);
+  border: 1px solid rgba(255, 179, 198, 0.28);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.birthday-day-panel-head {
+  margin-bottom: 0.65rem;
+}
+
+.birthday-day-panel-num {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #ffb3c6;
+  font-weight: 700;
+}
+
+.birthday-day-panel-title {
+  margin: 0.2rem 0 0;
+  font-size: 1.2rem;
+  color: #fff5f8;
+}
+
+.birthday-day-panel-message {
+  margin: 0 0 0.85rem;
+  line-height: 1.6;
+  color: rgba(255, 245, 248, 0.9);
+  font-size: 0.95rem;
+}
+
+.birthday-day-panel-fullscreen {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 179, 198, 0.4);
+  background: rgba(255, 107, 157, 0.08);
+  color: #ffb3c6;
+  font-size: 0.82rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.birthday-day-panel-fullscreen:hover {
+  background: rgba(255, 107, 157, 0.18);
+}
+
+.birthday-day-panel-footer {
+  margin: 0.75rem 0 0;
+  font-size: 0.78rem;
+  text-align: center;
+  color: rgba(255, 245, 248, 0.45);
+}
+
 .birthday-hero-title {
-  font-size: 1.35rem;
+  font-size: clamp(1.1rem, 4.5vw, 1.35rem);
   font-weight: 700;
   margin: 0 0 0.25rem;
   color: #ffb3c6;
+  line-height: 1.25;
 }
 
 .birthday-hero-name {
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 7vw, 2rem);
   font-weight: 800;
   margin: 0;
   letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
 .birthday-hero-sub {
@@ -329,19 +418,22 @@
 
 .birthday-badge {
   display: inline-block;
-  margin-top: 0.75rem;
-  padding: 0.35rem 0.75rem;
+  margin-top: 0.6rem;
+  padding: 0.4rem 0.7rem;
   border-radius: 999px;
   background: rgba(255, 107, 157, 0.2);
   border: 1px solid rgba(255, 179, 198, 0.3);
-  font-size: 0.8rem;
+  font-size: clamp(0.7rem, 3.2vw, 0.8rem);
+  max-width: 100%;
+  line-height: 1.35;
 }
 
 /* Countdown */
 .birthday-countdown-section {
   position: relative;
   z-index: 1;
-  padding: 0 1.25rem 1.5rem;
+  padding: 0 max(1rem, env(safe-area-inset-left)) 1.25rem
+    max(1rem, env(safe-area-inset-right));
   text-align: center;
 }
 
@@ -354,8 +446,9 @@
 .birthday-countdown-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
-  max-width: 360px;
+  gap: 0.45rem;
+  width: 100%;
+  max-width: min(100%, 360px);
   margin: 0 auto;
 }
 
@@ -384,7 +477,8 @@
 .birthday-calendar-section {
   position: relative;
   z-index: 1;
-  padding: 0 1rem 2rem;
+  padding: 0 max(0.75rem, env(safe-area-inset-left)) max(2rem, env(safe-area-inset-bottom))
+    max(0.75rem, env(safe-area-inset-right));
 }
 
 .birthday-section-title {
@@ -396,8 +490,22 @@
 .birthday-section-hint {
   font-size: 0.8rem;
   color: rgba(255, 245, 248, 0.55);
-  margin: 0 0 1rem;
+  margin: 0 0 0.5rem;
   padding: 0 0.25rem;
+}
+
+.birthday-today-unlock {
+  font-size: 0.82rem;
+  color: #ffb3c6;
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 107, 157, 0.12);
+  border: 1px solid rgba(255, 179, 198, 0.22);
+}
+
+.birthday-today-unlock strong {
+  color: #fff5f8;
 }
 
 .birthday-locked-toast {
@@ -424,13 +532,16 @@
 .birthday-calendar-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.6rem;
-  max-width: 400px;
+  gap: clamp(0.45rem, 2vw, 0.65rem);
+  width: 100%;
+  max-width: min(100%, 400px);
   margin: 0 auto;
 }
 
 .birthday-cell {
   aspect-ratio: 1;
+  min-height: 52px;
+  min-width: 0;
   border-radius: 14px;
   border: 1px solid rgba(255, 179, 198, 0.2);
   background: rgba(255, 255, 255, 0.05);
@@ -447,15 +558,42 @@
   font-family: inherit;
 }
 
-.birthday-cell-unlocked:hover {
-  transform: scale(1.04);
-  border-color: rgba(255, 107, 157, 0.5);
-  box-shadow: 0 4px 16px rgba(255, 107, 157, 0.2);
+@media (hover: hover) {
+  .birthday-cell-unlocked:hover {
+    transform: scale(1.04);
+    border-color: rgba(255, 107, 157, 0.5);
+    box-shadow: 0 4px 16px rgba(255, 107, 157, 0.2);
+  }
+
+  .birthday-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(255, 107, 157, 0.45);
+  }
 }
 
 .birthday-cell-locked {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.birthday-cell-past {
+  background: rgba(255, 107, 157, 0.14);
+  border-color: rgba(255, 179, 198, 0.5);
+  opacity: 1;
+}
+
+.birthday-cell-past .birthday-cell-num {
+  color: #ffd6e5;
+}
+
+.birthday-cell-past-label {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.65rem;
+  color: #ffb3c6;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .birthday-cell-today {
@@ -508,7 +646,8 @@
   position: relative;
   z-index: 1;
   text-align: center;
-  padding: 1rem 1.25rem 2.5rem;
+  padding: 1rem max(1rem, env(safe-area-inset-left)) max(2.5rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-right));
   font-size: 0.8rem;
   color: rgba(255, 245, 248, 0.45);
 }
@@ -721,10 +860,11 @@
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   grid-auto-rows: 1fr;
-  gap: 3px;
-  padding: 3px;
+  gap: 2px;
+  padding: 2px;
+  padding-top: max(2px, env(safe-area-inset-top));
   background: #0a0508;
   overflow: hidden;
 }
@@ -766,7 +906,7 @@
   transition: opacity 0.2s;
 }
 
-.birthday-mosaic-item:hover .birthday-mosaic-tap,
+.birthday-mosaic-item:active .birthday-mosaic-tap,
 .birthday-mosaic-item:focus-visible .birthday-mosaic-tap {
   opacity: 1;
 }
@@ -850,7 +990,10 @@
   inset: 0;
   z-index: 202;
   overflow-y: auto;
-  padding: 3.5rem 1.25rem 2rem;
+  -webkit-overflow-scrolling: touch;
+  padding: max(3.5rem, calc(env(safe-area-inset-top) + 2.5rem)) max(1rem, env(safe-area-inset-right))
+    max(2rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  width: 100%;
   max-width: 480px;
   margin: 0 auto;
   background: linear-gradient(165deg, #1a0a14 0%, #2d1b2e 50%, #1a0a14 100%);
@@ -895,25 +1038,17 @@
   width: 100%;
 }
 
-@media (min-width: 640px) {
-  .birthday-mosaic-fullscreen {
-    gap: 4px;
-    padding: 4px;
-  }
-
-  .birthday-mosaic-item {
-    border-radius: 6px;
-  }
-}
-
 /* Fullscreen image slider */
 .birthday-viewer {
   position: fixed;
   inset: 0;
   z-index: 400;
+  height: 100dvh;
+  height: 100svh;
   background: #000;
   display: flex;
   flex-direction: column;
+  overscroll-behavior: contain;
 }
 
 .birthday-viewer-header {
@@ -949,8 +1084,8 @@
   justify-content: center;
   position: relative;
   min-height: 0;
-  padding: 0 0.5rem;
-  touch-action: pan-y;
+  padding: 0 3rem;
+  touch-action: pan-x pinch-zoom;
 }
 
 .birthday-viewer-img {
@@ -968,8 +1103,10 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  min-height: 52px;
   border: none;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.15);
@@ -985,27 +1122,31 @@
 }
 
 .birthday-viewer-prev {
-  left: 0.5rem;
+  left: max(0.25rem, env(safe-area-inset-left));
 }
 
 .birthday-viewer-next {
-  right: 0.5rem;
+  right: max(0.25rem, env(safe-area-inset-right));
 }
 
 .birthday-viewer-dots {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  padding: 0.5rem 1rem;
-  max-height: 56px;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0.5rem max(1rem, env(safe-area-inset-right)) 0.25rem
+    max(1rem, env(safe-area-inset-left));
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   flex-shrink: 0;
+  scroll-snap-type: x mandatory;
 }
 
 .birthday-viewer-dot {
-  width: 8px;
-  height: 8px;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  scroll-snap-align: center;
   border-radius: 50%;
   border: none;
   padding: 0;
@@ -1027,9 +1168,57 @@
   flex-shrink: 0;
 }
 
+/* Tablet / desktop enhancements */
 @media (min-width: 480px) {
+  .birthday-hero-image {
+    max-height: min(65dvh, 480px);
+  }
+
   .birthday-calendar-grid {
     grid-template-columns: repeat(6, 1fr);
     max-width: 480px;
+  }
+
+  .birthday-gate {
+    max-width: 420px;
+  }
+}
+
+@media (min-width: 640px) {
+  .birthday-mosaic-fullscreen {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .birthday-mosaic-item {
+    border-radius: 6px;
+  }
+
+  .birthday-hero-image {
+    max-height: min(72vh, 520px);
+  }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+  .birthday-countdown-num {
+    font-size: 1.25rem;
+  }
+
+  .birthday-cell-num {
+    font-size: 1rem;
+  }
+
+  .birthday-viewer-stage {
+    padding: 0 2.75rem;
+  }
+
+  .birthday-viewer-nav {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1.75rem;
   }
 }

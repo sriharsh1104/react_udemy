@@ -19,13 +19,16 @@ export const config = {
   heroImage: '/birthday/hero.jpg',
   subtitle: '24 din, 24 baatein… sab tumhare liye',
   relationshipStart: null,
-  relationshipBadge: '7 years 150 days se tum meri duniya ho',
+  /** 1 June 2026 = 150 days; har din +1 (2 June → 151) */
+  relationshipYears: 6,
+  relationshipDaysOnAnchor: 150,
+  relationshipCountAnchor: '2026-06-01',
   /** Pehli baar saath game — ISO date; DOB auto: DDMMYYYY */
   firstGameTogether: '2019-01-02',
   firstGameTogetherLabel: '2 January 2019',
   secretPath: '/',
-  /** Testing: saare din unlock — prod se pehle false kar dena */
-  unlockAllDays: true,
+  /** Testing: saare din unlock — prod par false */
+  unlockAllDays: false,
 }
 
 export const STORAGE_KEY = 'birthday_unlocked_v1'
@@ -63,10 +66,46 @@ export function isValidPassword(input) {
   return getValidPasswords().includes(trimmed)
 }
 
+/** "6 years N days..." — days auto-increment from anchor date (IST) */
+export function getRelationshipBadgeText() {
+  const years = config.relationshipYears ?? 7
+  const anchorIso = config.relationshipCountAnchor
+  const baseDays = config.relationshipDaysOnAnchor ?? 150
+
+  if (!anchorIso) {
+    return `${years} years ${baseDays} days se tum meri duniya ho`
+  }
+
+  const anchor = anchorIso.split('-').map(Number)
+  const anchorUtc = Date.UTC(anchor[0], anchor[1] - 1, anchor[2])
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+  const get = (type) => Number(parts.find((p) => p.type === type)?.value)
+  const todayUtc = Date.UTC(get('year'), get('month') - 1, get('day'))
+
+  const extra = Math.max(0, Math.floor((todayUtc - anchorUtc) / 86400000))
+  const totalDays = baseDays + extra
+
+  return `${years} years ${totalDays} days se tum meri duniya ho`
+}
+
 export const dayImagePath = (n) => `/birthday/day-${String(n).padStart(2, '0')}.jpg`
 
 /** All 24 day photos — day 24 collage ke liye */
 export const collageImages = Array.from({ length: 24 }, (_, i) => dayImagePath(i + 1))
+
+/** Free Fire / game screenshots — finale collage mein extra */
+export const collageExtraImages = [
+  '/birthday/collage-extra-01.jpg',
+  '/birthday/collage-extra-02.jpg',
+]
+
+export const finaleCollageImages = [...collageImages, ...collageExtraImages]
 
 const day = (n, title, message, extras = {}) => ({
   day: n,
@@ -89,8 +128,8 @@ export const days = [
   day(3, 'Chhoti si baat', 'Kabhi kabhi kuch kehne ki zaroorat nahi hoti — bas tum paas ho, bas.', {
     reason: 'Tumhari presence hi kaafi hai.',
   }),
-  day(4, 'Tumhari awaaz', 'Phone par tumhari awaaz sunte hi sab tension gayab ho jati hai.', {
-    reason: 'Tumhari awaaz mujhe calm karti hai.',
+  day(4, 'Lipstick Day 💄', 'Yaad hai? Is din tumne lipstick check kiya tha — woh chhoti si moment bhi kitni cute thi. Lipstick lagate waqt tum alag hi lagti ho.', {
+    reason: 'Tum lipstick day pe bhi meri favourite ho.',
   }),
   day(5, 'Woh smile', 'Jab tum hasti ho na… duniya thodi slow ho jati hai, main bas dekhta reh jata hoon.', {
     reason: 'Tumhari smile meri favourite cheez hai.',
@@ -163,7 +202,7 @@ Happy Birthday! I love you. Ab cake kato, muskurao, aur yeh din apna bana lo —
 
 Hamesha tumhara,
 ❤️`,
-    images: collageImages,
+    images: finaleCollageImages,
   },
 ]
 
