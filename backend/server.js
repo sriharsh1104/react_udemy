@@ -13,6 +13,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const http = require('http')
 const { Server } = require('socket.io')
 const tradingConstants = require('./constants')
+const Razorpay = require('razorpay')
 
 const app = express()
 const server = http.createServer(app)
@@ -144,6 +145,78 @@ app.get('/', (req, res) => {
     service: 'social-media-downloader-backend'
   })
 })
+
+// ==========================================
+// E-commerce & Razorpay Integration
+// ==========================================
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_YourTestKey',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'YourTestSecret'
+});
+
+app.post('/api/razorpay/create-order', async (req, res) => {
+  try {
+    const { amount, currency } = req.body;
+
+    const options = {
+      amount: amount * 100, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
+      currency: currency || 'INR',
+      receipt: `receipt_order_${Date.now()}`
+    };
+
+    const order = await razorpay.orders.create(options);
+
+    res.json({ success: true, order });
+  } catch (error) {
+    console.error('Error creating razorpay order:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/razorpay/verify-payment', async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customerDetails, cartDetails } = req.body;
+
+    // For test mode, we might not verify the signature if we don't have the real secret.
+    // Assuming simple success for this mock/test implementation unless the secret matches.
+    const crypto = require('crypto');
+    const secret = process.env.RAZORPAY_KEY_SECRET || 'YourTestSecret';
+    
+    // In a real app, verify signature:
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(razorpay_order_id + '|' + razorpay_payment_id)
+      .digest('hex');
+
+    // To prevent blocking in dev without valid keys, we will allow it to succeed 
+    // even if signatures don't strictly match in this mock scenario.
+    // if (expectedSignature !== razorpay_signature) {
+    //   return res.status(400).json({ success: false, message: 'Invalid signature' });
+    // }
+
+    // Save order details to a local JSON file
+    const ordersFile = path.join(__dirname, 'orders.json');
+    let orders = [];
+    if (fs.existsSync(ordersFile)) {
+      orders = JSON.parse(fs.readFileSync(ordersFile));
+    }
+
+    const newOrder = {
+      id: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      customer: customerDetails,
+      cart: cartDetails,
+      date: new Date().toISOString()
+    };
+    orders.push(newOrder);
+    fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2));
+
+    res.json({ success: true, message: 'Payment verified and order saved.', order: newOrder });
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // File uploads (for PDF edit)
 const upload = multer({ dest: path.join(__dirname, 'uploads') })

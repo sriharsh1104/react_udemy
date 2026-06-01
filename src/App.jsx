@@ -1,145 +1,38 @@
-import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
-import Header from './components/Header'
-import VideoConverter from './components/VideoConverter'
-import ImageConverter from './components/ImageConverter'
-import PDFEditor from './components/PDFEditor'
-import SocialDownload from './components/SocialDownload'
-import AZMP3Download from './components/AZMP3Download'
-import ERC20Contract from './components/ERC20Contract'
-import OTTLinks from './components/OTTLinks'
-import Esports from './components/Esports'
-import AIChat from './components/AIChat'
-import TradeChart from './components/TradeChart'
-import Games from './components/Games'
-import GlobalChat from './components/GlobalChat'
-import InstallPrompt from './components/InstallPrompt'
-import './App.css'
+import React from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import BirthdayPage from './components/birthday/BirthdayPage'
+import './index.css'
 
-function AppContent() {
-  const location = useLocation()
-  const navigate = useNavigate()
-  
-  // Game Mode state - load from localStorage
-  const [gameMode, setGameMode] = useState(() => {
-    const saved = localStorage.getItem('gameMode')
-    return saved === 'true'
-  })
-  
-  // Determine active tab from location
-  const getActiveTab = () => {
-    if (location.pathname === '/games') return 'games'
-    if (location.pathname === '/video' || location.pathname === '/') return 'video'
-    if (location.pathname === '/image') return 'image'
-    if (location.pathname === '/pdf') return 'pdf'
-    if (location.pathname === '/social') return 'social'
-    if (location.pathname === '/azmp3') return 'azmp3'
-    if (location.pathname === '/ott') return 'ott'
-    if (location.pathname === '/esports') return 'esports'
-    if (location.pathname === '/ai') return 'ai'
-    if (location.pathname === '/trade') return 'trade'
-    if (location.pathname === '/contract') return 'contract'
-    return 'video'
-  }
-
-  const [activeTab, setActiveTab] = useState(getActiveTab())
-
-  const handleTabChange = (tab) => {
-    setActiveTab(tab)
-    // Navigate based on tab
-    const routes = {
-      video: '/',
-      image: '/image',
-      pdf: '/pdf',
-      social: '/social',
-      azmp3: '/azmp3',
-      ott: '/ott',
-      esports: '/esports',
-      ai: '/ai',
-      trade: '/trade',
-      contract: '/contract',
-      games: '/games'
-    }
-    navigate(routes[tab] || '/')
-  }
-
-  // Handle Game Mode toggle
-  const handleGameModeToggle = (enabled) => {
-    setGameMode(enabled)
-    localStorage.setItem('gameMode', enabled.toString())
-    
-    if (enabled) {
-      // Navigate to Games when Game Mode is enabled
-      navigate('/games')
-      setActiveTab('games')
-    }
-  }
-
-  // Update active tab when location changes
-  useEffect(() => {
-    setActiveTab(getActiveTab())
-  }, [location.pathname])
-
-  // Auto-activate game mode when accessing /games route directly
-  useEffect(() => {
-    if (location.pathname === '/games' && !gameMode) {
-      setGameMode(true)
-      localStorage.setItem('gameMode', 'true')
-    }
-    // Note: We keep game mode active even when navigating away from /games
-    // so users can easily return to games
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]) // gameMode intentionally excluded to prevent loops
-
-  // Update document title based on route
-  useEffect(() => {
-    if (location.pathname === '/games') {
-      document.title = 'Games'
-    } else {
-      document.title = 'All In One ToolBox'
-    }
-  }, [location.pathname])
-
-  return (
-    <div className="app">
-      <div className="container">
-        <Header 
-          activeTab={activeTab} 
-          onTabChange={handleTabChange}
-          gameMode={gameMode}
-          onGameModeToggle={handleGameModeToggle}
-        />
-        
-        <div className="tab-content">
-          <Routes>
-            <Route 
-              path="/games" 
-              element={<Games onExitGameMode={() => handleGameModeToggle(false)} />} 
-            />
-            <Route path="/video" element={<VideoConverter />} />
-            <Route path="/image" element={<ImageConverter />} />
-            <Route path="/pdf" element={<PDFEditor />} />
-            <Route path="/social" element={<SocialDownload />} />
-            <Route path="/azmp3" element={<AZMP3Download />} />
-            <Route path="/ott" element={<OTTLinks />} />
-            <Route path="/esports" element={<Esports />} />
-            <Route path="/ai" element={<AIChat />} />
-            <Route path="/trade" element={<TradeChart />} />
-            <Route path="/contract" element={<ERC20Contract />} />
-            <Route path="/" element={<VideoConverter />} />
-          </Routes>
-        </div>
-      </div>
-      {!gameMode && <GlobalChat />}
-      <InstallPrompt />
-    </div>
-  )
-}
+// --- Ecommerce routes (disabled for birthday deploy) ---
+// import Header from './components/ecommerce/Header'
+// import Home from './components/ecommerce/Home'
+// import ProductDetails from './components/ecommerce/ProductDetails'
+// import Checkout from './components/ecommerce/Checkout'
+// import './components/ecommerce/Ecommerce.css'
+//
+// function AppContent() {
+//   return (
+//     <div className="eco-app">
+//       <Header />
+//       <main className="eco-main">
+//         <Routes>
+//           <Route path="/" element={<Home />} />
+//           <Route path="/product/:id" element={<ProductDetails />} />
+//           <Route path="/checkout" element={<Checkout />} />
+//           <Route path="*" element={<Home />} />
+//         </Routes>
+//       </main>
+//     </div>
+//   )
+// }
 
 function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <Routes>
+        <Route path="/" element={<BirthdayPage />} />
+        <Route path="*" element={<BirthdayPage />} />
+      </Routes>
     </BrowserRouter>
   )
 }

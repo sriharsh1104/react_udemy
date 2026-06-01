@@ -1,11 +1,11 @@
 {
-  "name": "All In One ToolBox",
-  "short_name": "ToolBox",
-  "description": "All in one toolbox with video converter, image tools, PDF editor, maths games and more",
+  "name": "Happy birthday baby",
+  "short_name": "Jaanu",
+  "description": "Happy birthday baby — sirf tumhare liye",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a1a",
-  "theme_color": "#6c7cff",
+  "background_color": "#1a0a14",
+  "theme_color": "#2d1b2e",
   "orientation": "any",
   "icons": [
     {
@@ -16,4 +16,3 @@
     }
   ]
 }
-
